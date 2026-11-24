@@ -18,4 +18,19 @@ export const copy = {
   notFound: 'Not found',
   alreadyDone: 'This quest is already done. Nice!',
   actions: { start: 'Start 2 min', done: 'Already done', later: 'Later' },
+  shop: {
+    items: {
+      hood_ember: 'Ember hood',
+      hood_night: 'Night-sky hood',
+      scarf_teal: 'Teal scarf',
+      broom_gold: 'Golden broom',
+      lantern: 'Village lantern',
+      flowers: 'Flower bed',
+      cat: 'Village cat',
+      fountain: 'Little fountain',
+      rest_token: 'Rest-day token',
+      mystery_chest: 'Mystery chest',
+      xp_potion: 'Double XP hour',
+    },
+  },
 };

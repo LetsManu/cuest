@@ -12,8 +12,16 @@ describe('copy', () => {
       copy.newQuestMessage(q),
       ...[1, 2, 3, 4, 5, 6].map((n) => copy.repeatMessage(q, n)),
       ...Object.values(copy.actions),
-      ...Object.values(copy.streak),
+      copy.alreadyClaimed,
+      copy.alreadyDone,
+      copy.dice.suggestion.title,
+      ...Object.values(copy.dice.errors),
+      copy.sprint.logLabel,
+      copy.sprint.finishLabel,
+      ...Object.values(copy.sprint.errors),
+      ...Object.values(copy.shop.errors),
     ];
+    expect(strings).toContain(copy.shop.errors.no_chest_key);
     for (const s of strings) expect(s).not.toMatch(/\b(overdue|late|failed|missed|penalty)\b/i);
   });
 

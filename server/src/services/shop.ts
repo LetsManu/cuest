@@ -238,14 +238,18 @@ export class ShopService {
   collection(playerId: string): { id: string; kind: 'wardrobe' | 'decor'; name: string; owned: boolean; lootOnly: boolean; slot?: string; palette?: Record<string, string> }[] {
     if (!this.players.get(playerId)) throw new ShopError('unknown_player');
     const owned = this.items.owned(playerId);
-    return CATALOG.filter((i) => i.kind === 'wardrobe' || i.kind === 'decor').map((i) => ({
-      id: i.id,
-      kind: i.kind as 'wardrobe' | 'decor',
-      name: i.name,
-      owned: (owned[i.id] ?? 0) > 0,
-      lootOnly: i.lootOnly === true,
-      ...(i.kind === 'wardrobe' ? { slot: i.slot, palette: i.palette } : {}),
-    }));
+    return CATALOG.filter((i) => i.kind === 'wardrobe' || i.kind === 'decor').map((i) => {
+      const has = (owned[i.id] ?? 0) > 0;
+      return {
+        id: i.id,
+        kind: i.kind as 'wardrobe' | 'decor',
+        name: i.name,
+        owned: has,
+        lootOnly: i.lootOnly === true,
+        // Only owned wardrobe items need a preview.
+        ...(has && i.kind === 'wardrobe' ? { slot: i.slot, palette: i.palette } : {}),
+      };
+    });
   }
 
   equip(playerId: string, slot: Slot, itemId: string | null): Player {

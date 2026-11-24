@@ -56,9 +56,10 @@ beforeEach(() => {
   pid = players.create({ name: 'Ada' }, start).id;
 });
 
+let questN = 0;
 const doQuest = () => {
   clock.advance(60);
-  const q = quests.open({ title: `q${Math.random()}`, energy: 'low', minutes: 5, xp: 10 }).quest;
+  const q = quests.open({ title: `q${++questN}`, energy: 'low', minutes: 5, xp: 10 }).quest;
   return quests.done(q.id, pid);
 };
 const code = (fn: () => unknown): string | undefined => {
@@ -186,6 +187,19 @@ describe('open chest', () => {
     expect(players.get(pid)?.gold).toBe(rows[0]!.gold);
   });
 
+  it('one key opens one chest: a second open is no_chest_key and changes nothing', () => {
+    db.prepare('UPDATE players SET chest_keys = 1 WHERE id = ?').run(pid);
+    rngValues = [0.1, 0];
+    expect(shop.openChest(pid).result).toEqual({ kind: 'chest', itemId: 'hood_ember' });
+    const after = players.get(pid);
+    const owned = items.owned(pid);
+    rngValues = [0.1, 0];
+    expect(code(() => shop.openChest(pid))).toBe('no_chest_key');
+    expect(players.get(pid)).toEqual(after);
+    expect(items.owned(pid)).toEqual(owned);
+    expect(after?.chestKeys).toBe(0);
+  });
+
   it('without a key is no_chest_key and nothing changes', () => {
     expect(code(() => shop.openChest(pid))).toBe('no_chest_key');
     expect(players.get(pid)?.chestKeys).toBe(0);
@@ -219,6 +233,7 @@ describe('api', () => {
 
   it('GET /api/collection lists wardrobe and decor incl. loot-only', async () => {
     items.grant(pid, 'owl');
+    items.grant(pid, 'hood_starry');
     const res = await app.inject({ url: `/api/collection?playerId=${pid}` });
     expect(res.statusCode).toBe(200);
     const list = res.json().items as { id: string; kind: string; name: string; owned: boolean; lootOnly: boolean }[];
@@ -228,6 +243,8 @@ describe('api', () => {
     ].sort((a, b) => CATALOG.findIndex((i) => i.id === a) - CATALOG.findIndex((i) => i.id === b)));
     expect(list.find((i) => i.id === 'owl')).toEqual({ id: 'owl', kind: 'decor', name: 'Sleepy owl', owned: true, lootOnly: true });
     expect(list.find((i) => i.id === 'hood_starry')).toMatchObject({ slot: 'hood', palette: { G: '#1F2A4A', L: '#F7D27A', g: '#141C33' } });
+    // Not owned: no slot or palette (nothing to preview yet).
+    expect(list.find((i) => i.id === 'hood_night')).toEqual({ id: 'hood_night', kind: 'wardrobe', name: 'Night-sky hood', owned: false, lootOnly: false });
     expect(list.find((i) => i.id === 'cat')).toMatchObject({ owned: false, lootOnly: false });
     expect(list.some((i) => i.kind === 'helper')).toBe(false);
     expect((await app.inject({ url: '/api/collection?playerId=zzz' })).statusCode).toBe(404);

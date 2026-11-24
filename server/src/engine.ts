@@ -17,6 +17,7 @@ import { ShopService } from './services/shop.js';
 import { TemplatesRepo } from './repos/templates.js';
 import { Publisher } from './services/publisher.js';
 import type { EntityInfo } from './bridge/protocol.js';
+import type { Player } from './domain/types.js';
 import { NudgeService } from './services/nudges.js';
 import { DailyService } from './services/daily.js';
 import { DiceService } from './services/dice.js';
@@ -79,7 +80,8 @@ export async function createEngine(deps: {
   hub.onEntities((e) => {
     entities = e;
   });
-  const publisher = new Publisher({ bus, hub, players, quests, items, clock, questOfDay: (now) => daily.questOfDay(now) });
+  const currentStreak = (p: Player, now: Date): number => daily.currentStreak(p, now);
+  const publisher = new Publisher({ bus, hub, players, quests, items, clock, questOfDay: (now) => daily.questOfDay(now), currentStreak });
 
   hub.onState((ev) => rules.onState(ev));
   hub.onNotificationAction((action) => nudges.handleAction(action));
@@ -120,6 +122,7 @@ export async function createEngine(deps: {
     hub,
     clock,
     questOfDay: (now) => daily.questOfDay(now),
+    currentStreak,
     ...(deps.logger !== undefined ? { logger: deps.logger } : {}),
   });
   hub.setApiHandler(async ({ method, path, body }) => {

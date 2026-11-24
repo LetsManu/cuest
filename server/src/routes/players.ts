@@ -4,6 +4,7 @@ import type { Clock } from '../clock.js';
 import { copy } from '../copy.js';
 import { levelForXp, titleForLevel } from '../domain/levels.js';
 import type { PlayersRepo } from '../repos/players.js';
+import type { Player } from '../domain/types.js';
 import { defined, parseBody } from './util.js';
 
 // Owners copy `notify.mobile_app_x` from Home Assistant; we store the bare service name.
@@ -19,7 +20,14 @@ const createBody = z.object({
 });
 const patchBody = createBody.partial();
 
-export function registerPlayerRoutes(app: FastifyInstance, players: PlayersRepo, clock: Clock, onChanged: () => void = () => {}): void {
+export function registerPlayerRoutes(
+  app: FastifyInstance,
+  players: PlayersRepo,
+  clock: Clock,
+  onChanged: () => void = () => {},
+  /** The streak as it stands now (0 once a gap can no longer be covered); defaults to the stored one. */
+  currentStreak: (p: Player, now: Date) => number = (p) => p.streak,
+): void {
   app.get('/api/players', async () => players.list());
 
   app.post('/api/players', async (req, reply) => {
@@ -49,7 +57,7 @@ export function registerPlayerRoutes(app: FastifyInstance, players: PlayersRepo,
       title: titleForLevel(level),
       intoLevel,
       toNext,
-      streak: player.streak,
+      streak: currentStreak(player, clock.now()),
       bestStreak: player.bestStreak,
       restTokens: player.restTokens,
       chestKeys: player.chestKeys,

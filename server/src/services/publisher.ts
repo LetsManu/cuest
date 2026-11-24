@@ -17,6 +17,7 @@ export class Publisher {
   private readonly items: ItemsRepo;
   private readonly clock: Clock;
   private readonly questOfDay: (now: Date) => string | null;
+  private readonly currentStreak: (p: Player, now: Date) => number;
 
   constructor(deps: {
     bus: Bus;
@@ -26,9 +27,12 @@ export class Publisher {
     items: ItemsRepo;
     clock: Clock;
     questOfDay?: (now: Date) => string | null;
+    /** The streak as it stands now (0 once a gap can no longer be covered); defaults to the stored one. */
+    currentStreak?: (p: Player, now: Date) => number;
   }) {
     this.clock = deps.clock;
     this.questOfDay = deps.questOfDay ?? (() => null);
+    this.currentStreak = deps.currentStreak ?? ((p) => p.streak);
     this.hub = deps.hub;
     this.players = deps.players;
     this.quests = deps.quests;
@@ -88,6 +92,7 @@ export class Publisher {
   }
 
   publishSnapshot(): void {
+    const now = this.clock.now();
     const players: SnapshotPlayer[] = this.players.list().map((p) => {
       const { level, intoLevel, toNext } = levelForXp(p.xp);
       const equipped = this.items.equipped(p.id);
@@ -107,7 +112,7 @@ export class Publisher {
         decor: Object.keys(owned).filter((id) => (owned[id] ?? 0) > 0 && findItem(id)?.kind === 'decor'),
         restTokens: p.restTokens,
         chestKeys: p.chestKeys,
-        streak: p.streak,
+        streak: this.currentStreak(p, now),
         bestStreak: p.bestStreak,
         boostUntil: p.boostUntil,
       };
@@ -123,6 +128,6 @@ export class Publisher {
       templateId: q.templateId,
       createdAt: q.createdAt,
     }));
-    this.hub.send({ type: 'snapshot', players, quests, questOfDay: this.questOfDay(this.clock.now()) });
+    this.hub.send({ type: 'snapshot', players, quests, questOfDay: this.questOfDay(now) });
   }
 }

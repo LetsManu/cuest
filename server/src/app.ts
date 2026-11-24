@@ -3,6 +3,7 @@ import { systemClock, type Clock } from './clock.js';
 import type { BridgeHub } from './bridge/hub.js';
 import type { EntityInfo } from './bridge/protocol.js';
 import type { PlayersRepo } from './repos/players.js';
+import type { Player } from './domain/types.js';
 import type { TemplatesRepo } from './repos/templates.js';
 import type { UnlocksRepo } from './repos/unlocks.js';
 import type { ShopService } from './services/shop.js';
@@ -35,6 +36,7 @@ export interface AppDeps {
   getEntities?: () => EntityInfo[];
   hub?: BridgeHub;
   questOfDay?: (now: Date) => string | null;
+  currentStreak?: (p: Player, now: Date) => number;
   clock?: Clock;
   /** false silences the request/error logger (tests). Default: warn level. */
   logger?: boolean;
@@ -45,7 +47,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   const clock = deps.clock ?? systemClock;
   if (deps.hub) await registerBridgeRoute(app, deps.hub);
   app.get('/api/health', async () => ({ ok: true, bridge: deps.bridgeConnected() }));
-  registerPlayerRoutes(app, deps.players, clock, deps.onPlayersChanged ?? (() => {}));
+  registerPlayerRoutes(app, deps.players, clock, deps.onPlayersChanged ?? (() => {}), deps.currentStreak);
   registerQuestRoutes(app, deps.quests, () => deps.questOfDay?.(clock.now()) ?? null);
   if (deps.dice && deps.sprints) registerPlayRoutes(app, deps.dice, deps.sprints, (id) => deps.players.get(id) !== null);
   if (deps.settings) registerSettingsRoutes(app, deps.settings);

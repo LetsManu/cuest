@@ -8,7 +8,6 @@ import { PlayersRepo } from '../src/repos/players.js';
 import { QuestsRepo } from '../src/repos/quests.js';
 import { DailyService } from '../src/services/daily.js';
 import { QuestService } from '../src/services/quests.js';
-import { copy } from '../src/copy.js';
 
 const TZ = 'Europe/Berlin';
 let db: ReturnType<typeof openDb>;
@@ -255,11 +254,47 @@ describe('daily:picked notification', () => {
     daily.tick(clock.now());
     expect(picked).toEqual([null, q.id, q.id]);
   });
+  it('a lazy pick via questOfDay before the first tick is still published by the next tick, once', () => {
+    const q = open('Lazy');
+    picked.length = 0;
+    expect(daily.questOfDay(clock.now())).toBe(q.id); // e.g. GET /api/quests before any tick
+    expect(picked).toEqual([]);
+    daily.tick(clock.now());
+    daily.tick(clock.now());
+    expect(picked).toEqual([q.id]);
+  });
 });
 
-describe('streak copy', () => {
-  it('is kind', () => {
-    expect(copy.streak.restarted).toBe('New streak started — welcome back!');
-    expect(copy.streak.restUsed).toBe('Rest day used — your streak is safe.');
+describe('current streak on read', () => {
+  const doneOn = (iso: string) => {
+    clock.set(at(iso));
+    const q = open('Q' + iso);
+    quests.done(q.id, pid);
+  };
+  const current = (iso: string) => daily.currentStreak(players.get(pid)!, at(iso));
+
+  it('is 0 before any quest and the stored streak on the day and the next day', () => {
+    expect(current('2026-11-24T09:00:00Z')).toBe(0);
+    doneOn('2026-11-23T09:00:00Z'); // Mon
+    doneOn('2026-11-24T09:00:00Z'); // Tue: 2
+    expect(current('2026-11-24T20:00:00Z')).toBe(2);
+    expect(current('2026-11-25T20:00:00Z')).toBe(2); // Wed: nothing yet, still alive
+  });
+
+  it('stays alive while a rest day or token can still cover the gap', () => {
+    doneOn('2026-11-23T09:00:00Z');
+    doneOn('2026-11-24T09:00:00Z'); // Tue: 2
+    expect(current('2026-11-26T09:00:00Z')).toBe(2); // Thu: Wed covered by the free day
+    players.addRestTokens(pid, 1);
+    expect(current('2026-11-27T09:00:00Z')).toBe(2); // Fri: Wed free + Thu token
+  });
+
+  it('is 0 once the gap can no longer be covered, without changing anything; best is kept', () => {
+    doneOn('2026-11-23T09:00:00Z');
+    doneOn('2026-11-24T09:00:00Z'); // Tue: 2
+    const before = players.get(pid)!;
+    expect(current('2026-11-27T09:00:00Z')).toBe(0); // Fri: Wed free, Thu has no token
+    expect(players.get(pid)).toEqual(before);
+    expect(before).toMatchObject({ streak: 2, bestStreak: 2 });
   });
 });

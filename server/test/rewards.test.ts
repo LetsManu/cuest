@@ -47,6 +47,14 @@ describe('computeReward', () => {
     expect(r.xp).toBe(60);
   });
 
+  it('fresh: exactly 15:00 after creation still counts, 15:01 does not', () => {
+    const quest = { ...q30, createdAt: '2026-11-24T11:45:00.000Z' } as Quest;
+    const fresh = (startedAt: string) =>
+      computeReward({ quest, startedAt: new Date(startedAt), doneAt: new Date('2026-11-24T12:01:00Z') }).lines.some((l) => l.label === 'Fresh quest');
+    expect(fresh('2026-11-24T12:00:00.000Z')).toBe(true);
+    expect(fresh('2026-11-24T12:00:01.000Z')).toBe(false);
+  });
+
   it('fresh: none when started 20 minutes after creation or never started', () => {
     const quest = { ...q30, createdAt: '2026-11-24T11:40:00.000Z' } as Quest;
     expect(computeReward({ quest, startedAt: new Date('2026-11-24T12:00:00Z'), doneAt: new Date('2026-11-24T12:01:00Z') }).xp).toBe(30);

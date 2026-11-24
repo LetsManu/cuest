@@ -30,7 +30,7 @@ export interface SprintCredit {
   levelUp: ReturnType<typeof levelUp>;
 }
 
-export type SprintErrorCode = 'sprint_running' | 'no_sprint' | 'log_limit' | 'unknown_player';
+export type SprintErrorCode = 'sprint_running' | 'no_sprint' | 'log_limit' | 'sprint_over' | 'unknown_player';
 
 export class SprintError extends Error {
   constructor(public readonly code: SprintErrorCode) {
@@ -58,6 +58,8 @@ const toSprint = (r: Row): Sprint => ({
   logs: r.logs,
   xp: r.xp,
 });
+
+const endsAt = (s: Sprint): number => new Date(s.startedAt).getTime() + s.minutes * 60_000;
 
 /** Power sprint: a timed focus block. Base XP is whole minutes elapsed x 2; quick-log notes add +5 each. */
 export class SprintService {
@@ -109,6 +111,12 @@ export class SprintService {
 
   log(playerId: string, note: string): SprintCredit {
     const text = note.trim().slice(0, MAX_NOTE);
+    // Time is up but the tick has not finished it yet: finish it now (full time) and take no note.
+    const running = this.current(playerId);
+    if (running && this.clock.now().getTime() >= endsAt(running)) {
+      this.end(playerId, new Date(endsAt(running)), true);
+      throw new SprintError('sprint_over');
+    }
     const result = this.tx(() => {
       const cur = this.current(playerId);
       if (!cur) throw new SprintError('no_sprint');
@@ -119,7 +127,7 @@ export class SprintService {
       this.ledger.add({
         playerId,
         questId: null,
-        kind: 'quest_done',
+        kind: 'sprint',
         xp: XP_PER_LOG,
         gold: 0,
         at: now,
@@ -139,10 +147,10 @@ export class SprintService {
   tick(now: Date): void {
     const rows = this.db.prepare('SELECT * FROM sprints WHERE ended_at IS NULL').all() as unknown as Row[];
     for (const r of rows) {
-      const endsAt = new Date(r.started_at).getTime() + r.minutes * 60_000;
-      if (endsAt > now.getTime()) continue;
+      const end = endsAt(toSprint(r));
+      if (end > now.getTime()) continue;
       try {
-        this.end(r.player_id, new Date(endsAt), true);
+        this.end(r.player_id, new Date(end), true);
       } catch (err) {
         this.log_(`sprint tick: could not finish sprint ${r.id}: ${String(err)}`);
       }
@@ -162,7 +170,7 @@ export class SprintService {
       this.ledger.add({
         playerId,
         questId: null,
-        kind: 'quest_done',
+        kind: 'sprint',
         xp,
         gold: 0,
         at: endedAt,

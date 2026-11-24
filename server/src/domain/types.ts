@@ -85,7 +85,8 @@ export interface LedgerEntry {
   id: string;
   playerId: string;
   questId: string | null;
-  kind: 'quest_done' | 'purchase';
+  /** 'sprint' rows are power-sprint XP (no quest); 'quest_done' rows are finished quests only. */
+  kind: 'quest_done' | 'sprint' | 'purchase';
   xp: number;
   gold: number;
   at: string;

@@ -15,10 +15,6 @@ export const copy = {
     questOfDay: 'Quest of the day',
     doubleXp: 'Double XP hour',
   },
-  streak: {
-    restarted: 'New streak started — welcome back!',
-    restUsed: 'Rest day used — your streak is safe.',
-  },
   newQuestTitle: (q: Quest): string => `New quest: ${q.title}`,
   newQuestMessage: (q: Quest): string => `A ${q.minutes}-minute quest is waiting. +${q.xp} XP.`,
   repeatMessage: (q: Quest, n: number): string => {
@@ -41,6 +37,7 @@ export const copy = {
       sprint_running: 'A sprint is already going. Finish it first, then start a fresh one!',
       no_sprint: 'No sprint is running right now.',
       log_limit: "That's 10 notes for this sprint. Great focus, keep going!",
+      sprint_over: "Time's up, this sprint is finished. Great focus!",
       unknown_player: 'Not found',
     },
   },

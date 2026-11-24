@@ -29,6 +29,7 @@ function sameSuggestion(s: { title: string; minutes: number; xp: number; energy:
 const sprintStatus: Record<SprintError['code'], number> = {
   sprint_running: 409,
   log_limit: 409,
+  sprint_over: 409,
   no_sprint: 404,
   unknown_player: 404,
 };

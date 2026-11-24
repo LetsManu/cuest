@@ -203,6 +203,19 @@ describe('power sprint', () => {
     expect(over.json().error).toBe('log_limit');
     expect(xp()).toBe(50);
     expect((await post('/api/sprint/log', { playerId: pid, note: 'x'.repeat(81) })).statusCode).toBe(400);
+    const kinds = new LedgerRepo(db).listForPlayer(pid).map((e) => e.kind);
+    expect(kinds).toEqual(Array(10).fill('sprint'));
+  });
+
+  it('log after the planned end (before the tick) finishes the sprint and is 409 with kind copy', async () => {
+    await start(5);
+    clock.advance(5);
+    const res = await post('/api/sprint/log', { playerId: pid, note: 'late note' });
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toEqual({ error: 'sprint_over', message: copy.sprint.errors.sprint_over });
+    expect(xp()).toBe(10);
+    expect((await get(`/api/sprint?playerId=${pid}`)).json().sprint).toBeNull();
+    expect(db.prepare('SELECT logs, xp, ended_at FROM sprints').get()).toMatchObject({ logs: 0, xp: 10, ended_at: '2026-11-24T10:05:00.000Z' });
   });
 
   it('log without a sprint is 404', async () => {
@@ -219,7 +232,7 @@ describe('power sprint', () => {
     expect((await get(`/api/sprint?playerId=${pid}`)).json().sprint).toBeNull();
     const entries = new LedgerRepo(db).listForPlayer(pid);
     expect(entries).toHaveLength(1);
-    expect(entries[0]).toMatchObject({ kind: 'quest_done', xp: 8, questId: null });
+    expect(entries[0]).toMatchObject({ kind: 'sprint', xp: 8, questId: null });
     expect(entries[0]!.meta).toMatchObject({ sprint: true });
     expect((await post('/api/sprint/finish', { playerId: pid })).statusCode).toBe(404);
   });
@@ -337,5 +350,24 @@ describe('sprint XP reaches Home Assistant', () => {
     expect(snapshots().at(-1)!.players!.find((p) => p.id === pid)).toMatchObject({ xp: 10 });
     expect(levelUps()).toHaveLength(0);
     expect(flashes()).toEqual(['short']);
+  });
+});
+
+describe('current streak in summary and snapshot', () => {
+  it('reports 0 once a gap cannot be covered, keeps best and does not change the stored row', async () => {
+    const sent: { type: string; players?: { id: string; streak: number; bestStreak: number }[] }[] = [];
+    vi.spyOn(engine.hub, 'send').mockImplementation(((m: (typeof sent)[number]) => (sent.push(m), true)) as never);
+    const q = await mkQuest('Dishes', 'low');
+    await post(`/api/quests/${q.id}/done`, { playerId: pid });
+    const summary = async () => (await get(`/api/players/${pid}/summary`)).json();
+    expect(await summary()).toMatchObject({ streak: 1, bestStreak: 1 });
+    clock.advance(2 * 24 * 60); // Thu: Wed is covered by the free rest day
+    expect((await summary()).streak).toBe(1);
+    clock.advance(24 * 60); // Fri: Thu has no token left
+    expect(await summary()).toMatchObject({ streak: 0, bestStreak: 1 });
+    engine.tick(); // new day: quest-of-the-day pick publishes a snapshot
+    const snap = sent.filter((m) => m.type === 'snapshot').at(-1)!;
+    expect(snap.players!.find((p) => p.id === pid)).toMatchObject({ streak: 0, bestStreak: 1 });
+    expect(new PlayersRepo(db).get(pid)).toMatchObject({ streak: 1, bestStreak: 1 });
   });
 });

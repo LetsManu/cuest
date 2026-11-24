@@ -2,6 +2,7 @@ import type { FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { copy } from '../copy.js';
 import { QuestError } from '../services/quests.js';
+import { ShopError } from '../services/shop.js';
 
 export const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 export const ymd = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -25,4 +26,18 @@ export function sendQuestError(e: unknown, reply: FastifyReply): FastifyReply {
   if (e.code === 'already_claimed') return reply.code(409).send({ error: e.code, message: copy.alreadyClaimed });
   if (e.code === 'already_done') return reply.code(409).send({ error: e.code, message: copy.alreadyDone });
   return reply.code(404).send({ error: e.code, message: copy.notFound });
+}
+
+const shopStatus: Record<ShopError['code'], number> = {
+  unknown_player: 404,
+  unknown_item: 404,
+  already_owned: 409,
+  not_enough_gold: 409,
+  not_owned: 409,
+  bridge_offline: 503,
+};
+
+export function sendShopError(e: unknown, reply: FastifyReply): FastifyReply {
+  if (!(e instanceof ShopError)) throw e;
+  return reply.code(shopStatus[e.code]).send({ error: e.code, message: copy.shop.errors[e.code] });
 }

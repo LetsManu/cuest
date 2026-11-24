@@ -1,6 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite';
 
-const MIGRATIONS: string[] = [
+export const MIGRATIONS: string[] = [
   `
   CREATE TABLE players (
     id TEXT PRIMARY KEY,
@@ -60,6 +60,32 @@ const MIGRATIONS: string[] = [
     meta TEXT NOT NULL DEFAULT '{}'
   );
   CREATE INDEX idx_ledger_player ON ledger(player_id);
+  `,
+  `
+  ALTER TABLE players ADD COLUMN rest_tokens INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE players ADD COLUMN boost_until TEXT;
+  CREATE TABLE player_items (
+    player_id TEXT REFERENCES players(id),
+    item_id TEXT,
+    count INTEGER NOT NULL,
+    PRIMARY KEY (player_id, item_id)
+  );
+  CREATE TABLE equipped (
+    player_id TEXT REFERENCES players(id),
+    slot TEXT,
+    item_id TEXT NOT NULL,
+    PRIMARY KEY (player_id, slot)
+  );
+  `,
+  `
+  CREATE TABLE unlocks (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    cost INTEGER NOT NULL,
+    entity_id TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL
+  );
   `,
 ];
 

@@ -8,6 +8,7 @@ const repeatTemplates: ((title: string) => string)[] = [
 
 export const copy = {
   rewardBaseLabel: 'Quest',
+  rewardDoubleXp: 'Double XP hour',
   newQuestTitle: (q: Quest): string => `New quest: ${q.title}`,
   newQuestMessage: (q: Quest): string => `A ${q.minutes}-minute quest is waiting. +${q.xp} XP.`,
   repeatMessage: (q: Quest, n: number): string => {
@@ -18,4 +19,27 @@ export const copy = {
   notFound: 'Not found',
   alreadyDone: 'This quest is already done. Nice!',
   actions: { start: 'Start 2 min', done: 'Already done', later: 'Later' },
+  shop: {
+    errors: {
+      unknown_item: 'Not found',
+      unknown_player: 'Not found',
+      not_enough_gold: "Not quite enough gold yet. A few more quests and it's yours!",
+      already_owned: 'You already have this one.',
+      bridge_offline: "Home Assistant isn't connected right now, so this treat can't switch on. Your gold is safe.",
+      not_owned: 'Get this one in the shop first.',
+    },
+    items: {
+      hood_ember: 'Ember hood',
+      hood_night: 'Night-sky hood',
+      scarf_teal: 'Teal scarf',
+      broom_gold: 'Golden broom',
+      lantern: 'Village lantern',
+      flowers: 'Flower bed',
+      cat: 'Village cat',
+      fountain: 'Little fountain',
+      rest_token: 'Rest-day token',
+      mystery_chest: 'Mystery chest',
+      xp_potion: 'Double XP hour',
+    },
+  },
 };

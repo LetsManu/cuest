@@ -14,6 +14,19 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck -w frontend
+      - run: npm test -w frontend
+      - run: npm run build -w frontend
+      - run: git diff --exit-code custom_components/cuest/frontend
   docker:
     runs-on: ubuntu-latest
     steps:

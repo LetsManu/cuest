@@ -29,6 +29,8 @@ export interface Player {
   notifyService: string | null;
   xp: number;
   gold: number;
+  restTokens: number;
+  boostUntil: string | null;
   createdAt: string;
 }
 export interface QuestTemplate {
@@ -71,7 +73,7 @@ export interface LedgerEntry {
   id: string;
   playerId: string;
   questId: string | null;
-  kind: 'quest_done';
+  kind: 'quest_done' | 'purchase';
   xp: number;
   gold: number;
   at: string;
@@ -91,3 +93,12 @@ export const DEFAULT_NUDGE: NudgeConfig = {
   quietStart: '22:00',
   quietEnd: '08:00',
 };
+export type Slot = 'hood' | 'scarf' | 'broom';
+export interface ShopItem {
+  id: string;
+  kind: 'wardrobe' | 'decor' | 'helper' | 'treat';
+  name: string;
+  cost: number;
+  slot?: Slot;
+  palette?: Record<string, string>;
+}

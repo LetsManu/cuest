@@ -83,8 +83,13 @@ class CuestData:
             (p for p in self.players if p.get("haPerson") == person_entity_id), None
         )
 
-    def player_for_user(self, user_id: str | None) -> dict[str, Any] | None:
-        """Map a Home Assistant user to a player via the person entity."""
+    def player_for_user(
+        self, user_id: str | None, fallback: bool = True
+    ) -> dict[str, Any] | None:
+        """Map a Home Assistant user to a player via the person entity.
+
+        With ``fallback`` (default) an unlinked user gets the first player.
+        """
         person_id = None
         if user_id:
             for state in self.hass.states.async_all("person"):
@@ -92,7 +97,9 @@ class CuestData:
                     person_id = state.entity_id
                     break
         player = self.player_for_person(person_id) if person_id else None
-        return player or (self.players[0] if self.players else None)
+        if player or not fallback:
+            return player
+        return self.players[0] if self.players else None
 
     def newest_quest_by_title(self, title: str) -> dict[str, Any] | None:
         wanted = title.strip().casefold()

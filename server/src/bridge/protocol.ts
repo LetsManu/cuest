@@ -89,6 +89,13 @@ export const snapshotPlayer = z.object({
   gold: z.number(),
   intoLevel: z.number(),
   toNext: z.number(),
+  outfit: z.object({
+    items: z.object({ hood: z.string().nullable(), scarf: z.string().nullable(), broom: z.string().nullable() }),
+    palette: z.record(z.string(), z.string()),
+  }),
+  decor: z.array(z.string()),
+  restTokens: z.number(),
+  boostUntil: z.string().nullable(),
 });
 export const snapshotQuest = z.object({
   id: z.string(),

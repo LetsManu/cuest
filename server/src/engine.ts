@@ -1,3 +1,4 @@
+import { ItemsRepo } from './repos/items.js';
 import type { FastifyInstance } from 'fastify';
 import type { DatabaseSync } from 'node:sqlite';
 import { buildApp } from './app.js';
@@ -9,6 +10,8 @@ import { transaction } from './db/db.js';
 import { LedgerRepo } from './repos/ledger.js';
 import { PlayersRepo } from './repos/players.js';
 import { QuestsRepo } from './repos/quests.js';
+import { UnlocksRepo } from './repos/unlocks.js';
+import { ShopService } from './services/shop.js';
 import { TemplatesRepo } from './repos/templates.js';
 import { Publisher } from './services/publisher.js';
 import type { EntityInfo } from './bridge/protocol.js';
@@ -38,18 +41,21 @@ export async function createEngine(deps: {
   const templates = new TemplatesRepo(db);
   const questsRepo = new QuestsRepo(db);
   const ledger = new LedgerRepo(db);
+  const items = new ItemsRepo(db);
+  const unlocks = new UnlocksRepo(db);
   const bus = new Bus();
   const quests = new QuestService({ quests: questsRepo, players, ledger, bus, clock, tx: (fn) => transaction(db, fn) });
+  const hub = new BridgeHub({ secret: config.bridgeSecret, log });
+  const shop = new ShopService({ players, items, ledger, unlocks, hub, bus, clock, tx: (fn) => transaction(db, fn) });
   const rules = new RuleEngine({ templates, quests });
   const recurring = new RecurringScheduler({ templates, quests, tz: config.tz });
-  const hub = new BridgeHub({ secret: config.bridgeSecret, log });
   const nudges = new NudgeService({ bus, hub, quests, questsRepo, templates, players, clock, tz: config.tz });
 
   let entities: EntityInfo[] = [];
   hub.onEntities((e) => {
     entities = e;
   });
-  const publisher = new Publisher({ bus, hub, players, quests, clock });
+  const publisher = new Publisher({ bus, hub, players, quests, items, clock });
 
   hub.onState((ev) => rules.onState(ev));
   hub.onNotificationAction((action) => nudges.handleAction(action));
@@ -77,6 +83,8 @@ export async function createEngine(deps: {
     players,
     templates,
     quests,
+    shop,
+    unlocks,
     onTemplatesChanged: refreshSubscriptions,
     onPlayersChanged: () => publisher.publishSnapshot(),
     getEntities: () => entities,

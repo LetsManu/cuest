@@ -6,11 +6,12 @@ from collections.abc import Callable
 import logging
 from typing import Any
 
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
 from homeassistant.helpers.event import async_track_state_change_event
 
 from .client import CuestClient, CuestNotConnected
-from .const import ALLOWED_DOMAINS
+from .const import ALLOWED_DOMAINS, CONF_TREATS, TREAT_DOMAINS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -21,8 +22,11 @@ ACTION_PREFIX = "CUEST|"
 class Forwarder:
     """Bridges Home Assistant events to the server and runs allowed service calls."""
 
-    def __init__(self, hass: HomeAssistant, client: CuestClient) -> None:
+    def __init__(
+        self, hass: HomeAssistant, client: CuestClient, entry: ConfigEntry
+    ) -> None:
         self._hass = hass
+        self._entry = entry
         self._client = client
         self._unsub_states: Callable[[], None] | None = None
         self._unsub_action: Callable[[], None] | None = None
@@ -110,25 +114,45 @@ class Forwarder:
     def _handle_call_service(self, msg: dict) -> None:
         self._hass.async_create_task(self._call_service(msg))
 
+    def _is_allowed(self, domain: Any, service: Any, target: Any) -> bool:
+        """Allow fixed domains, or turn_on of one owner-chosen treat entity."""
+        if not (isinstance(domain, str) and isinstance(service, str)):
+            return False
+        if domain in ALLOWED_DOMAINS:
+            return True
+        if service != "turn_on" or domain not in TREAT_DOMAINS:
+            return False
+        if not isinstance(target, dict) or set(target) != {"entity_id"}:
+            return False
+        entity_id = target["entity_id"]
+        treats = self._entry.options.get(CONF_TREATS, [])
+        return (
+            isinstance(entity_id, str)
+            and entity_id.startswith(f"{domain}.")
+            and entity_id in treats
+        )
+
     async def _call_service(self, msg: dict) -> None:
         call_id = msg.get("id")
         domain = msg.get("domain")
         service = msg.get("service")
-        if not (
-            isinstance(domain, str)
-            and isinstance(service, str)
-            and domain in ALLOWED_DOMAINS
-        ):
+        data: Any = msg.get("data") or {}
+        target: Any = msg.get("target")
+        if not self._is_allowed(domain, service, target):
             await self._send(
-                {"type": "result", "id": call_id, "ok": False, "error": "domain_not_allowed"}
+                {"type": "result", "id": call_id, "ok": False, "error": "not_allowed"}
             )
             return
+        if domain not in ALLOWED_DOMAINS:
+            # Treat call: rebuild so only the one listed entity can be hit.
+            data = {}
+            target = {"entity_id": target["entity_id"]}
         try:
             await self._hass.services.async_call(
                 domain,
                 service,
-                msg.get("data") or {},
-                target=msg.get("target"),
+                data,
+                target=target,
                 blocking=True,
             )
         except Exception as err:  # noqa: BLE001 - report any failure to the server

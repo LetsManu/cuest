@@ -28,6 +28,7 @@ export class LedgerRepo {
   constructor(private db: DatabaseSync) {}
 
   add(e: Omit<LedgerEntry, 'id'>): LedgerEntry {
+    if ((e.gold < 0 || e.xp < 0) && e.kind !== 'purchase') throw new Error('negative ledger amounts are only allowed for purchases');
     const id = newId();
     this.db
       .prepare('INSERT INTO ledger (id, player_id, quest_id, kind, xp, gold, at, meta) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')

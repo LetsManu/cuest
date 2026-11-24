@@ -188,6 +188,56 @@ describe('bridge hub', () => {
     expect(typeof c.messages[2]!.id).toBe('string');
   });
 
+  it('callServiceAwait resolves with the matching result (ok and not ok)', async () => {
+    await setup();
+    const c = await connect(SECRET);
+    await until(() => c.messages.length >= 1);
+    const p1 = hub.callServiceAwait('script', 'turn_on', {}, { entity_id: 'script.a' });
+    await until(() => c.messages.length >= 3);
+    const id1 = c.messages[2]!.id as string;
+    const p2 = hub.callServiceAwait('script', 'turn_on', {}, { entity_id: 'script.b' });
+    await until(() => c.messages.length >= 4);
+    const id2 = c.messages[3]!.id as string;
+    c.ws.send(JSON.stringify({ type: 'result', id: id2, ok: false, error: 'not_allowed' }));
+    c.ws.send(JSON.stringify({ type: 'result', id: id1, ok: true }));
+    expect(await p1).toEqual({ ok: true });
+    expect(await p2).toEqual({ ok: false, error: 'not_allowed' });
+  });
+
+  it('callServiceAwait while disconnected resolves disconnected', async () => {
+    await setup();
+    expect(await hub.callServiceAwait('script', 'turn_on', {})).toEqual({ ok: false, error: 'disconnected' });
+  });
+
+  it('callServiceAwait times out', async () => {
+    await setup();
+    const c = await connect(SECRET);
+    await until(() => c.messages.length >= 1);
+    expect(await hub.callServiceAwait('script', 'turn_on', {}, undefined, 30)).toEqual({ ok: false, error: 'timeout' });
+    // a late result for a timed-out call is harmless
+    c.ws.send(JSON.stringify({ type: 'result', id: c.messages[2]!.id, ok: true }));
+  });
+
+  it('callServiceAwait resolves disconnected when the bridge goes away', async () => {
+    await setup();
+    const c = await connect(SECRET);
+    await until(() => c.messages.length >= 1);
+    const p = hub.callServiceAwait('script', 'turn_on', {}, undefined, 5000);
+    await until(() => c.messages.length >= 3);
+    c.ws.close();
+    expect(await p).toEqual({ ok: false, error: 'disconnected' });
+  });
+
+  it('callServiceAwait resolves disconnected when the bridge is replaced', async () => {
+    await setup();
+    const a = await connect(SECRET);
+    await until(() => a.messages.length >= 1);
+    const p = hub.callServiceAwait('script', 'turn_on', {}, undefined, 5000);
+    await until(() => a.messages.length >= 3);
+    await connect(SECRET);
+    expect(await p).toEqual({ ok: false, error: 'disconnected' });
+  });
+
   it('a rejected socket cannot authenticate with a later hello', async () => {
     await setup();
     const good = await connect(SECRET);

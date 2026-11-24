@@ -15,6 +15,11 @@ from homeassistant.config_entries import (
 )
 from homeassistant.core import callback
 from homeassistant.helpers.selector import (
+    EntitySelector,
+    EntitySelectorConfig,
+    NumberSelector,
+    NumberSelectorConfig,
+    NumberSelectorMode,
     SelectOptionDict,
     SelectSelector,
     SelectSelectorConfig,
@@ -28,12 +33,16 @@ from .client import (
     InvalidAuth,
     async_validate,
 )
-from .const import CONF_SECRET, CONF_URL, DOMAIN
+from .const import CONF_SECRET, CONF_TREATS, CONF_URL, DOMAIN, TREAT_DOMAINS
 
 CONF_PERSONS = "persons"
 CONF_NOTIFY_SERVICE = "notify_service"
 CONF_SUGGESTIONS = "suggestions"
 MOBILE_APP_PREFIX = "mobile_app_"
+CONF_ENTITIES = "entities"
+CONF_NAME = "name"
+CONF_COST = "cost"
+DEFAULT_TREAT_COST = 50
 
 
 NO_PHONE = "none"
@@ -116,6 +125,9 @@ class CuestOptionsFlow(OptionsFlow):
         self._persons: list[str] = []
         self._phones: dict[str, str | None] = {}
         self._players: dict[str, dict] = {}
+        self._treats: list[str] = []
+        self._treat_values: dict[str, dict[str, Any]] = {}
+        self._unlocks: dict[str, dict] = {}
 
     def _client(self) -> CuestClient:
         try:
@@ -145,7 +157,9 @@ class CuestOptionsFlow(OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Show the options menu."""
-        return self.async_show_menu(step_id="init", menu_options=["people", "devices"])
+        return self.async_show_menu(
+            step_id="init", menu_options=["people", "devices", "treats"]
+        )
 
     # ---- people ----
 
@@ -189,7 +203,7 @@ class CuestOptionsFlow(OptionsFlow):
             errors=errors,
         )
 
-    def _person_name(self, entity_id: str) -> str:
+    def _friendly_name(self, entity_id: str) -> str:
         state = self.hass.states.get(entity_id)
         return state.attributes.get("friendly_name", entity_id) if state else entity_id
 
@@ -240,7 +254,7 @@ class CuestOptionsFlow(OptionsFlow):
                     )
                 }
             ),
-            description_placeholders={"person": self._person_name(person)},
+            description_placeholders={"person": self._friendly_name(person)},
             errors=errors,
         )
 
@@ -256,7 +270,7 @@ class CuestOptionsFlow(OptionsFlow):
                     "POST",
                     "/api/players",
                     {
-                        "name": self._person_name(person),
+                        "name": self._friendly_name(person),
                         "haPerson": person,
                         "notifyService": service,
                     },
@@ -318,3 +332,115 @@ class CuestOptionsFlow(OptionsFlow):
     ) -> ConfigFlowResult:
         """Nothing new was found; close the dialog."""
         return self._finish()
+
+    # ---- house treats ----
+
+    async def async_step_treats(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Choose which entities may be switched on as treats."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            try:
+                unlocks = await self._api("GET", "/api/unlocks")
+                self._unlocks = {
+                    u.get("entityId"): u for u in unlocks if isinstance(u, dict)
+                }
+                self._treats = list(user_input.get(CONF_ENTITIES, []))
+                self._treat_values = {}
+                if self._treats:
+                    return await self.async_step_treats_item()
+                await self._save_treats()
+            except CuestNotConnected:
+                errors["base"] = "cannot_connect"
+            except CuestRejected:
+                errors["base"] = "server_rejected"
+            else:
+                return self._finish_treats()
+        current = list(self.config_entry.options.get(CONF_TREATS, []))
+        return self.async_show_form(
+            step_id="treats",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_ENTITIES, default=current): EntitySelector(
+                        EntitySelectorConfig(
+                            domain=sorted(TREAT_DOMAINS), multiple=True
+                        )
+                    )
+                }
+            ),
+            errors=errors,
+        )
+
+    async def async_step_treats_item(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Name and price one treat; repeats until all are done."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            entity = self._treats[len(self._treat_values)]
+            self._treat_values[entity] = {
+                "name": user_input[CONF_NAME].strip() or self._friendly_name(entity),
+                "cost": int(user_input[CONF_COST]),
+            }
+            if len(self._treat_values) == len(self._treats):
+                try:
+                    await self._save_treats()
+                except (CuestNotConnected, CuestRejected) as err:
+                    # Show the last treat again so the form can be resubmitted.
+                    self._treat_values.pop(entity)
+                    errors["base"] = (
+                        "server_rejected"
+                        if isinstance(err, CuestRejected)
+                        else "cannot_connect"
+                    )
+                else:
+                    return self._finish_treats()
+        entity = self._treats[len(self._treat_values)]
+        existing = self._unlocks.get(entity) or {}
+        return self.async_show_form(
+            step_id="treats_item",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_NAME,
+                        default=existing.get("name") or self._friendly_name(entity),
+                    ): str,
+                    vol.Required(
+                        CONF_COST, default=existing.get("cost", DEFAULT_TREAT_COST)
+                    ): NumberSelector(
+                        NumberSelectorConfig(
+                            min=5, max=1000, step=5, mode=NumberSelectorMode.BOX
+                        )
+                    ),
+                }
+            ),
+            description_placeholders={"entity": self._friendly_name(entity)},
+            errors=errors,
+        )
+
+    def _finish_treats(self) -> ConfigFlowResult:
+        return self.async_create_entry(
+            data={**self.config_entry.options, CONF_TREATS: self._treats}
+        )
+
+    async def _save_treats(self) -> None:
+        """Create or re-enable chosen unlocks; disable the ones removed."""
+        # Refresh so a retry after a partial failure PATCHes instead of re-POSTing.
+        unlocks = await self._api("GET", "/api/unlocks")
+        self._unlocks = {u.get("entityId"): u for u in unlocks if isinstance(u, dict)}
+        for entity, values in self._treat_values.items():
+            existing = self._unlocks.get(entity)
+            if existing is not None:
+                await self._api(
+                    "PATCH",
+                    f"/api/unlocks/{existing['id']}",
+                    {**values, "enabled": True},
+                )
+            else:
+                await self._api("POST", "/api/unlocks", {**values, "entityId": entity})
+        # Disable every enabled server unlock that is not selected, including stale ones
+        # left behind by a reinstall or an abandoned dialog.
+        for entity, existing in self._unlocks.items():
+            if entity not in self._treats and existing.get("enabled", True):
+                await self._api("DELETE", f"/api/unlocks/{existing['id']}")

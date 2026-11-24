@@ -6,9 +6,10 @@ from datetime import UTC, datetime
 import pytest
 
 from homeassistant.core import HomeAssistant
-from pytest_homeassistant_custom_component.common import async_mock_service
+from pytest_homeassistant_custom_component.common import MockConfigEntry, async_mock_service
 
 from custom_components.cuest.client import CuestNotConnected
+from custom_components.cuest.const import DOMAIN
 from custom_components.cuest.forwarder import Forwarder
 
 
@@ -29,10 +30,19 @@ class FakeClient:
         self.sent.append(msg)
 
 
+def _entry(hass: HomeAssistant, treats: list[str] | None = None) -> MockConfigEntry:
+    entry = MockConfigEntry(
+        domain=DOMAIN, data={}, options={"treats": treats} if treats is not None else {}
+    )
+    entry.add_to_hass(hass)
+    return entry
+
+
 @pytest.fixture
 async def setup(hass: HomeAssistant):
     client = FakeClient()
-    forwarder = Forwarder(hass, client)
+    entry = _entry(hass)
+    forwarder = Forwarder(hass, client, entry)
     await forwarder.async_start()
     yield hass, client, forwarder
     await forwarder.async_stop()
@@ -141,7 +151,7 @@ async def test_call_service_non_string_domain_refused(setup) -> None:
     )
     await hass.async_block_till_done()
     assert client.sent == [
-        {"type": "result", "id": "9", "ok": False, "error": "domain_not_allowed"}
+        {"type": "result", "id": "9", "ok": False, "error": "not_allowed"}
     ]
 
 
@@ -157,7 +167,7 @@ async def test_malformed_subscribe_ignored(setup) -> None:
 
 async def test_subscribe_after_stop_registers_nothing(hass: HomeAssistant) -> None:
     client = FakeClient()
-    forwarder = Forwarder(hass, client)
+    forwarder = Forwarder(hass, client, _entry(hass))
     await forwarder.async_start()
     await forwarder.async_stop()
     hass.states.async_set("sensor.washer", "a")
@@ -167,7 +177,7 @@ async def test_subscribe_after_stop_registers_nothing(hass: HomeAssistant) -> No
     assert client.sent == []
 
 
-async def test_call_service_domain_not_allowed(setup) -> None:
+async def test_call_service_not_allowed(setup) -> None:
     hass, client, _ = setup
     calls = async_mock_service(hass, "switch", "turn_on")
     client.callbacks["call_service"](
@@ -176,7 +186,7 @@ async def test_call_service_domain_not_allowed(setup) -> None:
     await hass.async_block_till_done()
     assert calls == []
     assert client.sent == [
-        {"type": "result", "id": "1", "ok": False, "error": "domain_not_allowed"}
+        {"type": "result", "id": "1", "ok": False, "error": "not_allowed"}
     ]
 
 
@@ -214,7 +224,7 @@ async def test_call_service_unknown_service_fails(setup) -> None:
 
 async def test_stop_removes_listeners(hass: HomeAssistant) -> None:
     client = FakeClient()
-    forwarder = Forwarder(hass, client)
+    forwarder = Forwarder(hass, client, _entry(hass))
     await forwarder.async_start()
     hass.states.async_set("sensor.washer", "a")
     _subscribe(client, ["sensor.washer"])
@@ -223,3 +233,94 @@ async def test_stop_removes_listeners(hass: HomeAssistant) -> None:
     hass.bus.async_fire("mobile_app_notification_action", {"action": "CUEST|X"})
     await hass.async_block_till_done()
     assert client.sent == []
+
+
+async def _treat_setup(hass: HomeAssistant, treats: list[str]):
+    client = FakeClient()
+    entry = _entry(hass, treats)
+    forwarder = Forwarder(hass, client, entry)
+    await forwarder.async_start()
+    return client, entry, forwarder
+
+
+def _call(client: FakeClient, call_id: str, domain: str, service: str, target) -> None:
+    msg = {"type": "call_service", "id": call_id, "domain": domain, "service": service}
+    if target is not None:
+        msg["target"] = target
+    client.callbacks["call_service"](msg)
+
+
+async def test_treat_script_turn_on_executed(hass: HomeAssistant) -> None:
+    client, entry, forwarder = await _treat_setup(hass, ["script.gaming_pc"])
+    calls = async_mock_service(hass, "script", "turn_on")
+    _call(client, "t1", "script", "turn_on", {"entity_id": "script.gaming_pc"})
+    await hass.async_block_till_done()
+    assert len(calls) == 1
+    assert client.sent == [{"type": "result", "id": "t1", "ok": True}]
+    await forwarder.async_stop()
+
+
+async def test_treat_allowlist_read_at_call_time(hass: HomeAssistant) -> None:
+    client, entry, forwarder = await _treat_setup(hass, [])
+    calls = async_mock_service(hass, "scene", "turn_on")
+    _call(client, "a", "scene", "turn_on", {"entity_id": "scene.movie"})
+    await hass.async_block_till_done()
+    assert calls == []
+    hass.config_entries.async_update_entry(entry, options={"treats": ["scene.movie"]})
+    _call(client, "b", "scene", "turn_on", {"entity_id": "scene.movie"})
+    await hass.async_block_till_done()
+    assert len(calls) == 1
+    assert client.sent[0]["error"] == "not_allowed"
+    assert client.sent[1] == {"type": "result", "id": "b", "ok": True}
+    await forwarder.async_stop()
+
+
+@pytest.mark.parametrize(
+    ("domain", "service", "target"),
+    [
+        ("script", "turn_on", {"entity_id": "script.other"}),  # not listed
+        ("script", "turn_off", {"entity_id": "script.gaming_pc"}),  # wrong service
+        ("script", "turn_on", {"entity_id": ["script.gaming_pc"]}),  # list target
+        ("script", "turn_on", {"entity_id": ["script.gaming_pc", "script.gaming_pc"]}),
+        ("switch", "turn_on", {"entity_id": "script.gaming_pc"}),  # domain mismatch
+        ("script", "turn_on", None),  # no target
+        ("script", "turn_on", {"area_id": "kitchen"}),
+        ("script", "turn_on", {"entity_id": 5}),
+        ("lock", "turn_on", {"entity_id": "lock.gaming_pc"}),
+        ("script", "turn_on", {"entity_id": "script.gaming_pc", "area_id": "kitchen"}),
+        ("script", "turn_on", {"entity_id": "script.gaming_pc", "device_id": "d"}),
+        ("script", "turn_on", {"entity_id": "script.gaming_pc", "label_id": "l"}),
+        ("script", "turn_on", "script.gaming_pc"),  # target not a dict
+    ],
+)
+async def test_treat_refusals(hass: HomeAssistant, domain, service, target) -> None:
+    client, entry, forwarder = await _treat_setup(hass, ["script.gaming_pc", "lock.gaming_pc"])
+    calls = [
+        async_mock_service(hass, d, s)
+        for d, s in (("script", "turn_on"), ("script", "turn_off"), ("switch", "turn_on"), ("lock", "turn_on"))
+    ]
+    _call(client, "r", domain, service, target)
+    await hass.async_block_till_done()
+    assert all(c == [] for c in calls)
+    assert client.sent == [{"type": "result", "id": "r", "ok": False, "error": "not_allowed"}]
+    await forwarder.async_stop()
+
+
+async def test_treat_call_drops_selector_data(hass: HomeAssistant) -> None:
+    client, entry, forwarder = await _treat_setup(hass, ["script.gaming_pc"])
+    calls = async_mock_service(hass, "script", "turn_on")
+    client.callbacks["call_service"](
+        {
+            "type": "call_service",
+            "id": "d",
+            "domain": "script",
+            "service": "turn_on",
+            "data": {"area_id": "kitchen", "entity_id": "script.other", "device_id": "x"},
+            "target": {"entity_id": "script.gaming_pc"},
+        }
+    )
+    await hass.async_block_till_done()
+    assert len(calls) == 1
+    assert calls[0].data == {"entity_id": "script.gaming_pc"}
+    assert client.sent == [{"type": "result", "id": "d", "ok": True}]
+    await forwarder.async_stop()

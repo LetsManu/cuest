@@ -7,6 +7,7 @@ export type BusEvents = {
   'quest:done': { quest: Quest; reward: Reward; player: Player };
   'quest:whenever': Quest;
   'quest:snoozed': Quest;
+  'shop:changed': { playerId: string };
 };
 
 type Listener<K extends keyof BusEvents> = (e: BusEvents[K]) => void;

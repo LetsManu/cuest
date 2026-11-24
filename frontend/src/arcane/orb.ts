@@ -117,7 +117,7 @@ export function orbValue(h: HomeAssistant, item: OrbItem): OrbValue {
       return out(p, fmtPercent(p === null ? null : 100 * p), '', `${name}: ${pctOf(p)} percent`);
     }
     case 'online': {
-      const s = onlineShare(h, { domains: item.domains, integrations: item.integrations });
+      const s = onlineShare(h, { domains: item.domains, integrations: item.integrations, exclude: item.exclude });
       const p = s.pct === null ? null : s.pct / 100;
       return out(p, fmtPercent(s.pct), C.orb.online.unit, `${name}: ${s.pct} percent of devices online`);
     }

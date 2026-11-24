@@ -83,6 +83,11 @@ describe('onlineShare', () => {
   it('reports null for nothing to measure', () => {
     expect(onlineShare(fakeHass(), {})).toEqual({ online: 0, total: 0, pct: null });
   });
+  it('leaves excluded entities out, with * wildcards', () => {
+    expect(onlineShare(h, { exclude: ['sensor.s0'] })).toEqual({ online: 8, total: 8, pct: 100 });
+    expect(onlineShare(h, { exclude: ['sensor.s*'] })).toEqual({ online: 0, total: 0, pct: null });
+    expect(onlineShare(h, { integrations: ['tuya'], exclude: ['sensor.s1'] })).toEqual({ online: 2, total: 3, pct: 67 });
+  });
 });
 
 describe('collectFaults', () => {

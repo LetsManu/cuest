@@ -67,13 +67,17 @@ export function lightStats(h: HomeAssistant, filter?: (id: string) => boolean): 
 
 const SKIPPED_DOMAINS = ['automation', 'script', 'scene', 'zone', 'sun', 'person', 'update'];
 
-export function onlineShare(h: HomeAssistant, opts: { domains?: string[]; integrations?: string[] }): { online: number; total: number; pct: number | null } {
+export function onlineShare(
+  h: HomeAssistant,
+  opts: { domains?: string[]; integrations?: string[]; exclude?: string[] },
+): { online: number; total: number; pct: number | null } {
   let online = 0;
   let total = 0;
   for (const id of Object.keys(h.states)) {
     const d = domain(id);
     if (opts.domains?.length ? !opts.domains.includes(d) : SKIPPED_DOMAINS.includes(d) || d.startsWith('input_')) continue;
     if (opts.integrations?.length && !opts.integrations.includes(h.entities?.[id]?.platform ?? '')) continue;
+    if (opts.exclude?.length && matches(id, opts.exclude)) continue;
     total++;
     if (h.states[id].state !== 'unavailable') online++;
   }

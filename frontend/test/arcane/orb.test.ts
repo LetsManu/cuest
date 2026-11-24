@@ -71,6 +71,11 @@ describe('orb presets', () => {
     expect(root(el).querySelector('svg')!.getAttribute('aria-label')).toBe('Mana: 89 percent of devices online');
   });
 
+  it('online leaves excluded entities out', async () => {
+    const el = await mount(TAG, { preset: 'online', exclude: ['light.gone'] }, fakeHass({ states: HOUSE }));
+    expect(text(el)).toContain('Mana 100%');
+  });
+
   it('lights shows Glow 1 with sublabel lights on', async () => {
     const el = await mount(TAG, { preset: 'lights' }, fakeHass({ states: HOUSE }));
     expect(text(el)).toContain('Glow 1');

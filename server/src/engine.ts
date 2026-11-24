@@ -10,6 +10,8 @@ import { LedgerRepo } from './repos/ledger.js';
 import { PlayersRepo } from './repos/players.js';
 import { QuestsRepo } from './repos/quests.js';
 import { TemplatesRepo } from './repos/templates.js';
+import { Publisher } from './services/publisher.js';
+import type { EntityInfo } from './bridge/protocol.js';
 import { NudgeService } from './services/nudges.js';
 import { QuestService } from './services/quests.js';
 import { RecurringScheduler } from './services/recurring.js';
@@ -43,6 +45,12 @@ export async function createEngine(deps: {
   const hub = new BridgeHub({ secret: config.bridgeSecret, log });
   const nudges = new NudgeService({ bus, hub, quests, questsRepo, templates, players, clock, tz: config.tz });
 
+  let entities: EntityInfo[] = [];
+  hub.onEntities((e) => {
+    entities = e;
+  });
+  const publisher = new Publisher({ bus, hub, players, quests, clock });
+
   hub.onState((ev) => rules.onState(ev));
   hub.onNotificationAction((action) => nudges.handleAction(action));
 
@@ -70,9 +78,16 @@ export async function createEngine(deps: {
     templates,
     quests,
     onTemplatesChanged: refreshSubscriptions,
+    onPlayersChanged: () => publisher.publishSnapshot(),
+    getEntities: () => entities,
     hub,
     clock,
     ...(deps.logger !== undefined ? { logger: deps.logger } : {}),
+  });
+  hub.setApiHandler(async ({ method, path, body }) => {
+    const res = await app.inject({ method, url: path, ...(body !== undefined ? { payload: body as object } : {}) });
+    const isJson = String(res.headers['content-type'] ?? '').includes('application/json');
+    return { status: res.statusCode, body: isJson ? res.json() : res.body };
   });
   refreshSubscriptions();
 

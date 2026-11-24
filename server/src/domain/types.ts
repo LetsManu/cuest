@@ -1,7 +1,15 @@
 export type Energy = 'low' | 'medium' | 'high';
 export type QuestStatus = 'open' | 'active' | 'done' | 'whenever';
 export type Rule =
-  | { type: 'state'; entityId: string; to: string[]; from?: string[] }
+  | { type: 'state'; entityId: string; to: string[]; from?: string[]; normalize?: boolean }
+  | {
+      type: 'running_stops';
+      entityId: string;
+      runningStates: string[];
+      pauseStates: string[];
+      numericAbove?: number;
+      forMinutes: number;
+    }
   | { type: 'power_below'; entityId: string; runningAboveW: number; idleBelowW: number; forMinutes: number };
 export type Schedule =
   | { type: 'weekly'; days: number[]; time: string } // days 0=Sunday, time "HH:MM" local

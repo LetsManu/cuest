@@ -6,8 +6,10 @@ offers a quest to whoever is home. Finish quests to earn XP and gold and level
 up. There are no penalties: quests never expire in a scary way, they just wait
 until you are ready.
 
-**Status: early development.** Only the server core exists so far. It is not
-ready for everyday use yet.
+**Set up with Home Assistant:** [docs/install-home-assistant.md](docs/install-home-assistant.md)
+
+**Status: early development.** The server and the Home Assistant integration
+exist; the web app is coming. It is not ready for everyday use yet.
 
 ## Install (PC or NAS with Docker)
 
@@ -37,6 +39,7 @@ bridge settings in Home Assistant. If you prefer your own, set
 
 ## More
 
+- Home Assistant setup, step by step: [docs/install-home-assistant.md](docs/install-home-assistant.md)
 - UI mockups exist (a cozy fantasy RPG look). The web app itself comes in a later plan.
 - Design: [docs/superpowers/specs/2026-11-24-cuest-design.md](docs/superpowers/specs/2026-11-24-cuest-design.md)
 - Bridge protocol: [docs/bridge-protocol.md](docs/bridge-protocol.md)

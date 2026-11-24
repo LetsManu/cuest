@@ -1,10 +1,16 @@
 import type { StateEvent, QuestTemplate } from '../domain/types.js';
 import type { TemplatesRepo } from '../repos/templates.js';
+import { normalizeState } from '../domain/vocab.js';
 import type { QuestService } from './quests.js';
 
 interface PowerState {
   running: boolean;
   belowSince: Date | null;
+}
+
+interface StopState {
+  running: boolean;
+  stoppedSince: Date | null;
 }
 
 const IGNORED = new Set(['unavailable', 'unknown']);
@@ -13,6 +19,7 @@ export class RuleEngine {
   private templates: TemplatesRepo;
   private quests: QuestService;
   private power = new Map<string, PowerState>();
+  private stops = new Map<string, StopState>();
   private lastGood = new Map<string, string>();
 
   constructor(deps: { templates: TemplatesRepo; quests: QuestService }) {
@@ -38,14 +45,28 @@ export class RuleEngine {
       const rule = t.rule!;
       if (rule.entityId !== ev.entityId) continue;
       if (rule.type === 'state') {
-        if (
-          oldGood !== null &&
-          rule.to.includes(ev.newState) &&
-          ev.newState !== oldGood &&
-          (!rule.from || rule.from.includes(oldGood))
-        ) {
+        const n = rule.normalize ? normalizeState(ev.newState) : ev.newState;
+        const o = oldGood !== null && rule.normalize ? normalizeState(oldGood) : oldGood;
+        if (o !== null && rule.to.includes(n) && n !== o && (!rule.from || rule.from.includes(o))) {
           this.fire(t);
         }
+      } else if (rule.type === 'running_stops') {
+        const n = normalizeState(ev.newState);
+        const num = ev.newState.trim() === '' ? NaN : Number(ev.newState);
+        const s = this.stopFor(t.id);
+        if (
+          rule.runningStates.includes(n) ||
+          n === 'on' ||
+          (rule.numericAbove !== undefined && Number.isFinite(num) && num > rule.numericAbove)
+        ) {
+          s.running = true;
+          s.stoppedSince = null;
+        } else if (rule.pauseStates.includes(n)) {
+          s.stoppedSince = null;
+        } else if (s.running) {
+          s.stoppedSince ??= ev.at;
+        }
+        this.checkStop(t, ev.at);
       } else {
         const w = ev.newState.trim() === '' ? NaN : Number(ev.newState);
         if (!Number.isFinite(w)) continue;
@@ -66,6 +87,7 @@ export class RuleEngine {
   tick(now: Date): void {
     for (const t of this.ruled()) {
       if (t.rule!.type === 'power_below') this.checkPower(t, now);
+      else if (t.rule!.type === 'running_stops') this.checkStop(t, now);
     }
   }
 
@@ -76,6 +98,26 @@ export class RuleEngine {
       this.power.set(id, s);
     }
     return s;
+  }
+
+  private stopFor(id: string): StopState {
+    let s = this.stops.get(id);
+    if (!s) {
+      s = { running: false, stoppedSince: null };
+      this.stops.set(id, s);
+    }
+    return s;
+  }
+
+  private checkStop(t: QuestTemplate, now: Date): void {
+    const rule = t.rule;
+    if (rule?.type !== 'running_stops') return;
+    const s = this.stopFor(t.id);
+    if (s.running && s.stoppedSince && now.getTime() - s.stoppedSince.getTime() >= rule.forMinutes * 60_000) {
+      s.running = false;
+      s.stoppedSince = null;
+      this.fire(t);
+    }
   }
 
   private checkPower(t: QuestTemplate, now: Date): void {

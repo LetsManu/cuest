@@ -91,4 +91,18 @@ describe('engine', () => {
     expect(() => engine!.tick()).not.toThrow();
     expect(logs.length).toBeGreaterThan(0);
   });
+
+  it('api tunnel runs requests through the app and player create publishes a snapshot', async () => {
+    const db = openDb(':memory:');
+    migrate(db);
+    engine = await createEngine({ db, clock: new FakeClock(new Date('2026-03-02T12:00:00Z')), config, log: () => {} });
+    const sent: unknown[] = [];
+    const hub = engine.hub as unknown as { send: (m: unknown) => boolean };
+    hub.send = (m) => (sent.push(m), true);
+    await engine.app.inject({ method: 'POST', url: '/api/players', payload: { name: 'Ana' } });
+    expect(sent).toMatchObject([{ type: 'snapshot', players: [{ name: 'Ana' }] }]);
+    const handler = (engine.hub as unknown as { apiHandler: (r: unknown) => Promise<{ status: number; body: unknown }> }).apiHandler;
+    const res = await handler({ method: 'GET', path: '/api/suggestions' });
+    expect(res).toEqual({ status: 200, body: { suggestions: [] } });
+  });
 });

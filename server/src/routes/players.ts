@@ -19,20 +19,24 @@ const createBody = z.object({
 });
 const patchBody = createBody.partial();
 
-export function registerPlayerRoutes(app: FastifyInstance, players: PlayersRepo, clock: Clock): void {
+export function registerPlayerRoutes(app: FastifyInstance, players: PlayersRepo, clock: Clock, onChanged: () => void = () => {}): void {
   app.get('/api/players', async () => players.list());
 
   app.post('/api/players', async (req, reply) => {
     const body = parseBody(createBody, req.body, reply);
     if (!body) return reply;
-    return reply.code(201).send(players.create(body, clock.now()));
+    const created = players.create(body, clock.now());
+    onChanged();
+    return reply.code(201).send(created);
   });
 
   app.patch<{ Params: { id: string } }>('/api/players/:id', async (req, reply) => {
     const body = parseBody(patchBody, req.body, reply);
     if (!body) return reply;
     const p = players.update(req.params.id, defined(body) as Parameters<PlayersRepo['update']>[1]);
-    return p ?? reply.code(404).send({ error: 'not_found', message: copy.notFound });
+    if (!p) return reply.code(404).send({ error: 'not_found', message: copy.notFound });
+    onChanged();
+    return p;
   });
 
   app.get<{ Params: { id: string } }>('/api/players/:id/summary', async (req, reply) => {

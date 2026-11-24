@@ -1,0 +1,152 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Cuest",
+        "description": "Enter where your Cuest server runs and its secret.",
+        "data": {
+          "url": "Cuest server address",
+          "secret": "Bridge secret"
+        },
+        "data_description": {
+          "url": "For example http://homeassistant-nas.local:8787",
+          "secret": "Find it with: docker compose exec cuest cat /data/bridge-secret"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not reach the Cuest server. Check the address and that the server is running.",
+      "invalid_auth": "The secret was not accepted. Copy it again from the Cuest server.",
+      "invalid_url": "That address doesn't look right. Example: http://192.168.1.20:8787"
+    },
+    "abort": {
+      "already_configured": "This Cuest server is already set up.",
+      "single_instance_allowed": "Cuest is already set up. Only one Cuest server can be connected."
+    }
+  },
+  "issues": {
+    "bad_secret": {
+      "title": "The Cuest secret does not match",
+      "description": "The Cuest server rejected the shared secret. Remove the Cuest integration and add it again with the secret that is set on the Cuest server."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Cuest settings",
+        "description": "What would you like to set up?",
+        "menu_options": {
+          "people": "People and their phones",
+          "devices": "Devices found in your home"
+        }
+      },
+      "people": {
+        "title": "Who plays?",
+        "description": "Pick the people who take part in quests.",
+        "data": {
+          "persons": "People"
+        }
+      },
+      "people_phone": {
+        "title": "Phone for {person}",
+        "description": "Choose the phone that should get quest notifications for {person}, or pick No phone.",
+        "data": {
+          "notify_service": "Phone"
+        }
+      },
+      "devices": {
+        "title": "Devices found in your home",
+        "description": "Cuest found these devices. Pick the ones that should create quests.",
+        "data": {
+          "suggestions": "Devices"
+        }
+      },
+      "no_devices": {
+        "title": "No new devices found",
+        "description": "No new devices found. Cuest keeps looking, so check back later."
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not reach the Cuest server. Check the address and that the server is running.",
+      "server_rejected": "The Cuest server couldn't handle this request. Please try again."
+    },
+    "abort": {
+      "cannot_connect": "Could not reach the Cuest server. Check the address and that the server is running.",
+      "server_rejected": "The Cuest server couldn't handle this request. Please try again.",
+      "no_people": "No people found. Add people in Settings → People first."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "open_quests": {
+        "name": "Open quests"
+      },
+      "level": {
+        "name": "{player} level"
+      },
+      "xp": {
+        "name": "{player} XP"
+      },
+      "gold": {
+        "name": "{player} gold"
+      }
+    },
+    "todo": {
+      "quests": {
+        "name": "Quests"
+      }
+    }
+  },
+  "exceptions": {
+    "quest_not_found": {
+      "message": "No matching quest was found. It may already be done."
+    },
+    "no_player": {
+      "message": "That person isn't linked to Cuest yet. Link them in the Cuest integration options → People."
+    },
+    "not_connected": {
+      "message": "Cuest is not connected right now. Please try again in a moment."
+    },
+    "action_failed": {
+      "message": "The Cuest server could not do that. Please try again."
+    }
+  },
+  "services": {
+    "complete_quest": {
+      "name": "Complete quest",
+      "description": "Mark a quest as done.",
+      "fields": {
+        "quest_id": {
+          "name": "Quest ID",
+          "description": "The quest to complete."
+        },
+        "template_title": {
+          "name": "Quest title",
+          "description": "Complete the newest quest with this title."
+        },
+        "person": {
+          "name": "Person",
+          "description": "Who did it. Defaults to the person calling the service."
+        }
+      }
+    },
+    "start_quest": {
+      "name": "Start quest",
+      "description": "Mark a quest as started.",
+      "fields": {
+        "quest_id": {
+          "name": "Quest ID",
+          "description": "The quest to start."
+        },
+        "template_title": {
+          "name": "Quest title",
+          "description": "Start the newest quest with this title."
+        },
+        "person": {
+          "name": "Person",
+          "description": "Who starts it. Defaults to the person calling the service."
+        }
+      }
+    }
+  }
+}

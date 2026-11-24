@@ -8,7 +8,15 @@ import type { TemplatesRepo } from '../repos/templates.js';
 import { defined, hhmm, nonNegInt, parseBody, ymd } from './util.js';
 
 const rule = z.union([
-  z.object({ type: z.literal('state'), entityId: z.string().min(1), to: z.array(z.string()), from: z.array(z.string()).optional() }),
+  z.object({ type: z.literal('state'), entityId: z.string().min(1), to: z.array(z.string()), from: z.array(z.string()).optional(), normalize: z.boolean().optional() }),
+  z.object({
+    type: z.literal('running_stops'),
+    entityId: z.string().min(1),
+    runningStates: z.array(z.string()),
+    pauseStates: z.array(z.string()),
+    numericAbove: z.number().optional(),
+    forMinutes: nonNegInt,
+  }),
   z.object({
     type: z.literal('power_below'),
     entityId: z.string().min(1),

@@ -1,12 +1,14 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import { systemClock, type Clock } from './clock.js';
 import type { BridgeHub } from './bridge/hub.js';
+import type { EntityInfo } from './bridge/protocol.js';
 import type { PlayersRepo } from './repos/players.js';
 import type { TemplatesRepo } from './repos/templates.js';
 import type { QuestService } from './services/quests.js';
 import { registerBridgeRoute } from './routes/bridge.js';
 import { registerPlayerRoutes } from './routes/players.js';
 import { registerQuestRoutes } from './routes/quests.js';
+import { registerSuggestionRoutes } from './routes/suggestions.js';
 import { registerTemplateRoutes } from './routes/templates.js';
 
 export interface AppDeps {
@@ -15,6 +17,8 @@ export interface AppDeps {
   templates: TemplatesRepo;
   quests: QuestService;
   onTemplatesChanged: () => void;
+  onPlayersChanged?: () => void;
+  getEntities?: () => EntityInfo[];
   hub?: BridgeHub;
   clock?: Clock;
   /** false silences the request/error logger (tests). Default: warn level. */
@@ -26,8 +30,9 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   const clock = deps.clock ?? systemClock;
   if (deps.hub) await registerBridgeRoute(app, deps.hub);
   app.get('/api/health', async () => ({ ok: true, bridge: deps.bridgeConnected() }));
-  registerPlayerRoutes(app, deps.players, clock);
+  registerPlayerRoutes(app, deps.players, clock, deps.onPlayersChanged ?? (() => {}));
   registerQuestRoutes(app, deps.quests);
   registerTemplateRoutes(app, deps.templates, deps.onTemplatesChanged, clock);
+  registerSuggestionRoutes(app, deps.templates, deps.getEntities ?? (() => []), deps.onTemplatesChanged, clock);
   return app;
 }

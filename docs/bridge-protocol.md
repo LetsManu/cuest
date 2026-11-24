@@ -31,6 +31,16 @@ The first message must be `hello` with the shared secret, within 5 seconds. Othe
 { "type": "result", "id": "7c1e...", "ok": false, "error": "service not found" }
 ```
 
+`entities` (the HA entity registry, sent after `welcome`; the bridge sends only domains `sensor`, `binary_sensor` and `vacuum`). The list is split into chunks; each chunk frame must stay below 64 KB. `chunk` counts from 0; `chunk: 0` (or a new connection) starts a new set, and the server delivers the set once the chunk with `last: true` arrives. Fields without a value are `null`.
+```json
+{ "type": "entities", "chunk": 0, "last": true, "entities": [ { "entityId": "sensor.washer_state", "domain": "sensor", "deviceId": "d1", "deviceClass": "enum", "platform": "miele", "translationKey": "status", "options": ["running", "finished"], "unit": null, "name": "Washer", "deviceName": "Washer", "manufacturer": "Miele", "model": "WWB", "state": "running" } ] }
+```
+
+`api` (tunnel to the Cuest REST API, answered by `api_result` with the same `id`). `method` is `GET`, `POST`, `PATCH` or `DELETE`; `path` must start with `/api/`, otherwise the server answers status `400` without handling it. Paths containing `..` segments, backslashes, control characters or percent-encoded `.`, `/` or `\` are refused the same way. If the server has no API handler it answers status `503`. `body` is optional.
+```json
+{ "type": "api", "id": "a1", "method": "POST", "path": "/api/quests/8f2c1a/done", "body": { "playerId": "b71d09" } }
+```
+
 ## Server to bridge
 
 `welcome`
@@ -52,4 +62,23 @@ The first message must be `hello` with the shared secret, within 5 seconds. Othe
 `error` (sent before closing the socket)
 ```json
 { "type": "error", "reason": "unauthorized" }
+```
+
+`api_result` (answer to `api`; handler failures give status `500`, an unsupported path `400`, no handler `503`; a body that cannot be serialised gives `500` with `{ "error": "unserializable" }`)
+```json
+{ "type": "api_result", "id": "a1", "status": 200, "body": { "ok": true } }
+```
+
+`snapshot` (current players and open/active/whenever quests; the bridge renders it into HA entities)
+```json
+{ "type": "snapshot", "players": [ { "id": "b71d09", "name": "Ada", "haPerson": "person.ada", "level": 3, "title": "Squire", "xp": 120, "gold": 15, "intoLevel": 20, "toNext": 80 } ], "quests": [ { "id": "8f2c1a", "title": "Empty the washer", "status": "open", "claimedBy": null, "xp": 10, "minutes": 5, "templateId": null, "createdAt": "2026-01-01T10:00:00.000Z" } ] }
+```
+
+`fire_event` (the bridge fires this HA event on the event bus). `event` is one of `cuest_quest_opened`, `cuest_quest_done`, `cuest_level_up`. The `data` keys are:
+- `cuest_quest_opened`: `quest_id`, `title`, `xp`, `minutes`
+- `cuest_quest_done`: `quest_id`, `title`, `player_id`, `player_name`, `xp`, `gold`
+- `cuest_level_up`: `player_id`, `player_name`, `level`, `title`
+
+```json
+{ "type": "fire_event", "event": "cuest_level_up", "data": { "player_id": "b71d09", "player_name": "Ada", "level": 4, "title": "Hearthkeeper" } }
 ```

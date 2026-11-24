@@ -19,13 +19,26 @@ export interface Quest {
   templateId: string | null;
   snoozedUntil: string | null;
 }
-export interface QuestLists { active: Quest[]; open: Quest[]; whenever: Quest[] }
+export interface QuestLists { active: Quest[]; open: Quest[]; whenever: Quest[]; questOfDay?: string | null }
 export interface Summary {
   player: { id: string; name: string; xp: number; gold: number; restTokens: number; boostUntil: string | null };
   level: number;
   title: string;
   intoLevel: number;
   toNext: number;
+  streak?: number;
+  bestStreak?: number;
+  restTokens?: number;
+  chestKeys?: number;
+}
+export interface RewardLine { label: string; xp: number; gold: number }
+export interface DoneResult {
+  quest: Quest;
+  reward: { xp: number; gold: number; lines: RewardLine[] };
+  player: Summary['player'];
+  streak?: { streak: number; restarted: boolean; usedRest: 'free' | 'token' | null };
+  loot?: { itemId: string; name: string } | null;
+  chestKey?: boolean;
 }
 export interface ShopItem { id: string; kind: string; name: string; cost: number; slot?: string; palette?: Record<string, string>; owned: boolean }
 export type BuyResult = {
@@ -103,8 +116,9 @@ export class CuestApi {
   summary(playerId: string) { return this.call<Summary>('GET', `cuest/players/${encodeURIComponent(playerId)}/summary`); }
   shop(playerId: string) { return this.call<ShopView>('GET', `cuest/shop?playerId=${encodeURIComponent(playerId)}`); }
   start(questId: string, playerId: string) { return this.call<{ quest: Quest }>('POST', `cuest/quests/${encodeURIComponent(questId)}/start`, { playerId }); }
-  done(questId: string, playerId: string) { return this.call<{ quest: Quest; reward: { xp: number; gold: number; lines: string[] }; player: Summary['player'] }>('POST', `cuest/quests/${encodeURIComponent(questId)}/done`, { playerId }); }
+  done(questId: string, playerId: string) { return this.call<DoneResult>('POST', `cuest/quests/${encodeURIComponent(questId)}/done`, { playerId }); }
   later(questId: string) { return this.call<{ quest: Quest }>('POST', `cuest/quests/${encodeURIComponent(questId)}/later`, {}); }
   buy(playerId: string, itemId: string) { return this.call<BuyResult>('POST', 'cuest/shop/buy', { playerId, itemId }); }
+  openChest(playerId: string) { return this.call<BuyResult>('POST', 'cuest/shop/open-chest', { playerId }); }
   equip(playerId: string, slot: string, itemId: string | null) { return this.call<unknown>('POST', 'cuest/shop/equip', { playerId, slot, itemId }); }
 }

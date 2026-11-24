@@ -5,6 +5,7 @@ import { COLORS, FONT_BODY, FONT_PIXEL } from './palette';
 import { cuestSignature, playersFromSensors } from './sensors';
 import type { Palette } from './sprite';
 import { STRINGS } from './strings';
+import { isSoundOn, playFanfare, setSoundOn } from './sound';
 import { levelForXp, titleForLevel } from './levels';
 import { heroStyles, heroView } from './views/hero';
 import { questStyles, questView, rewardToast, toastStyles, type Reward } from './views/quest';
@@ -48,6 +49,7 @@ export class CuestPanel extends LitElement {
     _shop: { state: true },
     _shopTab: { state: true },
     _notice: { state: true },
+    _sound: { state: true },
   };
 
   static styles = [
@@ -96,6 +98,7 @@ export class CuestPanel extends LitElement {
   declare _shop: ShopView | null;
   declare _shopTab: ShopTab;
   declare _notice: string;
+  declare _sound: boolean;
 
   /** Injectable clock (ms) so tests can drive the quest timer. */
   now: () => number = () => Date.now();
@@ -128,6 +131,7 @@ export class CuestPanel extends LitElement {
     this._tick = 0;
     this._shopTab = 'treat';
     this._notice = '';
+    this._sound = isSoundOn();
   }
 
   connectedCallback() {
@@ -179,11 +183,20 @@ export class CuestPanel extends LitElement {
     if (!pid || !api) return;
     void this._act(q, async () => {
       const res = await api.done(q.id, pid);
-      const r = res.reward as { xp: number; gold: number };
+      const r = res.reward as { xp: number; gold: number; lines?: { label: string; xp: number }[] };
       const xp = res.player?.xp;
       const level = typeof xp === 'number' ? levelForXp(xp).level : 0;
       const up = typeof xp === 'number' && level > levelForXp(xp - r.xp).level;
-      this._setReward({ xp: r.xp, gold: r.gold, level: up ? level : null, title: up ? titleForLevel(level) : '' });
+      const st = res.streak;
+      const streak = !st ? [] : [
+        ...(st.usedRest ? [STRINGS.streakRestUsed] : []),
+        st.restarted ? STRINGS.streakRestarted : STRINGS.streakLine(st.streak),
+      ];
+      this._setReward({
+        xp: r.xp, gold: r.gold, level: up ? level : null, title: up ? titleForLevel(level) : '',
+        lines: Array.isArray(r.lines) ? r.lines : [], loot: res.loot?.name ?? null, chestKey: !!res.chestKey, streak,
+      });
+      if (this._sound) playFanfare(up ? 'level' : res.loot ? 'loot' : 'done');
     }, () => { this._view = 'village'; this._questId = null; });
   };
 
@@ -371,6 +384,22 @@ export class CuestPanel extends LitElement {
     void this._shopAct(`shop:${item.id}`, async () => { await api.equip(pid, slot, on ? null : item.id); return ''; });
   };
 
+  private _openChest = () => {
+    const pid = this._playerId;
+    const api = this._api;
+    if (!pid || !api) return;
+    void this._shopAct('chest', async () => {
+      const r = (await api.openChest(pid)).result;
+      if (this._sound) playFanfare('loot');
+      return this._buyMessage({ id: 'mystery_chest' } as ShopItem, r);
+    });
+  };
+
+  private _toggleSound = () => {
+    this._sound = !this._sound;
+    setSoundOn(this._sound);
+  };
+
   private _buyMessage(item: ShopItem, r: BuyResult['result']): string {
     const nameOf = (id: string) => this._shop?.catalog.find((c) => c.id === id)?.name ?? id;
     switch (r.kind) {
@@ -414,6 +443,10 @@ export class CuestPanel extends LitElement {
         onStart: this._start,
         onLater: this._later,
         onTogglePool: () => { this._poolOpen = !this._poolOpen; },
+        questOfDay: this._quests?.questOfDay ?? null,
+        soundOn: this._sound,
+        onSound: this._toggleSound,
+        onOpenChest: this._openChest,
       });
     }
     if (this._view === 'quest') {

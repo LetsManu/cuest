@@ -1,4 +1,4 @@
-import { css, html, unsafeCSS, type TemplateResult } from 'lit';
+import { css, html, nothing, unsafeCSS, type TemplateResult } from 'lit';
 import { COLORS, FONT_PIXEL } from '../palette';
 import { STRINGS } from '../strings';
 
@@ -55,18 +55,40 @@ export function questView(p: QuestViewProps): TemplateResult {
     </div></section>`;
 }
 
-export interface Reward { xp: number; gold: number; level: number | null; title: string }
+export interface Reward {
+  xp: number;
+  gold: number;
+  level: number | null;
+  title: string;
+  lines?: { label: string; xp: number }[];
+  loot?: string | null;
+  chestKey?: boolean;
+  /** Streak copy lines, already worded (count, kind restart or rest-day note). */
+  streak?: string[];
+}
 
 export const toastStyles = css`
   .toast{display:flex;align-items:center;justify-content:space-between;gap:10px;background:${unsafeCSS(COLORS.card)};border:2px solid ${unsafeCSS(COLORS.forest)};border-radius:12px;padding:6px 6px 6px 14px;font-weight:800}
   .toast.levelup{background:${unsafeCSS(COLORS.amber)};border-color:#B07A1E;color:${unsafeCSS(COLORS.ink)};font-family:${unsafeCSS(FONT_PIXEL)};font-size:17px}
+  .toast ul{list-style:none;margin:4px 0 0;padding:0;font-size:13px;font-weight:700}
+  .toast.levelup ul{font-family:inherit}
   .toast small{display:block;font-family:inherit;font-weight:700;font-size:13px}
   .toast button{background:none;border:none;min-width:44px;min-height:44px;font:inherit;font-weight:800;color:inherit;text-decoration:underline;cursor:pointer}
 `;
 
+function details(r: Reward): TemplateResult | typeof nothing {
+  const rows: string[] = [
+    ...(r.lines ?? []).filter((l) => l.xp > 0).map((l) => `${l.label} +${l.xp}`),
+    ...(r.loot ? [`${STRINGS.foundLoot} ${r.loot}!`] : []),
+    ...(r.chestKey ? [STRINGS.chestKeyGot] : []),
+    ...(r.streak ?? []),
+  ];
+  return rows.length ? html`<ul data-role="reward-lines">${rows.map((x) => html`<li>${x}</li>`)}</ul>` : nothing;
+}
+
 export function rewardToast(r: Reward, onDismiss: () => void): TemplateResult {
   const line = `+${r.xp} ${STRINGS.rewardXp} · +${r.gold} ${STRINGS.rewardGold}`;
   return r.level !== null
-    ? html`<div class="toast levelup" role="status" data-role="toast"><span>${STRINGS.levelUp} ${r.level}! ${r.title}<small>${line} · ${STRINGS.levelUpHint}</small></span><button type="button" @click=${onDismiss}>${STRINGS.dismiss}</button></div>`
-    : html`<div class="toast" role="status" data-role="toast"><span>${line}</span><button type="button" @click=${onDismiss}>${STRINGS.dismiss}</button></div>`;
+    ? html`<div class="toast levelup" role="status" data-role="toast"><span>${STRINGS.levelUp} ${r.level}! ${r.title}<small>${line} · ${STRINGS.levelUpHint}</small>${details(r)}</span><button type="button" @click=${onDismiss}>${STRINGS.dismiss}</button></div>`
+    : html`<div class="toast" role="status" data-role="toast"><span>${line}${details(r)}</span><button type="button" @click=${onDismiss}>${STRINGS.dismiss}</button></div>`;
 }

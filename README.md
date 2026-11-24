@@ -37,6 +37,7 @@ bridge settings in Home Assistant. If you prefer your own, set
 
 ## More
 
+- Home Assistant setup, step by step: [docs/install-home-assistant.md](docs/install-home-assistant.md)
 - UI mockups exist (a cozy fantasy RPG look). The web app itself comes in a later plan.
 - Design: [docs/superpowers/specs/2026-11-24-cuest-design.md](docs/superpowers/specs/2026-11-24-cuest-design.md)
 - Bridge protocol: [docs/bridge-protocol.md](docs/bridge-protocol.md)

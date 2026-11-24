@@ -1,0 +1,28 @@
+blueprint:
+  name: Cuest - complete a quest with an NFC tag
+  description: >
+    Scan an NFC tag (for example on the washing machine) to mark a Cuest quest
+    as done. The quest is found by its title. Cuest decides who gets the
+    credit: the person linked to the user who runs the automation, otherwise the
+    first player in Cuest.
+  domain: automation
+  source_url: https://github.com/LetsManu/cuest/blob/main/blueprints/automation/cuest/nfc_complete_quest.yaml
+  input:
+    tag:
+      name: NFC tag
+      description: The tag to listen for. Scan it once with the Home Assistant app first, then pick it here.
+      selector:
+        text:
+    quest_title:
+      name: Quest title
+      description: The title of the quest to complete, for example "Empty the dishwasher".
+      selector:
+        text:
+mode: single
+triggers:
+  - trigger: tag
+    tag_id: !input tag
+actions:
+  - action: cuest.complete_quest
+    data:
+      template_title: !input quest_title

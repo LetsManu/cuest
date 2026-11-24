@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
+from homeassistant.components import frontend
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
@@ -14,9 +18,25 @@ from .services import async_register_services, async_remove_services
 
 PLATFORMS = ["sensor", "todo"]
 
+CARD_URL = "/cuest/cuest-card.js"
+CARD_PATH = Path(__file__).parent / "frontend" / "cuest-card.js"
+_CARD_REGISTERED = f"{DOMAIN}_card_registered"
+
+
+async def _async_register_card(hass: HomeAssistant) -> None:
+    """Serve the dashboard card and load it in the frontend, once per HA run."""
+    if hass.data.get(_CARD_REGISTERED):
+        return
+    await hass.http.async_register_static_paths(
+        [StaticPathConfig(CARD_URL, str(CARD_PATH), cache_headers=False)]
+    )
+    frontend.add_extra_js_url(hass, CARD_URL)
+    hass.data[_CARD_REGISTERED] = True
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Cuest from a config entry."""
+    await _async_register_card(hass)
     client = CuestClient(hass, entry.data[CONF_URL], entry.data[CONF_SECRET])
     forwarder = Forwarder(hass, client)
     exporter = EntityExporter(hass, client)

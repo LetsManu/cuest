@@ -121,6 +121,7 @@ class CuestPlayerSensor(CuestSensor):
     def extra_state_attributes(self) -> dict[str, Any]:
         player = self._player or {}
         return {
+            "cuest_kind": self._key,
             "cuest_player_id": self._player_id,
             "ha_person": player.get("haPerson"),
         }

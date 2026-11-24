@@ -9,7 +9,7 @@ function fakeHass(over: Partial<HomeAssistant> = {}, items: unknown[] = []): Hom
       'sensor.cuest_ada_level': {
         state: '4',
         last_changed: 't',
-        attributes: { ...attrs, cuest_kind: 'level', player_name: 'Ada', title: 'Hearthkeeper', into_level: 20, to_next: 80, outfit_palette: { G: '#B5523B' }, decor: ['lantern'] },
+        attributes: { ...attrs, cuest_kind: 'level', player_name: 'Ada', title: 'Hearthkeeper', into_level: 340, to_next: 400, outfit_palette: { G: '#B5523B' }, decor: ['lantern'] },
       },
       'sensor.cuest_ada_gold': { state: '15', last_changed: 't', attributes: { ...attrs, cuest_kind: 'gold' } },
       'todo.cuest_quests': { state: String(items.length), last_changed: 't', attributes: {} },
@@ -46,6 +46,21 @@ describe('cuest-card', () => {
     expect(text).toContain('Level 4');
     expect(text).toContain('15 gold');
     expect(text).toContain('No open quests');
+  });
+
+  it('shows remaining XP and a bar of into/to_next (mid-level)', async () => {
+    const el = await mount(fakeHass());
+    expect(el.shadowRoot.textContent).toContain('60 XP to next level');
+    expect(el.shadowRoot.querySelector('.fill').getAttribute('style')).toContain('width:85%');
+  });
+
+  it('shows the full cost and an empty bar at a level boundary', async () => {
+    const h = fakeHass();
+    const a = (h.states['sensor.cuest_ada_level'] as any).attributes;
+    a.into_level = 0; a.to_next = 400;
+    const el = await mount(h);
+    expect(el.shadowRoot.textContent).toContain('400 XP to next level');
+    expect(el.shadowRoot.querySelector('.fill').getAttribute('style')).toContain('width:0%');
   });
 
   it('escapes quest titles', async () => {

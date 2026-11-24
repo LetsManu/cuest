@@ -8,14 +8,14 @@ const Q = (id: string, over: Record<string, unknown> = {}) => ({
   startedAt: null, claimedBy: null, templateId: null, snoozedUntil: null, ...over,
 });
 
-function fakeHass(opts: { level?: number; levelAfterDone?: number; boostUntil?: string | null; offlineDone?: boolean; xpAfter?: number; staleSummary?: boolean } = {}) {
+function fakeHass(opts: { level?: number; levelAfterDone?: number; boostUntil?: string | null; offlineDone?: boolean; xpAfter?: number; staleSummary?: boolean; into?: number; toNext?: number } = {}) {
   let level = opts.level ?? 4;
   let down = false;
   const callApi = vi.fn(async (method: string, path: string) => {
     if (down) throw { status_code: 503, body: '{"error":"bridge_offline"}' };
     if (path === 'cuest_whoami') return { playerId: 'p1', isAdmin: false, players: [{ id: 'p1', name: 'Ada' }] };
     if (path === 'cuest/quests') return { active: [Q('q1', { status: 'active', startedAt: new Date(T0).toISOString(), xp: 12 })], open: [], whenever: [] };
-    if (path.endsWith('/summary')) return { player: { id: 'p1', name: 'Ada', xp: 130, gold: 215, restTokens: 2, boostUntil: opts.boostUntil ?? null }, level, title: level >= 8 ? 'Hearth Warden' : level >= 4 ? 'Hearthkeeper' : 'Apprentice', intoLevel: 30, toNext: 70 };
+    if (path.endsWith('/summary')) return { player: { id: 'p1', name: 'Ada', xp: 130, gold: 215, restTokens: 2, boostUntil: opts.boostUntil ?? null }, level, title: level >= 8 ? 'Hearth Warden' : level >= 4 ? 'Hearthkeeper' : 'Apprentice', intoLevel: opts.into ?? 340, toNext: opts.toNext ?? 400 };
     if (path.endsWith('/done')) {
       if (opts.offlineDone) { down = true; throw { status_code: 503, body: '{"error":"bridge_offline"}' }; }
       if (opts.levelAfterDone && !opts.staleSummary) level = opts.levelAfterDone;
@@ -162,6 +162,35 @@ describe('quest screen', () => {
   });
 });
 
+describe('xp progress', () => {
+  beforeEach(() => { document.body.innerHTML = ''; localStorage.clear(); });
+  const bar = (el: any) => el.shadowRoot.querySelector('[role="progressbar"]');
+
+  it('village: mid-level shows remaining XP and into/toNext bar', async () => {
+    const { hass } = fakeHass({ level: 4, into: 340, toNext: 400 });
+    const el = await mount(hass, { t: T0 });
+    expect(text(el)).toContain('60 XP to Level 5');
+    expect(bar(el).getAttribute('aria-valuenow')).toBe('85');
+    expect(bar(el).querySelector('i').getAttribute('style')).toContain('width:85%');
+  });
+
+  it('village: level boundary shows full cost and empty bar', async () => {
+    const { hass } = fakeHass({ level: 4, into: 0, toNext: 400 });
+    const el = await mount(hass, { t: T0 });
+    expect(text(el)).toContain('400 XP to Level 5');
+    expect(bar(el).getAttribute('aria-valuenow')).toBe('0');
+  });
+
+  it('hero: shows into / toNext and the matching bar', async () => {
+    const { hass } = fakeHass({ level: 4, into: 340, toNext: 400 });
+    const el = await mount(hass, { t: T0 });
+    el.shadowRoot.querySelector('nav [data-go="hero"]').click();
+    await settle(el);
+    expect(text(el)).toContain('340 / 400 XP');
+    expect(bar(el).getAttribute('aria-valuenow')).toBe('85');
+  });
+});
+
 describe('hero screen', () => {
   beforeEach(() => { document.body.innerHTML = ''; localStorage.clear(); });
 
@@ -173,7 +202,7 @@ describe('hero screen', () => {
     const t = text(el);
     expect(t).toContain('Level 4');
     expect(t).toContain('Hearthkeeper');
-    expect(t).toContain('30 / 100 XP');
+    expect(t).toContain('340 / 400 XP');
     expect(t).toContain('Next: Level 5');
     expect(t).toContain('Path of the hero');
     expect(t).toContain('You are here');

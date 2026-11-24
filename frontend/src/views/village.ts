@@ -138,7 +138,8 @@ export function villageView(p: VillageProps): TemplateResult {
   const title = s?.title ?? '';
   const into = s?.intoLevel ?? 0;
   const toNext = s?.toNext ?? 0;
-  const pct = into + toNext > 0 ? Math.max(0, Math.min(100, Math.round((100 * into) / (into + toNext)))) : 0;
+  const remaining = Math.max(0, toNext - into);
+  const pct = toNext > 0 ? Math.max(0, Math.min(100, Math.round((100 * into) / toNext))) : 0;
   const q = p.quests;
   const open = q ? [...q.active, ...q.open] : [];
   const pool = q?.whenever ?? [];
@@ -154,7 +155,7 @@ export function villageView(p: VillageProps): TemplateResult {
       </div>
       <div class="info"><div class="lvl">${STRINGS.level} ${level}</div>${title ? html`<div class="ttl">${title}</div>` : nothing}
         ${streakBadge(s)}
-        <div class="sub">${toNext} ${STRINGS.xpToLevel} ${level + 1}</div>
+        <div class="sub">${remaining} ${STRINGS.xpToLevel} ${level + 1}</div>
         <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div></div>
     </section>
     <div class="actions">${(s?.chestKeys ?? 0) > 0 ? html`<button type="button" class="btn amber" data-act="open-chest" ?disabled=${!!p.busy['chest']} @click=${p.onOpenChest}>${STRINGS.openChest} (${s?.chestKeys})</button>` : nothing}

@@ -13,3 +13,7 @@ ALLOWED_DOMAINS = frozenset({"notify", "light"})
 
 CONF_URL = "url"
 CONF_SECRET = "secret"
+
+VERSION = "0.1.0"  # keep in sync with manifest.json
+
+ISSUE_BAD_SECRET = "bad_secret"

@@ -5,5 +5,11 @@
         "title": "Cuest"
       }
     }
+  },
+  "issues": {
+    "bad_secret": {
+      "title": "The Cuest secret does not match",
+      "description": "The Cuest server rejected the shared secret. Remove the Cuest integration and add it again with the secret that is set on the Cuest server."
+    }
   }
 }

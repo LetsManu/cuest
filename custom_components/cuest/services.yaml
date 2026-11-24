@@ -1,0 +1,30 @@
+complete_quest:
+  fields:
+    quest_id:
+      required: false
+      selector:
+        text:
+    template_title:
+      required: false
+      selector:
+        text:
+    person:
+      required: false
+      selector:
+        entity:
+          domain: person
+start_quest:
+  fields:
+    quest_id:
+      required: false
+      selector:
+        text:
+    template_title:
+      required: false
+      selector:
+        text:
+    person:
+      required: false
+      selector:
+        entity:
+          domain: person

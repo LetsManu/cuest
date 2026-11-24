@@ -74,5 +74,78 @@
       "server_rejected": "The Cuest server didn't accept this change. Please try again.",
       "no_people": "No people found. Add people in Settings → People first."
     }
+  },
+  "entity": {
+    "sensor": {
+      "open_quests": {
+        "name": "Open quests"
+      },
+      "level": {
+        "name": "{player} level"
+      },
+      "xp": {
+        "name": "{player} XP"
+      },
+      "gold": {
+        "name": "{player} gold"
+      }
+    },
+    "todo": {
+      "quests": {
+        "name": "Quests"
+      }
+    }
+  },
+  "exceptions": {
+    "quest_not_found": {
+      "message": "No matching quest was found. It may already be done."
+    },
+    "no_player": {
+      "message": "Cuest does not know a player for this yet. Add people in the Cuest settings."
+    },
+    "not_connected": {
+      "message": "Cuest is not connected right now. Please try again in a moment."
+    },
+    "action_failed": {
+      "message": "The Cuest server could not do that. Please try again."
+    }
+  },
+  "services": {
+    "complete_quest": {
+      "name": "Complete quest",
+      "description": "Mark a quest as done.",
+      "fields": {
+        "quest_id": {
+          "name": "Quest ID",
+          "description": "The quest to complete."
+        },
+        "template_title": {
+          "name": "Quest title",
+          "description": "Complete the newest quest with this title."
+        },
+        "person": {
+          "name": "Person",
+          "description": "Who did it. Defaults to the person calling the service."
+        }
+      }
+    },
+    "start_quest": {
+      "name": "Start quest",
+      "description": "Mark a quest as started.",
+      "fields": {
+        "quest_id": {
+          "name": "Quest ID",
+          "description": "The quest to start."
+        },
+        "template_title": {
+          "name": "Quest title",
+          "description": "Start the newest quest with this title."
+        },
+        "person": {
+          "name": "Person",
+          "description": "Who starts it. Defaults to the person calling the service."
+        }
+      }
+    }
   }
 }

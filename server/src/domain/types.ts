@@ -31,6 +31,8 @@ export interface Player {
   gold: number;
   restTokens: number;
   boostUntil: string | null;
+  comboCount: number;
+  lastDoneAt: string | null;
   createdAt: string;
 }
 export interface QuestTemplate {

@@ -1,7 +1,7 @@
 import type { Bus } from '../bus.js';
 import type { Clock } from '../clock.js';
 import { newId } from '../clock.js';
-import { computeReward, type Reward } from '../domain/rewards.js';
+import { computeReward, nextCombo, type Reward } from '../domain/rewards.js';
 import type { Energy, Player, Quest } from '../domain/types.js';
 import type { LedgerRepo } from '../repos/ledger.js';
 import type { PlayersRepo } from '../repos/players.js';
@@ -33,6 +33,7 @@ export class QuestService {
   private bus: Bus;
   private clock: Clock;
   private tx: <T>(fn: () => T) => T;
+  private isQuestOfDay: (questId: string, now: Date) => boolean;
 
   constructor(deps: {
     quests: QuestsRepo;
@@ -41,6 +42,7 @@ export class QuestService {
     bus: Bus;
     clock: Clock;
     tx?: <T>(fn: () => T) => T;
+    isQuestOfDay?: (questId: string, now: Date) => boolean;
   }) {
     this.quests = deps.quests;
     this.players = deps.players;
@@ -48,6 +50,7 @@ export class QuestService {
     this.bus = deps.bus;
     this.clock = deps.clock;
     this.tx = deps.tx ?? ((fn) => fn());
+    this.isQuestOfDay = deps.isQuestOfDay ?? (() => false);
   }
 
   open(input: OpenInput): { quest: Quest; created: boolean } {
@@ -115,12 +118,17 @@ export class QuestService {
     if (quest.status === 'done') throw new QuestError('already_done');
     if (quest.status === 'active' && quest.claimedBy !== playerId) throw new QuestError('already_claimed');
     const now = this.clock.now();
+    const lastDoneAt = doer.lastDoneAt ? new Date(doer.lastDoneAt) : null;
     const reward = computeReward({
       quest,
       startedAt: quest.startedAt ? new Date(quest.startedAt) : null,
       doneAt: now,
       boostUntil: doer.boostUntil,
+      lastDoneAt,
+      comboCount: doer.comboCount,
+      questOfDay: this.isQuestOfDay(questId, now),
     });
+    const combo = nextCombo(lastDoneAt, now, doer.comboCount);
     const result = this.tx(() => {
       const doneQuest = this.quests.update(questId, {
         status: 'done',
@@ -128,7 +136,8 @@ export class QuestService {
         doneAt: now.toISOString(),
         doneBy: playerId,
       });
-      const player = this.players.addRewards(playerId, reward.xp, reward.gold);
+      this.players.addRewards(playerId, reward.xp, reward.gold);
+      const player = this.players.setCombo(playerId, combo, now.toISOString());
       this.ledger.add({
         playerId,
         questId,

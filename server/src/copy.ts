@@ -7,8 +7,14 @@ const repeatTemplates: ((title: string) => string)[] = [
 ];
 
 export const copy = {
-  rewardBaseLabel: 'Quest',
-  rewardDoubleXp: 'Double XP hour',
+  reward: {
+    base: 'Quest',
+    keepGoing: 'Kept going',
+    fresh: 'Fresh quest',
+    combo: (n: number): string => `Combo ×${n}`,
+    questOfDay: 'Quest of the day',
+    doubleXp: 'Double XP hour',
+  },
   newQuestTitle: (q: Quest): string => `New quest: ${q.title}`,
   newQuestMessage: (q: Quest): string => `A ${q.minutes}-minute quest is waiting. +${q.xp} XP.`,
   repeatMessage: (q: Quest, n: number): string => {

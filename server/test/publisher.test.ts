@@ -53,7 +53,6 @@ describe('Publisher', () => {
 
   it('snapshot has level/title after done and excludes done quests', () => {
     const q = open('Big', 120);
-    quests.start(q.id, pid);
     quests.done(q.id, pid);
     const snap = lastSnapshot();
     expect(snap.quests).toEqual([]);

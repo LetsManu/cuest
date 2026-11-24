@@ -87,6 +87,10 @@ export const MIGRATIONS: string[] = [
     created_at TEXT NOT NULL
   );
   `,
+  `
+  ALTER TABLE players ADD COLUMN combo_count INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE players ADD COLUMN last_done_at TEXT;
+  `,
 ];
 
 export function migrate(db: DatabaseSync): void {

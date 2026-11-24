@@ -7,7 +7,7 @@ const q = { title: 'Dishes', minutes: 10, xp: 30 } as Quest;
 describe('copy', () => {
   it('never uses shaming words', () => {
     const strings = [
-      copy.rewardBaseLabel,
+      ...Object.values(copy.reward).map((v) => (typeof v === 'function' ? v(3) : v)),
       copy.newQuestTitle(q),
       copy.newQuestMessage(q),
       ...[1, 2, 3, 4, 5, 6].map((n) => copy.repeatMessage(q, n)),

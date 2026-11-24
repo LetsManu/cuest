@@ -12,6 +12,8 @@ interface Row {
   gold: number;
   rest_tokens: number;
   boost_until: string | null;
+  combo_count: number;
+  last_done_at: string | null;
   created_at: string;
 }
 
@@ -24,6 +26,8 @@ const toPlayer = (r: Row): Player => ({
   gold: r.gold,
   restTokens: r.rest_tokens,
   boostUntil: r.boost_until,
+  comboCount: r.combo_count,
+  lastDoneAt: r.last_done_at,
   createdAt: r.created_at,
 });
 
@@ -80,6 +84,12 @@ export class PlayersRepo {
   addRestTokens(id: string, n: number): Player {
     if (n < 0) throw new Error('tokens must not be negative');
     const res = this.db.prepare('UPDATE players SET rest_tokens = rest_tokens + ? WHERE id = ?').run(n, id);
+    if (res.changes === 0) throw new Error(`unknown player ${id}`);
+    return this.get(id) as Player;
+  }
+
+  setCombo(id: string, comboCount: number, lastDoneAt: string): Player {
+    const res = this.db.prepare('UPDATE players SET combo_count = ?, last_done_at = ? WHERE id = ?').run(comboCount, lastDoneAt, id);
     if (res.changes === 0) throw new Error(`unknown player ${id}`);
     return this.get(id) as Player;
   }

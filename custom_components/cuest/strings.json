@@ -84,7 +84,7 @@
       },
       "celebrations": {
         "title": "Celebrations",
-        "description": "Pick the lights that flash when a quest is done (longer for a level up). Optionally pick a scene to switch on when a power sprint starts. Celebration sounds are played by your own automations: listen for the cuest_quest_done and cuest_level_up events.",
+        "description": "Pick the lights that flash when a quest is done (longer for a level up). Optionally pick a scene to switch on when a power sprint starts. Sounds play in the Cuest page (use its Sound button). For sound from your own speakers, use an automation that listens for the cuest_quest_done and cuest_level_up events.",
         "data": {
           "lights": "Celebration lights",
           "scene": "Sprint scene (optional)"

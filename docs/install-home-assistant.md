@@ -171,7 +171,7 @@ automations can listen for the `cuest_quest_done` and `cuest_level_up` events.
 
 ## Energy dice
 
-Not sure where to start? Open **Dice** in the Cuest page, say how your energy
+Not sure where to start? Tap **Energy dice** in the Cuest page, say how your energy
 is (**Low**, **Okay** or **High**) and tap **Roll**. Cuest picks a waiting quest
 that fits. Tap **Another** for a different one.
 
@@ -193,32 +193,37 @@ and start.
 - Quests you finish during a sprint give their normal rewards on top.
 - You can end a sprint early and keep what you have earned: the XP counts for
   the whole minutes that passed.
+- When the time is up the sprint finishes on its own with the full XP. Sprint
+  XP counts like any other XP, level-ups included.
 
 ## Streaks and rest days
 
 Finish at least one quest on a day and that day counts toward your streak.
 
-- Every week you get **1 free rest day**. If you miss a day, it is covered
-  automatically and your streak carries on.
-- After that, a missed day uses one **rest-day token** (buy them in the shop).
+- Every week you get **1 free rest day**. A day off is covered automatically
+  and your streak carries on.
+- After that, a rest-day token covers each further quiet day (buy them in the
+  shop).
 - If neither is available, the streak starts again from 1 with a friendly
-  "New streak started, welcome back!" Your best streak is always kept, and
-  nothing is ever taken away.
+  "New streak started, welcome back!" Until then the streak shows 0. Your best
+  streak is always kept, and nothing is ever taken away.
 
 ## Quest of the day
 
 Each day one waiting quest is picked as the **Quest of the day**. It is marked
 in the quest list. Finishing it adds a bonus of **2 times the quest's XP** (so
-three times in all, before other bonuses), and it always drops a piece of loot.
+three times in all, before other bonuses), and it always drops a piece of loot,
+as long as there's something left to find.
 
 ## Loot and chests
 
 - **Loot**: every finished quest has a 25% chance to drop an item you do not
-  own yet (always for the Quest of the day). Some items can only be found this
-  way: the Starry cloak, the Mossy broom and the Sleepy owl.
+  own yet (always for the Quest of the day, as long as there's something left
+  to find). Some items can only be found this way: the Starry cloak, the Mossy
+  broom and the Sleepy owl.
 - **Chest keys**: every 5th quest you finish gives you a chest key. A key opens
-  a mystery chest for free (use the chest button on the village page), with the
-  usual chest rewards.
+  a mystery chest for free, with the usual chest rewards: when you have a key,
+  an **Open chest** button appears on the village page.
 - **Collection book**: open **Hero** to see every item. Items you have found are
   shown, the rest wait as a "?" with a hint where to look.
 

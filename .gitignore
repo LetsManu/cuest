@@ -2,3 +2,6 @@ node_modules
 dist
 *.db
 .env
+.venv-bridge/
+__pycache__/
+.pytest_cache/

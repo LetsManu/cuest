@@ -16,7 +16,7 @@
 
 - All plan 1–3 constraints hold: no shame (never take XP/gold/levels; only the player's own purchases spend gold), no "overdue/late/failed/missed/penalty" wording, copy in `server/src/copy.ts` / `frontend/src/strings.ts` / integration `strings.json` (+ identical `translations/en.json`), bridge logic-free, panel only through `/api/cuest/...`, committed bundles up to date.
 - Local day = calendar day in `CUEST_TZ`. All randomness injectable (`rng`) for tests.
-- Streaks never punish: a missed day is covered by a rest token, else by the free weekly rest day; only when neither is available does the streak start again from 1 — the best streak is always kept and the copy stays kind ("New streak started — welcome back!").
+- Streaks never punish: a missed day is covered by the free weekly rest day (one per ISO week), else by a rest token; only when neither is available does the streak start again from 1 — the best streak is always kept and the copy stays kind ("New streak started — welcome back!").
 - Rewards are computed only on the server and returned as `Reward.lines` so the panel can show them.
 
 ## Exact values

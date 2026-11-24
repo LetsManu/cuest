@@ -114,6 +114,7 @@ export class CuestRuneGauge extends ArcaneCard<RuneConfig> {
   private _pending: number | null = null;
   private _base: number | null = null;
   private _lastSent: number | null = null;
+  private _sent = new Set<number>();
   private _timer?: ReturnType<typeof setTimeout>;
   private _expiry?: ReturnType<typeof setTimeout>;
 
@@ -166,6 +167,7 @@ export class CuestRuneGauge extends ArcaneCard<RuneConfig> {
     this._pending = null;
     this._base = null;
     this._lastSent = null;
+    this._sent.clear();
   }
 
   private tap(dir: 1 | -1, view: RuneView): void {
@@ -192,10 +194,18 @@ export class CuestRuneGauge extends ArcaneCard<RuneConfig> {
       return;
     }
     this._lastSent = target;
+    this._sent.add(target);
     this.armExpiry();
     Promise.resolve(h.callService('climate', 'set_temperature', { entity_id: this.config.entity, temperature: target })).catch(() => {
-      this.cancel();
-      this.requestUpdate();
+      // Only the newest call may undo the pending value; an older failure must not wipe a newer tap.
+      this._sent.delete(target);
+      if (this._lastSent !== target) return;
+      if (this._timer === undefined) {
+        this.cancel();
+        this.requestUpdate();
+      } else {
+        this._lastSent = this._base;
+      }
     });
   }
 
@@ -211,9 +221,14 @@ export class CuestRuneGauge extends ArcaneCard<RuneConfig> {
   /** The pending tap wins until the thermostat reports a different target than the one tapped from. */
   private shown(s: HassState): number | null {
     if (this._pending === null) return null;
-    if (this._timer === undefined && num(s.attributes.temperature) !== this._base) {
-      this.cancel();
-      return null;
+    if (this._timer === undefined) {
+      const echo = num(s.attributes.temperature);
+      // Keep the pending value while the device still reports the start or an older sent value.
+      const stale = echo === this._base || (echo !== null && echo !== this._pending && this._sent.has(echo));
+      if (!stale) {
+        this.cancel();
+        return null;
+      }
     }
     return this._pending;
   }

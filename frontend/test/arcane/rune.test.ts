@@ -292,3 +292,66 @@ describe('rune safe values', () => {
     expect(css).toMatch(/\.label\{[^}]*font-variant-numeric:tabular-nums/);
   });
 });
+
+describe('rune with several calls outstanding', () => {
+  const echo = (el: HTMLElement, t: number) => {
+    (el as unknown as { hass: unknown }).hass = fakeHass({ states: { 'climate.living': heater({ temperature: t }) } });
+  };
+
+  it('keeps a newer tap when an older call is rejected', async () => {
+    const h = fakeHass({ states: { 'climate.living': heater() } });
+    h.callService.mockRejectedValueOnce(new Error('no'));
+    const el = await mount(TAG, { entity: 'climate.living' }, h);
+    btn(el, 'Warmer').click();
+    vi.advanceTimersByTime(800);
+    btn(el, 'Warmer').click();
+    await vi.advanceTimersByTimeAsync(0);
+    await tick(el);
+    expect(text(el)).toContain('24°');
+    vi.advanceTimersByTime(800);
+    expect(h.callService).toHaveBeenCalledTimes(2);
+    expect(h.callService).toHaveBeenLastCalledWith('climate', 'set_temperature', { entity_id: 'climate.living', temperature: 24 });
+  });
+
+  it('keeps the newer sent value when an older call is rejected late', async () => {
+    const h = fakeHass({ states: { 'climate.living': heater() } });
+    h.callService.mockRejectedValueOnce(new Error('no'));
+    const el = await mount(TAG, { entity: 'climate.living' }, h);
+    btn(el, 'Warmer').click();
+    vi.advanceTimersByTime(800);
+    btn(el, 'Warmer').click();
+    vi.advanceTimersByTime(800);
+    await vi.advanceTimersByTimeAsync(0);
+    await tick(el);
+    expect(text(el)).toContain('24°');
+    expect(vi.getTimerCount()).toBeGreaterThan(0);
+  });
+
+  it('does not flicker when a late echo of the older value arrives', async () => {
+    const h = fakeHass({ states: { 'climate.living': heater() } });
+    const el = await mount(TAG, { entity: 'climate.living' }, h);
+    btn(el, 'Warmer').click();
+    vi.advanceTimersByTime(800);
+    btn(el, 'Warmer').click();
+    vi.advanceTimersByTime(800);
+    echo(el, 23.5);
+    await tick(el);
+    expect(text(el)).toContain('24°');
+    echo(el, 24);
+    await tick(el);
+    expect(text(el)).toContain('24°');
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('accepts an echo of a value that was never sent (device clamp or outside change)', async () => {
+    const h = fakeHass({ states: { 'climate.living': heater() } });
+    const el = await mount(TAG, { entity: 'climate.living' }, h);
+    btn(el, 'Warmer').click();
+    vi.advanceTimersByTime(800);
+    echo(el, 25);
+    await tick(el);
+    expect(text(el)).toContain('25°');
+    expect(text(el)).not.toContain('23.5°');
+    expect(vi.getTimerCount()).toBe(0);
+  });
+});

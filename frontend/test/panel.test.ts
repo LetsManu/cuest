@@ -147,12 +147,12 @@ describe('cuest-panel', () => {
     expect(el.shadowRoot.querySelector('[role="alert"]').textContent).toContain('Someone else has this one.');
   });
 
-  it('switches to placeholder views from the nav', async () => {
+  it('switches to the shop from the nav', async () => {
     const { hass } = fakeHass();
     const el = await mount(hass);
     el.shadowRoot.querySelector('nav [data-go="shop"]').click();
     await el.updateComplete;
-    expect(text(el)).toContain('coming next');
+    expect(text(el)).toContain('Treasure shop');
   });
 
   it('refetches when a Cuest sensor changes', async () => {

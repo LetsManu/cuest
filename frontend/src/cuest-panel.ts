@@ -1,5 +1,5 @@
 import { LitElement, css, html, nothing, unsafeCSS } from 'lit';
-import { CuestApi, toApiError, type QuestLists, type Quest, type Summary, type WhoAmI } from './api';
+import { CuestApi, toApiError, type BuyResult, type QuestLists, type Quest, type ShopItem, type ShopView, type Summary, type WhoAmI } from './api';
 import type { HomeAssistant } from './hass-types';
 import { COLORS, FONT_BODY, FONT_PIXEL } from './palette';
 import { cuestSignature, playersFromSensors } from './sensors';
@@ -8,6 +8,7 @@ import { STRINGS } from './strings';
 import { levelForXp, titleForLevel } from './levels';
 import { heroStyles, heroView } from './views/hero';
 import { questStyles, questView, rewardToast, toastStyles, type Reward } from './views/quest';
+import { clock24, noticeToast, shopStyles, shopView, type ShopTab } from './views/shop';
 import { villageStyles, villageView } from './views/village';
 
 type View = 'village' | 'shop' | 'hero' | 'quest';
@@ -44,6 +45,9 @@ export class CuestPanel extends LitElement {
     _switching: { state: true },
     _reward: { state: true },
     _tick: { state: true },
+    _shop: { state: true },
+    _shopTab: { state: true },
+    _notice: { state: true },
   };
 
   static styles = [
@@ -51,6 +55,7 @@ export class CuestPanel extends LitElement {
     heroStyles,
     questStyles,
     toastStyles,
+    shopStyles,
     css`
     :host{display:block;min-height:100%;background:${unsafeCSS(COLORS.parchment)};color:${unsafeCSS(COLORS.ink)};font-family:${unsafeCSS(FONT_BODY)};font-size:15px;box-sizing:border-box}
     *{box-sizing:border-box}
@@ -88,6 +93,9 @@ export class CuestPanel extends LitElement {
   declare _switching: boolean;
   declare _reward: Reward | null;
   declare _tick: number;
+  declare _shop: ShopView | null;
+  declare _shopTab: ShopTab;
+  declare _notice: string;
 
   /** Injectable clock (ms) so tests can drive the quest timer. */
   now: () => number = () => Date.now();
@@ -107,6 +115,7 @@ export class CuestPanel extends LitElement {
     this._playerId = null;
     this._summary = null;
     this._quests = null;
+    this._shop = null;
     this._view = 'village';
     this._questId = null;
     this._offline = false;
@@ -117,6 +126,9 @@ export class CuestPanel extends LitElement {
     this._switching = false;
     this._reward = null;
     this._tick = 0;
+    this._shop = null;
+    this._shopTab = 'treat';
+    this._notice = '';
   }
 
   connectedCallback() {
@@ -151,7 +163,15 @@ export class CuestPanel extends LitElement {
   private _setReward(r: Reward | null) {
     clearTimeout(this._toastTimer);
     this._reward = r;
+    this._notice = '';
     if (r) this._toastTimer = setTimeout(() => { this._reward = null; }, 8000);
+  }
+
+  private _setNotice(text: string) {
+    clearTimeout(this._toastTimer);
+    this._reward = null;
+    this._notice = text;
+    if (text) this._toastTimer = setTimeout(() => { this._notice = ''; }, 8000);
   }
 
   private _finish = (q: Quest) => {
@@ -191,9 +211,12 @@ export class CuestPanel extends LitElement {
       }
       this._offline = false;
       if (this._playerId) {
-        const [summary, quests] = await Promise.all([this._api.summary(this._playerId), this._api.quests()]);
+        const pid = this._playerId;
+        const [summary, quests, shop] = await Promise.all([this._api.summary(pid), this._api.quests(), this._api.shop(pid)]);
+        if (pid !== this._playerId) return;
         this._summary = summary;
         this._quests = quests;
+        this._shop = Array.isArray(shop?.catalog) ? shop : null;
       }
       this._error = '';
     } catch (e) {
@@ -219,6 +242,7 @@ export class CuestPanel extends LitElement {
     this._playerId = id;
     this._summary = null;
     this._quests = null;
+    this._shop = null;
     void this._refresh();
   }
 
@@ -268,16 +292,86 @@ export class CuestPanel extends LitElement {
     if (api) void this._act(q, () => api.later(q.id));
   };
 
+  /**
+   * Outfit and decor come from ONE source: the shop view (`equipped` + catalog
+   * palettes, `owned` decor), re-fetched on every refresh and after every buy or
+   * equip, so changes show at once. Only before the first shop response do we fall
+   * back to the level sensor's `outfit_palette` / `decor` attributes.
+   */
   private _palette(): Palette {
-    const p = this._sensorPlayer();
-    const a = (p?.level as { attributes?: Record<string, unknown> } | undefined)?.attributes ?? {};
+    if (this._shop) {
+      const pal: Palette = {};
+      for (const id of Object.values(this._shop.equipped)) {
+        const item = this._shop.catalog.find((c) => c.id === id);
+        if (item?.palette) Object.assign(pal, item.palette);
+      }
+      return pal;
+    }
+    const a = this._sensorAttrs();
     return (a.outfit_palette as Palette | undefined) ?? {};
   }
 
   private _decor(): string[] {
-    const p = this._sensorPlayer();
-    const a = (p?.level as { attributes?: Record<string, unknown> } | undefined)?.attributes ?? {};
+    if (this._shop) return this._shop.catalog.filter((c) => c.kind === 'decor' && c.owned).map((c) => c.id);
+    const a = this._sensorAttrs();
     return Array.isArray(a.decor) ? (a.decor as string[]) : [];
+  }
+
+  private _sensorAttrs(): Record<string, unknown> {
+    const p = this._sensorPlayer();
+    return (p?.level as { attributes?: Record<string, unknown> } | undefined)?.attributes ?? {};
+  }
+
+  private _boostUntil(): string | null {
+    const b = this._summary?.player.boostUntil ?? this._shop?.boostUntil ?? null;
+    return b && Date.parse(b) > this.now() ? b : null;
+  }
+
+  /** Run one shop call under a per-item busy flag (the double-tap guard), then refresh. */
+  private async _shopAct(key: string, fn: () => Promise<string>) {
+    if (this._busy[key]) return;
+    this._busy = { ...this._busy, [key]: true };
+    let msg = '';
+    try {
+      msg = await fn();
+      this._error = '';
+    } catch (e) {
+      const err = toApiError(e);
+      // A 503 with the server's own text is treat-specific ("Your gold is safe"): toast only.
+      if (err.offline && !err.serverMessage) this._offline = true;
+      else msg = err.serverMessage || err.message || STRINGS.shopFailed;
+    }
+    const { [key]: _gone, ...rest } = this._busy;
+    this._busy = rest;
+    await this._refresh();
+    if (msg) this._setNotice(msg);
+  }
+
+  private _buy = (item: ShopItem) => {
+    const pid = this._playerId;
+    const api = this._api;
+    if (!pid || !api) return;
+    void this._shopAct(`shop:${item.id}`, async () => this._buyMessage(item, (await api.buy(pid, item.id)).result));
+  };
+
+  private _equip = (item: ShopItem) => {
+    const pid = this._playerId;
+    const api = this._api;
+    if (!pid || !api || !item.slot) return;
+    const slot = item.slot;
+    const on = this._shop?.equipped[slot] === item.id;
+    void this._shopAct(`shop:${item.id}`, async () => { await api.equip(pid, slot, on ? null : item.id); return ''; });
+  };
+
+  private _buyMessage(item: ShopItem, r: BuyResult['result']): string {
+    const nameOf = (id: string) => this._shop?.catalog.find((c) => c.id === id)?.name ?? id;
+    switch (r.kind) {
+      case 'treat': return STRINGS.enjoy;
+      case 'rest_token': return STRINGS.restTokenGot;
+      case 'potion': return `${STRINGS.boostUntil} ${clock24(r.boostUntil)}`;
+      case 'chest': return 'gold' in r ? `${STRINGS.chestHeld} ${r.gold} ${STRINGS.gold}!` : `${STRINGS.chestHeld} ${nameOf(r.itemId)}!`;
+      default: return `${STRINGS.boughtItem} ${nameOf(r.itemId || item.id)}!`;
+    }
   }
 
   private _sensorPlayer() {
@@ -306,6 +400,7 @@ export class CuestPanel extends LitElement {
         quests: this._quests,
         palette: this._palette(),
         decor: this._decor(),
+        boostUntil: this._boostUntil(),
         busy: this._busy,
         poolOpen: this._poolOpen,
         onStart: this._start,
@@ -340,7 +435,18 @@ export class CuestPanel extends LitElement {
         decor: this._decor(),
       });
     }
-    return html`<div class="centerbox"><h2>${this._view === 'shop' ? STRINGS.navShop : STRINGS.navHero}</h2><p>${STRINGS.comingNext}</p></div>`;
+    return shopView({
+      shop: this._shop,
+      level: this._summary?.level ?? 1,
+      tab: this._shopTab,
+      leading: this._menu(),
+      canSwitch: this._who.players.length > 1,
+      busy: this._busy,
+      onSwitch: this._switch,
+      onTab: (t) => { this._shopTab = t; },
+      onBuy: this._buy,
+      onEquip: this._equip,
+    });
   }
 
   protected render() {
@@ -351,6 +457,7 @@ export class CuestPanel extends LitElement {
         ${this.narrow && !(this._who && this._playerId && this._view === 'village') ? html`<div class="menu">${this._menu()}</div>` : nothing}
         ${this._offline ? html`<div class="banner" role="status">${STRINGS.offlineBanner}</div>` : nothing}
         ${this._reward ? rewardToast(this._reward, () => this._setReward(null)) : nothing}
+        ${this._notice ? noticeToast(this._notice, () => this._setNotice('')) : nothing}
         ${this._error ? html`<div class="error" role="alert">${this._error}</div>` : nothing}
         ${this._body()}
       </main>

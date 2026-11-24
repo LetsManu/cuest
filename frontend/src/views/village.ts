@@ -4,6 +4,7 @@ import { COLORS, FONT_PIXEL } from '../palette';
 import { SPRITE_H, SPRITE_W, spriteShadow, stageForLevel, type Palette } from '../sprite';
 import { STRINGS } from '../strings';
 import { decorStyles, decorTemplate } from './decor';
+import { clock24 } from './shop';
 
 const PX = 4;
 
@@ -16,6 +17,8 @@ export interface VillageProps {
   quests: QuestLists | null;
   palette: Palette;
   decor: string[];
+  /** Double-XP banner text time, or null when no boost is active. */
+  boostUntil: string | null;
   busy: Record<string, boolean>;
   poolOpen: boolean;
   onStart(q: Quest): void;
@@ -61,6 +64,7 @@ export const villageStyles = [
   .btn:disabled{opacity:.55;cursor:default}
   .btn.primary{flex:1;background:${unsafeCSS(COLORS.forest)};color:${unsafeCSS(COLORS.card)}}
   .btn.ghost{background:transparent;border-color:#C9B791;color:#4A4033}
+  .boost{background:#F6E2B8;color:${unsafeCSS(COLORS.ink)};border-radius:12px;padding:8px 12px;font-weight:800;font-size:13px;text-align:center}
   .empty{background:${unsafeCSS(COLORS.card)};border:2px dashed #C9B791;border-radius:16px;padding:18px;text-align:center;color:${unsafeCSS(COLORS.muted)};line-height:1.45}
   .empty strong{display:block;color:${unsafeCSS(COLORS.ink)};font-family:${unsafeCSS(FONT_PIXEL)};font-size:18px;margin-bottom:4px}
   .pool{font-size:13px;color:${unsafeCSS(COLORS.muted)};display:flex;flex-direction:column;gap:8px}
@@ -120,6 +124,7 @@ export function villageView(p: VillageProps): TemplateResult {
   return html`
     <div class="topbar"><span class="topleft">${p.leading}<span class="brand">${STRINGS.brand}</span></span>
       <span class="topright">${p.canSwitch ? html`<button type="button" class="switch" data-act="switch" @click=${p.onSwitch}>${STRINGS.switchPlayer}</button>` : nothing}<span class="gold" aria-label="${s?.player.gold ?? 0} ${STRINGS.gold}"><span class="coin"></span>${s?.player.gold ?? 0}</span></span></div>
+    ${p.boostUntil ? html`<div class="boost" role="status" data-role="boost">${STRINGS.boostUntil} ${clock24(p.boostUntil)}</div>` : nothing}
     <section class="herocard">
       <span class="star" style="left:22px;top:12px"></span><span class="star" style="left:150px;top:9px"></span><span class="star" style="right:26px;top:20px"></span>
       ${decorTemplate(p.decor)}

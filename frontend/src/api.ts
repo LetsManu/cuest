@@ -27,18 +27,30 @@ export interface Summary {
   intoLevel: number;
   toNext: number;
 }
-export interface ShopItem { id: string; kind: string; name: string; cost: number; slot?: string; palette?: Record<string, string>; [k: string]: unknown }
+export interface ShopItem { id: string; kind: string; name: string; cost: number; slot?: string; palette?: Record<string, string>; owned: boolean }
+export type BuyResult = {
+  player: Record<string, unknown>;
+  result:
+    | { kind: 'item'; itemId: string }
+    | { kind: 'treat'; itemId: string }
+    | { kind: 'rest_token' }
+    | { kind: 'potion'; boostUntil: string }
+    | { kind: 'chest'; itemId: string }
+    | { kind: 'chest'; gold: number };
+};
 export interface ShopView {
   gold: number;
   restTokens: number;
   boostUntil: string | null;
-  owned: string[];
+  owned: Record<string, number>;
   equipped: Record<string, string | undefined>;
   catalog: ShopItem[];
 }
 
 /** An API failure carrying the server's friendly message. */
 export class CuestApiError extends Error {
+  /** The server's own friendly text, even for a 503 whose `message` is replaced by the offline banner. */
+  serverMessage = '';
   constructor(public status: number, public code: string, message: string) {
     super(message);
   }
@@ -67,7 +79,9 @@ export function toApiError(e: unknown): CuestApiError {
   const message = offline
     ? STRINGS.offlineBanner
     : (typeof body?.message === 'string' && body.message) || STRINGS.genericError;
-  return new CuestApiError(status, code, message);
+  const err = new CuestApiError(status, code, message);
+  if (typeof body?.message === 'string') err.serverMessage = body.message;
+  return err;
 }
 
 export class CuestApi {
@@ -91,6 +105,6 @@ export class CuestApi {
   start(questId: string, playerId: string) { return this.call<{ quest: Quest }>('POST', `cuest/quests/${encodeURIComponent(questId)}/start`, { playerId }); }
   done(questId: string, playerId: string) { return this.call<{ quest: Quest; reward: { xp: number; gold: number; lines: string[] }; player: Summary['player'] }>('POST', `cuest/quests/${encodeURIComponent(questId)}/done`, { playerId }); }
   later(questId: string) { return this.call<{ quest: Quest }>('POST', `cuest/quests/${encodeURIComponent(questId)}/later`, {}); }
-  buy(playerId: string, itemId: string) { return this.call<unknown>('POST', 'cuest/shop/buy', { playerId, itemId }); }
+  buy(playerId: string, itemId: string) { return this.call<BuyResult>('POST', 'cuest/shop/buy', { playerId, itemId }); }
   equip(playerId: string, slot: string, itemId: string | null) { return this.call<unknown>('POST', 'cuest/shop/equip', { playerId, slot, itemId }); }
 }

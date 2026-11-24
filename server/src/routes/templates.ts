@@ -1,5 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import type { Clock } from '../clock.js';
+import { copy } from '../copy.js';
 import { DEFAULT_NUDGE, type QuestTemplate } from '../domain/types.js';
 import { presetTemplates, type PresetName } from '../domain/presets.js';
 import type { TemplatesRepo } from '../repos/templates.js';
@@ -51,13 +53,13 @@ const presetBody = z.object({
   doneStates: z.array(z.string()).optional(),
 });
 
-export function registerTemplateRoutes(app: FastifyInstance, templates: TemplatesRepo, onChanged: () => void): void {
+export function registerTemplateRoutes(app: FastifyInstance, templates: TemplatesRepo, onChanged: () => void, clock: Clock): void {
   app.get('/api/templates', async () => templates.list());
 
   app.post('/api/templates', async (req, reply) => {
     const body = parseBody(createBody, req.body, reply);
     if (!body) return reply;
-    const t = templates.create({ ...body, nudge: body.nudge ?? DEFAULT_NUDGE }, new Date());
+    const t = templates.create({ ...body, nudge: body.nudge ?? DEFAULT_NUDGE }, clock.now());
     onChanged();
     return reply.code(201).send(t);
   });
@@ -65,7 +67,7 @@ export function registerTemplateRoutes(app: FastifyInstance, templates: Template
   app.post('/api/templates/presets', async (req, reply) => {
     const body = parseBody(presetBody, req.body, reply);
     if (!body) return reply;
-    const now = new Date();
+    const now = clock.now();
     const created = presetTemplates(body.preset as PresetName, {
       entityId: body.entityId,
       ...(body.doneStates ? { doneStates: body.doneStates } : {}),
@@ -78,14 +80,14 @@ export function registerTemplateRoutes(app: FastifyInstance, templates: Template
     const body = parseBody(patchBody, req.body, reply);
     if (!body) return reply;
     const t = templates.update(req.params.id, defined(body) as Partial<QuestTemplate>);
-    if (!t) return reply.code(404).send({ error: 'not_found', message: 'Not found' });
+    if (!t) return reply.code(404).send({ error: 'not_found', message: copy.notFound });
     onChanged();
     return t;
   });
 
   app.delete<{ Params: { id: string } }>('/api/templates/:id', async (req, reply) => {
     const t = templates.update(req.params.id, { enabled: false });
-    if (!t) return reply.code(404).send({ error: 'not_found', message: 'Not found' });
+    if (!t) return reply.code(404).send({ error: 'not_found', message: copy.notFound });
     onChanged();
     return t;
   });

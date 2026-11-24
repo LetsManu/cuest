@@ -15,6 +15,7 @@ export const copy = {
     return (repeatTemplates[i] as (title: string) => string)(q.title);
   },
   alreadyClaimed: 'Someone else is already on this one. Thanks for checking!',
+  notFound: 'Not found',
   alreadyDone: 'This quest is already done. Nice!',
   actions: { start: 'Start 2 min', done: 'Already done', later: 'Later' },
 };

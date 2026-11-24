@@ -24,5 +24,5 @@ export function sendQuestError(e: unknown, reply: FastifyReply): FastifyReply {
   if (!(e instanceof QuestError)) throw e;
   if (e.code === 'already_claimed') return reply.code(409).send({ error: e.code, message: copy.alreadyClaimed });
   if (e.code === 'already_done') return reply.code(409).send({ error: e.code, message: copy.alreadyDone });
-  return reply.code(404).send({ error: e.code, message: 'Not found' });
+  return reply.code(404).send({ error: e.code, message: copy.notFound });
 }

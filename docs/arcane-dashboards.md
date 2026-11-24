@@ -19,6 +19,9 @@ Lovelace resource to create: when Cuest is set up, it serves
 
 ### Install Cuest
 
+The integration also needs the Cuest server and the bridge secret: follow
+[install-home-assistant.md](install-home-assistant.md) for that setup.
+
 With HACS (here called **Marketplace**):
 
 1. Fix the Marketplace token if it shows as disabled: Settings, Devices &
@@ -104,17 +107,18 @@ on: none on gives none lit, otherwise at least 1 and at most 5 lit.
 type: custom:cuest-arcane-header
 title: Cuest Home
 outside: sensor.cuest_outside_temperature  # replace entity id
-inside: sensor.climate_sensor_temperature  # replace entity id
+inside: sensor.climate_sensor_temperature
 ```
 
 ### cuest-orb-card
 
 One to four liquid orbs in one panel. Use either one orb directly on the
-card, or `orbs:` with up to 4 items. Each orb takes:
+card (it still needs `preset:`), or `orbs:` with up to 4 items. Each orb
+takes:
 
 | Option | Default | Notes |
 |---|---|---|
-| `preset` | `online` | `online` (share of entities that are not unavailable), `lights` (lights on), `health` (quest board health), `percent` (an entity that already holds 0 to 100), `ratio` (entity divided by `max`). |
+| `preset` | required | `online` (share of entities that are not unavailable), `lights` (lights on), `health` (quest board health), `percent` (an entity that already holds 0 to 100), `ratio` (entity divided by `max`). |
 | `color` | by preset | `mana` (online, percent, ratio), `health` (health), `glow` (lights). |
 | `entity` | none | Required for `percent` and `ratio`. |
 | `max` | none | Required for `ratio`: a number above 0 or an entity id. |
@@ -155,7 +159,7 @@ The chart is resampled to at most 48 points. Both lines share one scale.
 
 ```yaml
 type: custom:cuest-trail-card
-entity: sensor.climate_sensor_temperature  # replace entity id
+entity: sensor.climate_sensor_temperature
 entity2: sensor.cuest_outside_temperature
 hours: 24
 ```
@@ -275,7 +279,7 @@ areas:
   - Wohnzimmer
   - area: Küche
     name: Kitchen
-    temperature: sensor.thermostat_kueche_local_temperature  # replace entity id
+    temperature: sensor.thermostat_kueche_local_temperature
 path: /home-control
 ```
 
@@ -289,7 +293,7 @@ state. Source buttons call a service when tapped.
 |---|---|---|
 | `entity` | required | `media_player.*`. |
 | `variant` | `full` | `full` or `compact`. |
-| `name` | area name or friendly name | Shown as "Bard . name". |
+| `name` | area name or friendly name | Shown as "Bard · name". |
 | `sources` | none | Up to 4 items: `name`, `service` (`domain.service`), optional `data` (sent as the service data). |
 
 ```yaml
@@ -353,6 +357,10 @@ configuration editor**, replace everything, Save. Cuest Home has two views
 (phone and desktop), shown as two blocks: paste the Overview block, then add
 the desktop view as a second entry under its `views:`.
 
+The views keep the tab icons of the interim build. The old markdown header
+banner of each view is not repeated: the Cuest cards carry their own headings
+(masonry views have no header area).
+
 Entity ids come from your Home Assistant. A line ending with
 `# replace entity id` is a guess or something that does not exist right now
 (for example the Music Assistant players are unavailable at the moment).
@@ -366,12 +374,13 @@ title: Cuest Home
 views:
   - title: Home
     path: ok
+    icon: mdi:home-heart
     type: masonry
     background: "#14172A"
     cards:
       - type: custom:cuest-arcane-header
         outside: sensor.cuest_outside_temperature
-        inside: sensor.climate_sensor_temperature  # replace entity id
+        inside: sensor.climate_sensor_temperature
       - type: custom:cuest-orb-card
         orbs:
           - preset: online
@@ -382,7 +391,7 @@ views:
         variant: compact
         more_path: /system-faults
       - type: custom:cuest-trail-card
-        entity: sensor.climate_sensor_temperature  # replace entity id
+        entity: sensor.climate_sensor_temperature
         entity2: sensor.cuest_outside_temperature
         name: Wohnzimmer
         name2: Outside
@@ -407,6 +416,7 @@ title: Quest board
 views:
   - title: Quests
     path: faults
+    icon: mdi:script-text-outline
     type: masonry
     background: "#14172A"
     cards:
@@ -429,6 +439,7 @@ title: Spells
 views:
   - title: Spells
     path: control
+    icon: mdi:wizard-hat
     type: masonry
     background: "#14172A"
     cards:
@@ -500,7 +511,7 @@ views:
               data:
                 entity_id: vacuum.monsga_ms1_max
       - type: custom:cuest-rune-gauge
-        entity: climate.0x54ef4410009a9a50  # replace entity id
+        entity: climate.0x54ef4410009a9a50
         name: Wohnzimmer
       - type: heading
         heading: Schlafzimmer
@@ -581,8 +592,10 @@ title: Cuest Home
 views:
   - title: Desktop
     path: desktop
+    icon: mdi:monitor-dashboard
     type: sections
     max_columns: 3
+    dense_section_placement: true
     background: "#14172A"
     sections:
       - type: grid
@@ -590,7 +603,7 @@ views:
           - type: custom:cuest-arcane-header
             variant: wide
             outside: sensor.cuest_outside_temperature
-            inside: sensor.climate_sensor_temperature  # replace entity id
+            inside: sensor.climate_sensor_temperature
             orbs:
               - preset: online
               - preset: health
@@ -609,7 +622,7 @@ views:
       - type: grid
         cards:
           - type: custom:cuest-trail-card
-            entity: sensor.climate_sensor_temperature  # replace entity id
+            entity: sensor.climate_sensor_temperature
             entity2: sensor.cuest_outside_temperature
           - type: custom:cuest-rune-gauge
             entity: climate.0x54ef441000a5b789
@@ -639,7 +652,7 @@ drop options the new card does not know:
 | Place | Built-in card now | Cuest card |
 |---|---|---|
 | Header line (time, mood, temperatures) | `markdown` | `custom:cuest-arcane-header` |
-| Mana / Health / Glow | three `gauge` cards on `sensor.cuest_mana`, `sensor.cuest_small_quests`, `sensor.cuest_glow` | one `custom:cuest-orb-card` with `orbs: [online, health, lights]` |
+| Mana / Health / Glow | three `gauge` cards on `sensor.cuest_mana`, `sensor.cuest_small_quests`, `sensor.cuest_glow` | one `custom:cuest-orb-card` with three `orbs` items: `- preset: online`, `- preset: health`, `- preset: lights` |
 | Warmth trail | `history-graph` | `custom:cuest-trail-card` |
 | Fire rune / Water rune | `gauge` (desktop) and `thermostat` (spells) | `custom:cuest-rune-gauge` |
 | Quests, quest teaser | `markdown` with `ha-alert` lines | `custom:cuest-quest-board` |
@@ -663,7 +676,8 @@ orbs work them out from your entities. You can delete the helpers later.
   group are skipped by Glow, the header windows and the rooms' lit counts.
 - Adding a quest from the quest board needs a Home Assistant admin. Other
   users see the quests but no buttons.
-- The cards do not poll anything. They redraw when the part of Home Assistant
+- The cards do not poll, except that the trail card refreshes its history at
+  most every 5 minutes. They redraw when the part of Home Assistant
   they show changes; the header clock ticks once a minute.
 - Motion (waves, spinning rings, sparks, twinkling stars) stops when the
   device asks for reduced motion.

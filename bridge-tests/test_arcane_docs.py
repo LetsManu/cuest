@@ -62,36 +62,96 @@ def test_theme_block():
     raise AssertionError("no Cuest Arcane theme block")
 
 
-ORB = {
-    "preset", "color", "entity", "max", "label", "sublabel",
-    "domains", "integrations", "exclude", "battery_threshold",
+# --- Option keys, required keys and enum values come from the card sources. ---
+
+SRC = Path(__file__).parent.parent / "frontend" / "src" / "arcane"
+FILES = {
+    "cuest-arcane-header": "header.ts", "cuest-orb-card": "orb.ts",
+    "cuest-trail-card": "trail.ts", "cuest-rune-gauge": "rune.ts",
+    "cuest-quest-board": "quest-board.ts", "cuest-allies-card": "allies.ts",
+    "cuest-hero-card": "hero.ts", "cuest-rooms-card": "rooms.ts",
+    "cuest-bard-card": "bard.ts", "cuest-spell-tile": "spell-tile.ts",
+    "cuest-stamina-card": "stamina.ts",
 }
-KEYS = {
-    "cuest-arcane-header": {"type", "title", "mood", "outside", "inside", "variant", "orbs", "grid_options"},
-    "cuest-orb-card": {"type", "orbs"} | ORB,
-    "cuest-trail-card": {"type", "entity", "entity2", "name", "name2", "hours", "title"},
-    "cuest-rune-gauge": {"type", "entity", "rune", "name", "controls", "min", "max"},
-    "cuest-quest-board": {
-        "type", "title", "variant", "limit", "battery_threshold", "exclude",
-        "more_path", "show_summary", "allow_add",
-    },
-    "cuest-allies-card": {"type", "title", "limit", "min_entities", "ignore", "names"},
-    "cuest-hero-card": {"type", "player"},
-    "cuest-rooms-card": {"type", "title", "heading", "areas", "path", "battery_threshold"},
-    "cuest-bard-card": {"type", "entity", "variant", "name", "sources"},
-    "cuest-spell-tile": {
-        "type", "variant", "entity", "name", "icon", "tone", "state_text", "tap_action",
-    },
-    "cuest-stamina-card": {"type", "title", "entities", "exclude", "limit", "threshold"},
-}
+EXTRA = {"type", "grid_options"}
+CALL = re.compile(r"(?:v\.\w+|strings)\(\s*\w+,\s*'(\w+)'([^;]*?)\)")
 
 
-def test_option_keys_are_accepted_by_the_cards():
+def _source(tag: str) -> str:
+    return (SRC / FILES[tag]).read_text(encoding="utf-8")
+
+
+def _accepted(tag: str) -> set[str]:
+    src = _source(tag)
+    keys = {m.group(1) for m in CALL.finditer(src)}
+    keys |= set(re.findall(r"\b(?:raw|o|r|ta|item)\.(\w+)", src))
+    keys |= set(re.findall(r"\b(?:raw|o|r)\[?'(\w+)'", src))
+    if tag == "cuest-arcane-header":
+        keys |= _accepted("cuest-orb-card") - {"orbs"}
+        keys.add("orbs")
+    return keys | EXTRA
+
+
+def _required(tag: str) -> set[str]:
+    out = set()
+    for m in CALL.finditer(_source(tag)):
+        if re.search(r"\btrue\b", m.group(2)) and m.group(0).startswith(("v.str", "v.entity")):
+            out.add(m.group(1))
+    return out
+
+
+def _enum(tag: str, key: str) -> set[str] | None:
+    src = _source(tag)
+    m = re.search(r"v\.oneOf\(\s*\w+,\s*'%s',\s*[^,]+,\s*(\[[^\]]*\]|\w+)" % key, src)
+    if not m:
+        return None
+    arr = m.group(1)
+    if not arr.startswith("["):
+        d = re.search(r"const %s\b[^=]*=\s*(\[[^\]]*\])" % arr, src)
+        arr = d.group(1)
+    return set(re.findall(r"'([^']+)'", arr))
+
+
+def _is_orb_item(d: dict) -> bool:
+    return "preset" in d or ("label" in d and "entity" not in d and "orbs" not in d and "type" not in d)
+
+
+def test_option_keys_required_keys_and_enums_match_the_card_sources():
+    assert "preset" in _required("cuest-orb-card")
+    assert _enum("cuest-orb-card", "preset") == {"percent", "ratio", "online", "lights", "health"}
     for b in _blocks():
         for d in _walk(parse_yaml(b)):
             t = d.get("type")
-            if isinstance(t, str) and t.startswith("custom:cuest-"):
-                tag = t.removeprefix("custom:")
-                assert set(d) <= KEYS[tag], (tag, set(d) - KEYS[tag])
-            if "preset" in d:
-                assert set(d) <= ORB, set(d) - ORB
+            if not (isinstance(t, str) and t.startswith("custom:cuest-")):
+                continue
+            tag = t.removeprefix("custom:")
+            assert set(d) <= _accepted(tag), (tag, set(d) - _accepted(tag))
+            if tag == "cuest-orb-card" and "orbs" not in d:
+                assert "preset" in d, "a single orb needs preset"
+            elif tag not in ("cuest-orb-card", "cuest-spell-tile"):
+                assert _required(tag) - {"area", "name", "service", "preset"} <= set(d), tag
+            for key, val in d.items():
+                allowed = _enum(tag, key)
+                if allowed is not None:
+                    assert val in allowed, (tag, key, val)
+            for orb in d.get("orbs", []):
+                assert "preset" in orb and orb["preset"] in _enum("cuest-orb-card", "preset")
+                assert set(orb) <= _accepted("cuest-orb-card"), set(orb)
+
+
+def test_reference_tables_agree_with_the_sources():
+    text = DOC.read_text(encoding="utf-8")
+    ref = text.split("## 3. Card reference")[1].split("## 4. Dashboards")[0]
+    for section in re.split(r"\n### ", ref)[1:]:
+        tag = section.split("\n", 1)[0].strip()
+        if tag not in FILES:
+            continue
+        rows = re.findall(r"^\| ((?:`\w+`(?:, )?)+) \| ([^|]*) \|", section, re.M)
+        documented = {}
+        for names, default in rows:
+            for n in re.findall(r"`(\w+)`", names):
+                documented[n] = default.strip()
+        assert set(documented) <= _accepted(tag), (tag, set(documented) - _accepted(tag))
+        for key in _required(tag):
+            if key in documented and key not in ("name", "service", "area"):
+                assert documented[key].startswith("required"), (tag, key, documented[key])

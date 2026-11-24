@@ -1,0 +1,9 @@
+{
+  "name": "cuest",
+  "private": true,
+  "workspaces": ["server"],
+  "scripts": {
+    "test": "npm test -w server",
+    "typecheck": "npm run typecheck -w server"
+  }
+}

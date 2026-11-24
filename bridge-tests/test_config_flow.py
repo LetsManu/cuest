@@ -495,3 +495,26 @@ async def test_options_treats_empty_selection_disables_all(
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert dict(entry.options) == {"keep": 1, "treats": []}
     assert ("DELETE", "/api/unlocks/u1") in [c.args for c in client.api.await_args_list]
+
+
+async def test_options_treats_disables_stale_server_unlocks_not_in_options(
+    hass: HomeAssistant, entry_and_client
+) -> None:
+    entry, client = entry_and_client
+    # options are empty (e.g. after a reinstall) but the server still has enabled unlocks
+    client.api.side_effect = None
+    client.api.return_value = (
+        200,
+        [_unlock("u1", "script.a"), _unlock("u2", "script.old")],
+    )
+    result = await _menu(hass, entry, "treats")
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"entities": ["script.a"]}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"name": "A", "cost": 30}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    calls = [c.args for c in client.api.await_args_list]
+    assert ("DELETE", "/api/unlocks/u2") in calls
+    assert ("DELETE", "/api/unlocks/u1") not in calls

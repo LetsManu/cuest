@@ -260,3 +260,35 @@ def test_query_encoded_dots_slashes_rejected(q) -> None:
 
     assert not _valid_query(make_mocked_request("GET", "/api/cuest/x?" + q))
     assert _valid_query(make_mocked_request("GET", "/api/cuest/x?a=b&c=d"))
+
+
+_BOUND = ["quests/q1/start", "quests/q1/done", "shop/buy", "shop/equip"]
+
+
+@pytest.mark.parametrize("path", _BOUND)
+async def test_linked_non_admin_must_use_own_player(
+    cuest, hass_client, hass_read_only_user, hass_read_only_access_token, path
+) -> None:
+    hass, client, _ = cuest
+    await _snapshot(hass, client)
+    hass.states.async_set("person.ada", "home", {"user_id": hass_read_only_user.id})
+    http = await hass_client(hass_read_only_access_token)
+    for body in ({"playerId": "p2"}, {}):
+        resp = await http.post("/api/cuest/" + path, json=body)
+        assert resp.status == 403
+        assert await resp.json() == {"error": "not_your_player"}
+    assert client.api_calls == []
+    assert (await http.post("/api/cuest/" + path, json={"playerId": "p1"})).status == 200
+    assert len(client.api_calls) == 1
+
+
+async def test_linked_admin_and_unlinked_non_admin_may_pick_any_player(
+    cuest, hass_client, hass_admin_user, hass_read_only_access_token
+) -> None:
+    hass, client, _ = cuest
+    await _snapshot(hass, client)
+    hass.states.async_set("person.ada", "home", {"user_id": hass_admin_user.id})
+    admin = await hass_client()
+    assert (await admin.post("/api/cuest/shop/buy", json={"playerId": "p2"})).status == 200
+    shared = await hass_client(hass_read_only_access_token)
+    assert (await shared.post("/api/cuest/shop/buy", json={"playerId": "p2"})).status == 200

@@ -439,7 +439,8 @@ class CuestOptionsFlow(OptionsFlow):
                 )
             else:
                 await self._api("POST", "/api/unlocks", {**values, "entityId": entity})
-        for entity in self.config_entry.options.get(CONF_TREATS, []):
-            existing = self._unlocks.get(entity)
-            if entity not in self._treats and existing and existing.get("enabled", True):
+        # Disable every enabled server unlock that is not selected, including stale ones
+        # left behind by a reinstall or an abandoned dialog.
+        for entity, existing in self._unlocks.items():
+            if entity not in self._treats and existing.get("enabled", True):
                 await self._api("DELETE", f"/api/unlocks/{existing['id']}")

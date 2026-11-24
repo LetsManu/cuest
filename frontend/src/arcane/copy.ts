@@ -74,6 +74,9 @@ export const ARCANE_COPY = {
   },
   staminaTitle: 'Stamina',
   staminaNone: 'Every battery is full of stamina.',
+  trailTitle: 'Warmth trail',
+  trailHours: '{n} h',
+  trailAria: '{name} over the last {hours} hours, between {min} and {max} {unit}',
   missing: 'Entity not found: {id}',
 } as const;
 

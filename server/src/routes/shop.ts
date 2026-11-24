@@ -26,7 +26,7 @@ export function registerShopRoutes(app: FastifyInstance, shop: ShopService): voi
     const body = parseBody(buyBody, req.body, reply);
     if (!body) return reply;
     try {
-      return shop.buy(body.playerId, body.itemId);
+      return body.itemId.startsWith('treat:') ? await shop.buyTreat(body.playerId, body.itemId) : shop.buy(body.playerId, body.itemId);
     } catch (e) {
       return sendShopError(e, reply);
     }

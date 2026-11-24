@@ -36,7 +36,7 @@ beforeEach(() => {
   authFns = [];
   const hub = { send: (m: ServerMessage) => (sent.push(m), true), onAuthenticated: (fn: () => void) => void authFns.push(fn) };
   publisher = new Publisher({ bus, hub, players, quests, items, clock });
-  shop = new ShopService({ players, items, ledger: new LedgerRepo(db), tx: (fn) => transaction(db, fn), clock, bus, unlocks: new UnlocksRepo(db), hub: { isConnected: () => true, callService: () => true } });
+  shop = new ShopService({ players, items, ledger: new LedgerRepo(db), tx: (fn) => transaction(db, fn), clock, bus, unlocks: new UnlocksRepo(db), hub: { isConnected: () => true, callServiceAwait: () => Promise.resolve({ ok: true }) } });
   pid = players.create({ name: 'Ana', haPerson: 'person.ana' }, clock.now()).id;
 });
 

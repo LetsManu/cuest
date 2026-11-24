@@ -55,7 +55,7 @@ describe('shop', () => {
       rng: () => rngValues.shift() ?? 0.99,
       bus,
       unlocks: new UnlocksRepo(db),
-      hub: { isConnected: () => true, callService: () => true },
+      hub: { isConnected: () => true, callServiceAwait: () => Promise.resolve({ ok: true }) },
     });
     pid = players.create({ name: 'Ada' }, start).id;
   });

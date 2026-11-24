@@ -56,6 +56,7 @@ export class BridgeHub {
   private apiHandler: ApiHandler | null = null;
   private chunkSocket: WebSocketLike | null = null;
   private chunks: EntityInfo[] = [];
+  private pending = new Map<string, { socket: WebSocketLike; done: (r: { ok: boolean; error?: string }) => void }>();
 
   constructor(private readonly opts: BridgeHubOptions) {
     if (!opts.secret) throw new Error('BridgeHub requires a non-empty secret');
@@ -128,9 +129,15 @@ export class BridgeHub {
         case 'notification_action':
           for (const fn of this.actionHandlers) this.safe(() => fn(msg.action));
           return;
-        case 'result':
+        case 'result': {
+          const waiter = this.pending.get(msg.id);
+          if (waiter) {
+            waiter.done(msg.error === undefined ? { ok: msg.ok } : { ok: msg.ok, error: msg.error });
+            return;
+          }
           if (!msg.ok) this.opts.log(`bridge: service call ${msg.id} failed: ${msg.error ?? 'unknown'}`);
           return;
+        }
         case 'entities': {
           if (msg.chunk === 0) {
             this.chunkSocket = socket;
@@ -159,6 +166,7 @@ export class BridgeHub {
     socket.on('close', () => {
       clearTimeout(timer);
       if (this.active === socket) this.active = null;
+      for (const w of [...this.pending.values()]) if (w.socket === socket) w.done({ ok: false, error: 'disconnected' });
       if (this.chunkSocket === socket) {
         this.chunkSocket = null;
         this.chunks = [];
@@ -188,6 +196,37 @@ export class BridgeHub {
     const msg: ServerMessage = { type: 'call_service', id: randomUUID(), domain, service, data };
     if (target) msg.target = target;
     return this.sendTo(this.active, msg);
+  }
+
+  /** Like callService, but resolves with the bridge's answer (or timeout / disconnected). Never rejects. */
+  callServiceAwait(
+    domain: string,
+    service: string,
+    data: Record<string, unknown>,
+    target?: { entity_id: string | string[] },
+    timeoutMs = 5000,
+  ): Promise<{ ok: boolean; error?: string }> {
+    const socket = this.active;
+    if (!socket) {
+      this.opts.log(`bridge: not connected, dropping ${domain}.${service}`);
+      return Promise.resolve({ ok: false, error: 'disconnected' });
+    }
+    return new Promise((resolve) => {
+      const id = randomUUID();
+      let finished = false;
+      const done = (r: { ok: boolean; error?: string }): void => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timer);
+        this.pending.delete(id);
+        resolve(r);
+      };
+      const timer = setTimeout(() => done({ ok: false, error: 'timeout' }), timeoutMs);
+      this.pending.set(id, { socket, done });
+      const msg: ServerMessage = { type: 'call_service', id, domain, service, data };
+      if (target) msg.target = target;
+      if (!this.sendTo(socket, msg)) done({ ok: false, error: 'disconnected' });
+    });
   }
 
   onEntities(fn: (entities: EntityInfo[]) => void): void {
@@ -259,6 +298,7 @@ export class BridgeHub {
     const previous = this.active;
     this.active = socket;
     if (previous) {
+      for (const w of [...this.pending.values()]) if (w.socket === previous) w.done({ ok: false, error: 'disconnected' });
       try {
         previous.close(4002, 'replaced');
       } catch {

@@ -23,7 +23,8 @@ describe('shop api and treats', () => {
   let unlocks: UnlocksRepo;
   let pid: string;
   let connected: boolean;
-  let callResult: boolean;
+  let callResult: { ok: boolean; error?: string } | 'hang';
+  let hangRelease: (() => void) | null;
   let calls: unknown[][];
   let events: string[];
 
@@ -34,7 +35,8 @@ describe('shop api and treats', () => {
     ledger = new LedgerRepo(db);
     unlocks = new UnlocksRepo(db);
     connected = true;
-    callResult = true;
+    callResult = { ok: true };
+    hangRelease = null;
     calls = [];
     events = [];
     const bus = new Bus();
@@ -42,7 +44,15 @@ describe('shop api and treats', () => {
     const clock = new FakeClock(start);
     const hub = {
       isConnected: () => connected,
-      callService: (...a: unknown[]) => (calls.push(a), callResult),
+      callServiceAwait: (...a: unknown[]) => {
+        calls.push(a);
+        if (callResult === 'hang') {
+          return new Promise<{ ok: boolean; error?: string }>((res) => {
+            hangRelease = () => res({ ok: false, error: 'disconnected' });
+          });
+        }
+        return Promise.resolve(callResult);
+      },
     };
     const shop = new ShopService({
       players,
@@ -105,9 +115,9 @@ describe('shop api and treats', () => {
     expect(ledger.listForPlayer(pid)).toEqual([]);
   });
 
-  it('callService false after spend: refunded, 503, ledger nets to zero', async () => {
+  it('bridge answers ok: false (not_allowed): refunded, 503, ledger nets to zero', async () => {
     const u = mkUnlock();
-    callResult = false;
+    callResult = { ok: false, error: 'not_allowed' };
     const res = await buy(`treat:${u.id}`);
     expect(res.statusCode).toBe(503);
     expect(res.json().error).toBe('bridge_offline');
@@ -116,6 +126,36 @@ describe('shop api and treats', () => {
     expect(rows).toHaveLength(2);
     expect(rows.reduce((s, r) => s + r.gold, 0)).toBe(0);
     expect(rows.find((r) => r.gold === 30)?.meta).toMatchObject({ itemId: `treat:${u.id}`, refund: true });
+  });
+
+  it('timeout from the bridge: refunded, 503', async () => {
+    const u = mkUnlock();
+    callResult = { ok: false, error: 'timeout' };
+    const res = await buy(`treat:${u.id}`);
+    expect(res.statusCode).toBe(503);
+    expect(players.get(pid)?.gold).toBe(100);
+    expect(ledger.listForPlayer(pid).reduce((s, r) => s + r.gold, 0)).toBe(0);
+  });
+
+  it('bridge disconnect while waiting: gold is held during the wait, then refunded', async () => {
+    const u = mkUnlock();
+    callResult = 'hang';
+    const pending = buy(`treat:${u.id}`);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(players.get(pid)?.gold).toBe(70);
+    hangRelease?.();
+    const res = await pending;
+    expect(res.statusCode).toBe(503);
+    expect(players.get(pid)?.gold).toBe(100);
+  });
+
+  it('not enough gold: nothing sent, nothing spent', async () => {
+    const u = mkUnlock(500);
+    const res = await buy(`treat:${u.id}`);
+    expect(res.statusCode).toBe(409);
+    expect(calls).toEqual([]);
+    expect(players.get(pid)?.gold).toBe(100);
+    expect(ledger.listForPlayer(pid)).toEqual([]);
   });
 
   it('disabled or unknown treat is unknown_item and not in the catalog', async () => {

@@ -31,7 +31,7 @@ export function makeDeps(over: Partial<AppDeps> = {}): AppDeps {
     items: new ItemsRepo(db),
     ledger: new LedgerRepo(db),
     unlocks,
-    hub: { isConnected: () => false, callService: () => false },
+    hub: { isConnected: () => false, callServiceAwait: () => Promise.resolve({ ok: false }) },
     tx: (fn) => transaction(db, fn),
     clock: systemClock,
   });

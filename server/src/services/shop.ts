@@ -56,7 +56,7 @@ export class ShopService {
   private rng: () => number;
   private bus: Bus | undefined;
   private unlocks: UnlocksRepo;
-  private hub: Pick<BridgeHub, 'callService' | 'isConnected'>;
+  private hub: Pick<BridgeHub, 'callServiceAwait' | 'isConnected'>;
 
   constructor(deps: {
     players: PlayersRepo;
@@ -67,7 +67,7 @@ export class ShopService {
     rng?: () => number;
     bus?: Bus;
     unlocks: UnlocksRepo;
-    hub: Pick<BridgeHub, 'callService' | 'isConnected'>;
+    hub: Pick<BridgeHub, 'callServiceAwait' | 'isConnected'>;
   }) {
     this.players = deps.players;
     this.items = deps.items;
@@ -87,7 +87,7 @@ export class ShopService {
     return { item: { id: itemId, kind: 'treat', name: u.name, cost: u.cost }, entityId: u.entityId };
   }
 
-  private buyTreat(playerId: string, itemId: string): BuyResult {
+  async buyTreat(playerId: string, itemId: string): Promise<BuyResult> {
     const treat = this.treatItem(itemId);
     if (!treat) throw new ShopError('unknown_item');
     if (!this.hub.isConnected()) throw new ShopError('bridge_offline');
@@ -106,8 +106,8 @@ export class ShopService {
       });
       return { player: this.players.get(playerId) as Player, result: { kind: 'treat', itemId } };
     });
-    const ok = this.hub.callService(domainOf(entityId), 'turn_on', {}, { entity_id: entityId });
-    if (!ok) {
+    const res = await this.hub.callServiceAwait(domainOf(entityId), 'turn_on', {}, { entity_id: entityId });
+    if (!res.ok) {
       this.tx(() => {
         this.players.addRewards(playerId, 0, item.cost);
         this.ledger.add({
@@ -128,7 +128,8 @@ export class ShopService {
   }
 
   buy(playerId: string, itemId: string): BuyResult {
-    if (itemId.startsWith('treat:')) return this.buyTreat(playerId, itemId);
+    // treats are asynchronous: use buyTreat()
+    if (itemId.startsWith('treat:')) throw new ShopError('unknown_item');
     const item = findItem(itemId);
     if (!item) throw new ShopError('unknown_item');
     const out = this.tx((): BuyResult => {

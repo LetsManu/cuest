@@ -24,7 +24,8 @@ export const v = {
     if (x === undefined || x === null) return o.def;
     if (typeof x !== 'number' || !Number.isFinite(x)) return fail(tag, key, 'must be a number');
     if ((o.min !== undefined && x < o.min) || (o.max !== undefined && x > o.max)) {
-      return fail(tag, key, `must be between ${o.min ?? '-∞'} and ${o.max ?? '∞'}`);
+      if (o.min !== undefined && o.max !== undefined) return fail(tag, key, `must be between ${o.min} and ${o.max}`);
+      return o.min !== undefined ? fail(tag, key, `must be at least ${o.min}`) : fail(tag, key, `must be at most ${o.max}`);
     }
     return x;
   },
@@ -79,6 +80,7 @@ export abstract class ArcaneCard<C> extends LitElement {
 
   set hass(h: HomeAssistant) {
     this._hass = h;
+    if (!this.config) return; // setConfig() resets the signature and requests the first render
     const sig = this.signature(h);
     if (sig !== this._sig) {
       this._sig = sig;
@@ -113,7 +115,7 @@ export abstract class ArcaneCard<C> extends LitElement {
   }
 
   protected missing(id: string): TemplateResult {
-    return html`<div class="warn" role="alert">${fill(ARCANE_COPY.missing, { id })}</div>`;
+    return html`<div class="warn" role="status">${fill(ARCANE_COPY.missing, { id })}</div>`;
   }
 }
 

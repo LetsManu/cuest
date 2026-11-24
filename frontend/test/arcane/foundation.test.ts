@@ -96,6 +96,14 @@ describe('theme', () => {
   it.each(ANIMS)('.%s has its animation rule', (cls, re) => {
     expect(rule(css, cls)).toMatch(re);
   });
+  it('panel rules', () => {
+    expect(rule(css, 'panel')).toMatch(/border-radius:\s*18px/);
+    expect(css).toMatch(/\.panel\.rim\s*\{[^}]*border-color:\s*#6B5A2E/);
+  });
+  it('warn is a status panel', async () => {
+    const el = await mount<TestCard>('cuest-test-card', {}, fakeHass({ states: {} }));
+    expect(el.shadowRoot!.querySelector('.warn')?.getAttribute('role')).toBe('status');
+  });
   it('shimmer slides left and draw starts at 1000', () => {
     expect(css).toMatch(/@keyframes shimmer\s*\{\s*from\s*\{\s*left:\s*-50px\s*\}\s*to\s*\{\s*left:\s*100%/);
     expect(css).toMatch(/@keyframes draw\s*\{\s*from\s*\{\s*stroke-dashoffset:\s*1000/);
@@ -130,7 +138,7 @@ class TestCard extends ArcaneCard<{ hours: number; entity?: string }> {
     };
   }
   protected entityIds(): string[] {
-    return ['sensor.a'];
+    return [this.config.entity ?? 'sensor.a'];
   }
   protected updated(): void {
     updated();
@@ -172,6 +180,23 @@ describe('base card', () => {
     await el.updateComplete;
     expect(updated.mock.calls.length).toBe(n + 1);
   });
+  it('accepts hass before setConfig', async () => {
+    const el = make();
+    expect(() => {
+      el.hass = fakeHass({ states: { 'sensor.a': st('1') } });
+    }).not.toThrow();
+    el.setConfig({});
+    document.body.appendChild(el);
+    await el.updateComplete;
+    expect(text(el)).toContain('hello');
+  });
+  it('adds the fonts link once on connect', () => {
+    document.getElementById('cuest-arcane-fonts')?.remove();
+    const a = make();
+    const b = make();
+    document.body.append(a, b);
+    expect(document.head.querySelectorAll('#cuest-arcane-fonts')).toHaveLength(1);
+  });
   it('has default sizes', () => {
     const el = make();
     expect(el.getCardSize()).toBeGreaterThan(0);
@@ -202,6 +227,8 @@ describe('validators', () => {
   it('num', () => {
     expect(() => v.num({ hours: 'x' }, 'hours', T, { def: 24 })).toThrow(/"hours" must be a number/);
     expect(() => v.num({ hours: 500 }, 'hours', T, { def: 24, min: 1, max: 168 })).toThrow(/"hours" must be between 1 and 168/);
+    expect(() => v.num({ n: 0 }, 'n', T, { def: 1, min: 1 })).toThrow(/"n" must be at least 1/);
+    expect(() => v.num({ n: 9 }, 'n', T, { def: 1, max: 5 })).toThrow(/"n" must be at most 5/);
     expect(v.num({}, 'hours', T, { def: 24 })).toBe(24);
     expect(v.num({ hours: 12 }, 'hours', T, { def: 24, min: 1, max: 168 })).toBe(12);
   });

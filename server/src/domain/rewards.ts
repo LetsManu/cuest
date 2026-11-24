@@ -1,3 +1,4 @@
+import { copy } from '../copy.js';
 import type { Quest } from './types.js';
 
 export interface Reward {
@@ -11,6 +12,6 @@ export function computeReward(input: { quest: Quest; startedAt: Date | null; don
   return {
     xp: quest.xp,
     gold: quest.gold,
-    lines: [{ label: 'Quest', xp: quest.xp, gold: quest.gold }],
+    lines: [{ label: copy.rewardBaseLabel, xp: quest.xp, gold: quest.gold }],
   };
 }

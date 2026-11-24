@@ -13,6 +13,8 @@ import type { DiceService } from './services/dice.js';
 import type { SprintService } from './services/sprint.js';
 import { registerPlayRoutes } from './routes/play.js';
 import { registerQuestRoutes } from './routes/quests.js';
+import type { SettingsRepo } from './repos/settings.js';
+import { registerSettingsRoutes } from './routes/settings.js';
 import { registerShopRoutes } from './routes/shop.js';
 import { registerUnlockRoutes } from './routes/unlocks.js';
 import { registerSuggestionRoutes } from './routes/suggestions.js';
@@ -27,6 +29,7 @@ export interface AppDeps {
   dice?: DiceService;
   sprints?: SprintService;
   unlocks: UnlocksRepo;
+  settings?: SettingsRepo;
   onTemplatesChanged: () => void;
   onPlayersChanged?: () => void;
   getEntities?: () => EntityInfo[];
@@ -45,6 +48,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   registerPlayerRoutes(app, deps.players, clock, deps.onPlayersChanged ?? (() => {}));
   registerQuestRoutes(app, deps.quests, () => deps.questOfDay?.(clock.now()) ?? null);
   if (deps.dice && deps.sprints) registerPlayRoutes(app, deps.dice, deps.sprints, (id) => deps.players.get(id) !== null);
+  if (deps.settings) registerSettingsRoutes(app, deps.settings);
   registerShopRoutes(app, deps.shop);
   registerUnlockRoutes(app, deps.unlocks, clock);
   registerTemplateRoutes(app, deps.templates, deps.onTemplatesChanged, clock);

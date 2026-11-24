@@ -23,10 +23,18 @@ _HTTP_REGISTERED = f"{DOMAIN}_http_registered"
 _SAFE_PATH = re.compile(r"[a-z0-9_-]+(/[a-z0-9_-]+)*")
 # Non-admin users may only play: GET anything safe, plus these POSTs.
 _PLAYER_POST = re.compile(
-    r"quests/[a-z0-9_-]+/(start|done|later)|shop/(buy|equip)"
+    r"quests/[a-z0-9_-]+/(start|done|later)"
+    r"|shop/(buy|equip|open-chest)"
+    r"|sprint/(start|log|finish)"
+    r"|dice/accept"
 )
 # Writes that act as a player: a linked non-admin may only act as their own player.
-_PLAYER_BOUND = re.compile(r"quests/[a-z0-9_-]+/(start|done)|shop/(buy|equip)")
+_PLAYER_BOUND = re.compile(
+    r"quests/[a-z0-9_-]+/(start|done)"
+    r"|shop/(buy|equip|open-chest)"
+    r"|sprint/(start|log|finish)"
+    r"|dice/accept"
+)
 _MAX_BODY = 64 * 1024
 _ENCODED_BAD = re.compile(r"%(2e|2f|5c)", re.IGNORECASE)
 _CONTROL_OR_BACKSLASH = re.compile(r"[\x00-\x1f\x7f\\]")
@@ -68,7 +76,7 @@ class CuestProxyView(HomeAssistantView):
 
     Trust model: any signed-in HA user may use this endpoint; non-admins are
     limited to GET and the playing actions (start/done/later quests, shop
-    buy/equip). A non-admin whose HA user is linked to a player may only act as
+    buy/equip/open-chest, sprints, dice accept). A non-admin whose HA user is linked to a player may only act as
     that player (403 not_your_player otherwise); unlinked shared accounts and
     admins may pick any player. Every other write needs an HA admin. Bodies are capped at 64 KiB.
     """

@@ -92,7 +92,7 @@ async def entry_and_client(hass: HomeAssistant):
 async def _menu(hass, entry, choice):
     result = await hass.config_entries.options.async_init(entry.entry_id)
     assert result["type"] is FlowResultType.MENU
-    assert result["menu_options"] == ["people", "devices", "treats"]
+    assert result["menu_options"] == ["people", "devices", "treats", "celebrations"]
     return await hass.config_entries.options.async_configure(
         result["flow_id"], {"next_step_id": choice}
     )
@@ -518,3 +518,69 @@ async def test_options_treats_disables_stale_server_unlocks_not_in_options(
     calls = [c.args for c in client.api.await_args_list]
     assert ("DELETE", "/api/unlocks/u2") in calls
     assert ("DELETE", "/api/unlocks/u1") not in calls
+
+
+async def test_options_celebrations_saves_lights_and_scene(
+    hass: HomeAssistant, entry_and_client
+) -> None:
+    entry, client = entry_and_client
+    client.api.side_effect = None
+    client.api.return_value = (200, {})
+    result = await _menu(hass, entry, "celebrations")
+    assert result["step_id"] == "celebrations"
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {"lights": ["light.hall", "light.desk"], "scene": "scene.focus"},
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert dict(entry.options) == {
+        "keep": 1,
+        "celebration_lights": ["light.hall", "light.desk"],
+        "sprint_scene": "scene.focus",
+    }
+    assert (
+        "PATCH",
+        "/api/settings",
+        {"celebrationLights": ["light.hall", "light.desk"], "sprintScene": "scene.focus"},
+    ) in [c.args for c in client.api.await_args_list]
+
+
+async def test_options_celebrations_scene_optional(
+    hass: HomeAssistant, entry_and_client
+) -> None:
+    entry, client = entry_and_client
+    client.api.side_effect = None
+    client.api.return_value = (200, {})
+    result = await _menu(hass, entry, "celebrations")
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"lights": ["light.hall"]}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert entry.options["sprint_scene"] is None
+    assert (
+        "PATCH",
+        "/api/settings",
+        {"celebrationLights": ["light.hall"], "sprintScene": None},
+    ) in [c.args for c in client.api.await_args_list]
+
+
+@pytest.mark.parametrize(
+    ("effect", "key"),
+    [(CuestNotConnected, "cannot_connect"), (None, "server_rejected")],
+)
+async def test_options_celebrations_server_failure_keeps_options(
+    hass: HomeAssistant, entry_and_client, effect, key
+) -> None:
+    entry, client = entry_and_client
+    if effect:
+        client.api.side_effect = effect
+    else:
+        client.api.side_effect = None
+        client.api.return_value = (400, {})
+    result = await _menu(hass, entry, "celebrations")
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"lights": ["light.hall"], "scene": "scene.focus"}
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": key}
+    assert dict(entry.options) == {"keep": 1}

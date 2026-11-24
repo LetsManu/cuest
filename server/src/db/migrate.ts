@@ -118,6 +118,12 @@ export const MIGRATIONS: string[] = [
   CREATE INDEX idx_sprints_player ON sprints(player_id, ended_at);
   CREATE UNIQUE INDEX sprints_one_active ON sprints(player_id) WHERE ended_at IS NULL;
   `,
+  `
+  CREATE TABLE settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
+  `,
 ];
 
 export function migrate(db: DatabaseSync): void {

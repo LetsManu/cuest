@@ -12,6 +12,8 @@ SERVICE_START_QUEST = "start_quest"
 ALLOWED_DOMAINS = frozenset({"notify", "light"})
 TREAT_DOMAINS = frozenset({"scene", "script", "switch", "input_boolean"})
 CONF_TREATS = "treats"
+CONF_CELEBRATION_LIGHTS = "celebration_lights"
+CONF_SPRINT_SCENE = "sprint_scene"
 
 CONF_URL = "url"
 CONF_SECRET = "secret"

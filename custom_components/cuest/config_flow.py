@@ -33,7 +33,15 @@ from .client import (
     InvalidAuth,
     async_validate,
 )
-from .const import CONF_SECRET, CONF_TREATS, CONF_URL, DOMAIN, TREAT_DOMAINS
+from .const import (
+    CONF_CELEBRATION_LIGHTS,
+    CONF_SECRET,
+    CONF_SPRINT_SCENE,
+    CONF_TREATS,
+    CONF_URL,
+    DOMAIN,
+    TREAT_DOMAINS,
+)
 
 CONF_PERSONS = "persons"
 CONF_NOTIFY_SERVICE = "notify_service"
@@ -42,6 +50,8 @@ MOBILE_APP_PREFIX = "mobile_app_"
 CONF_ENTITIES = "entities"
 CONF_NAME = "name"
 CONF_COST = "cost"
+CONF_LIGHTS = "lights"
+CONF_SCENE = "scene"
 DEFAULT_TREAT_COST = 50
 
 
@@ -158,7 +168,7 @@ class CuestOptionsFlow(OptionsFlow):
     ) -> ConfigFlowResult:
         """Show the options menu."""
         return self.async_show_menu(
-            step_id="init", menu_options=["people", "devices", "treats"]
+            step_id="init", menu_options=["people", "devices", "treats", "celebrations"]
         )
 
     # ---- people ----
@@ -444,3 +454,50 @@ class CuestOptionsFlow(OptionsFlow):
         for entity, existing in self._unlocks.items():
             if entity not in self._treats and existing.get("enabled", True):
                 await self._api("DELETE", f"/api/unlocks/{existing['id']}")
+
+    # ---- celebrations ----
+
+    async def async_step_celebrations(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Choose the celebration lights and the optional sprint scene."""
+        errors: dict[str, str] = {}
+        options = self.config_entry.options
+        lights = list(options.get(CONF_CELEBRATION_LIGHTS, []))
+        scene = options.get(CONF_SPRINT_SCENE)
+        if user_input is not None:
+            lights = list(user_input.get(CONF_LIGHTS, []))
+            scene = user_input.get(CONF_SCENE) or None
+            try:
+                await self._api(
+                    "PATCH",
+                    "/api/settings",
+                    {"celebrationLights": lights, "sprintScene": scene},
+                )
+            except CuestNotConnected:
+                errors["base"] = "cannot_connect"
+            except CuestRejected:
+                errors["base"] = "server_rejected"
+            else:
+                return self.async_create_entry(
+                    data={
+                        **options,
+                        CONF_CELEBRATION_LIGHTS: lights,
+                        CONF_SPRINT_SCENE: scene,
+                    }
+                )
+        scene_key = (
+            vol.Optional(CONF_SCENE, description={"suggested_value": scene})
+        )
+        return self.async_show_form(
+            step_id="celebrations",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_LIGHTS, default=lights): EntitySelector(
+                        EntitySelectorConfig(domain="light", multiple=True)
+                    ),
+                    scene_key: EntitySelector(EntitySelectorConfig(domain="scene")),
+                }
+            ),
+            errors=errors,
+        )

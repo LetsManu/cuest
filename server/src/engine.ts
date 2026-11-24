@@ -1,3 +1,5 @@
+import { SettingsRepo } from './repos/settings.js';
+import { CelebrateService } from './services/celebrate.js';
 import { ItemsRepo } from './repos/items.js';
 import type { FastifyInstance } from 'fastify';
 import type { DatabaseSync } from 'node:sqlite';
@@ -46,6 +48,7 @@ export async function createEngine(deps: {
   const ledger = new LedgerRepo(db);
   const items = new ItemsRepo(db);
   const unlocks = new UnlocksRepo(db);
+  const settings = new SettingsRepo(db);
   const bus = new Bus();
   // The Publisher republishes on 'daily:picked', so listener order against 'quest:opened' does not matter.
   const daily = new DailyService({ db, quests: questsRepo, players, clock, tz: config.tz,
@@ -67,6 +70,7 @@ export async function createEngine(deps: {
   bus.on('quest:opened', (q) => daily.onQuestOpened(q, clock.now()));
   const hub = new BridgeHub({ secret: config.bridgeSecret, log });
   const shop = new ShopService({ players, items, ledger, unlocks, hub, bus, clock, tx: (fn) => transaction(db, fn) });
+  new CelebrateService({ bus, hub, settings, log });
   const rules = new RuleEngine({ templates, quests });
   const recurring = new RecurringScheduler({ templates, quests, tz: config.tz });
   const nudges = new NudgeService({ bus, hub, quests, questsRepo, templates, players, clock, tz: config.tz });
@@ -109,6 +113,7 @@ export async function createEngine(deps: {
     dice,
     sprints,
     unlocks,
+    settings,
     onTemplatesChanged: refreshSubscriptions,
     onPlayersChanged: () => publisher.publishSnapshot(),
     getEntities: () => entities,

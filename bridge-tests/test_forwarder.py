@@ -324,3 +324,80 @@ async def test_treat_call_drops_selector_data(hass: HomeAssistant) -> None:
     assert calls[0].data == {"entity_id": "script.gaming_pc"}
     assert client.sent == [{"type": "result", "id": "d", "ok": True}]
     await forwarder.async_stop()
+
+
+async def _scene_setup(hass: HomeAssistant, options: dict):
+    client = FakeClient()
+    entry = MockConfigEntry(domain=DOMAIN, data={}, options=options)
+    entry.add_to_hass(hass)
+    forwarder = Forwarder(hass, client, entry)
+    await forwarder.async_start()
+    return client, entry, forwarder
+
+
+async def test_sprint_scene_turn_on_executed(hass: HomeAssistant) -> None:
+    client, _, forwarder = await _scene_setup(hass, {"sprint_scene": "scene.focus"})
+    calls = async_mock_service(hass, "scene", "turn_on")
+    client.callbacks["call_service"](
+        {
+            "type": "call_service", "id": "s", "domain": "scene", "service": "turn_on",
+            "data": {"area_id": "kitchen", "entity_id": "scene.other"},
+            "target": {"entity_id": "scene.focus"},
+        }
+    )
+    await hass.async_block_till_done()
+    assert len(calls) == 1
+    assert calls[0].data == {"entity_id": "scene.focus"}
+    assert client.sent == [{"type": "result", "id": "s", "ok": True}]
+    await forwarder.async_stop()
+
+
+async def test_sprint_scene_read_at_call_time(hass: HomeAssistant) -> None:
+    client, entry, forwarder = await _scene_setup(hass, {})
+    calls = async_mock_service(hass, "scene", "turn_on")
+    _call(client, "a", "scene", "turn_on", {"entity_id": "scene.focus"})
+    await hass.async_block_till_done()
+    assert calls == []
+    hass.config_entries.async_update_entry(entry, options={"sprint_scene": "scene.focus"})
+    _call(client, "b", "scene", "turn_on", {"entity_id": "scene.focus"})
+    await hass.async_block_till_done()
+    assert len(calls) == 1
+    await forwarder.async_stop()
+
+
+@pytest.mark.parametrize(
+    ("domain", "service", "target"),
+    [
+        ("scene", "turn_on", {"entity_id": "scene.other"}),
+        ("scene", "turn_off", {"entity_id": "scene.focus"}),
+        ("scene", "turn_on", {"entity_id": ["scene.focus"]}),
+        ("scene", "turn_on", {"entity_id": ["scene.focus", "scene.other"]}),
+        ("scene", "turn_on", None),
+        ("scene", "turn_on", {"area_id": "kitchen"}),
+        ("scene", "turn_on", {"entity_id": "scene.focus", "area_id": "kitchen"}),
+        ("scene", "turn_on", {"entity_id": "scene.focus", "label_id": "l"}),
+        ("scene", "turn_on", "scene.focus"),
+        ("script", "turn_on", {"entity_id": "scene.focus"}),
+        ("switch", "turn_on", {"entity_id": "scene.focus"}),
+    ],
+)
+async def test_sprint_scene_refusals(hass: HomeAssistant, domain, service, target) -> None:
+    client, _, forwarder = await _scene_setup(hass, {"sprint_scene": "scene.focus"})
+    calls = [
+        async_mock_service(hass, d, s)
+        for d, s in (("scene", "turn_on"), ("scene", "turn_off"), ("script", "turn_on"), ("switch", "turn_on"))
+    ]
+    _call(client, "r", domain, service, target)
+    await hass.async_block_till_done()
+    assert all(c == [] for c in calls)
+    assert client.sent == [{"type": "result", "id": "r", "ok": False, "error": "not_allowed"}]
+    await forwarder.async_stop()
+
+
+async def test_no_sprint_scene_configured_refuses_everything(hass: HomeAssistant) -> None:
+    client, _, forwarder = await _scene_setup(hass, {"sprint_scene": None})
+    calls = async_mock_service(hass, "scene", "turn_on")
+    _call(client, "r", "scene", "turn_on", {"entity_id": "scene.focus"})
+    await hass.async_block_till_done()
+    assert calls == []
+    await forwarder.async_stop()

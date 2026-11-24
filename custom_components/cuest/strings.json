@@ -38,7 +38,8 @@
         "menu_options": {
           "people": "People and their phones",
           "devices": "Devices found in your home",
-          "treats": "House treats"
+          "treats": "House treats",
+          "celebrations": "Celebrations"
         }
       },
       "people": {
@@ -80,6 +81,14 @@
           "name": "Name",
           "cost": "Price (gold)"
         }
+      },
+      "celebrations": {
+        "title": "Celebrations",
+        "description": "Pick the lights that flash when a quest is done (longer for a level up). Optionally pick a scene to switch on when a power sprint starts. Celebration sounds are played by your own automations: listen for the cuest_quest_done and cuest_level_up events.",
+        "data": {
+          "lights": "Celebration lights",
+          "scene": "Sprint scene (optional)"
+        }
       }
     },
     "error": {
@@ -105,6 +114,9 @@
       },
       "gold": {
         "name": "{player} gold"
+      },
+      "streak": {
+        "name": "{player} streak"
       }
     },
     "todo": {

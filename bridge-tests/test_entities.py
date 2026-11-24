@@ -59,7 +59,7 @@ async def test_new_player_adds_sensors_once(cuest) -> None:
     ids = [e.unique_id for e in reg.entities.values() if e.platform == "cuest"]
     assert len(ids) == len(set(ids))
     assert sorted(i for i in ids if i.startswith("cuest_p")) == sorted(
-        f"cuest_{p}_{k}" for p in ("p1", "p2") for k in ("level", "xp", "gold")
+        f"cuest_{p}_{k}" for p in ("p1", "p2") for k in ("level", "xp", "gold", "streak")
     )
     ben = _entity(hass, "cuest_p2_level")
     assert ben.attributes["ha_person"] is None
@@ -94,3 +94,19 @@ async def test_level_sensor_exposes_outfit_attributes(cuest) -> None:
     await _push(hass, client, [PLAYER_ADA], [])
     attrs = _entity(hass, "cuest_p1_level").attributes
     assert (attrs["outfit_palette"], attrs["decor"], attrs["rest_tokens"], attrs["boost_until"]) == ({}, [], 0, None)
+
+
+async def test_streak_sensor(cuest) -> None:
+    hass, client, _ = cuest
+    await _push(hass, client, [{**PLAYER_ADA, "streak": 4, "bestStreak": 9, "chestKeys": 2}], [])
+    streak = _entity(hass, "cuest_p1_streak")
+    assert streak.state == "4"
+    assert streak.attributes["best_streak"] == 9
+    assert streak.attributes["chest_keys"] == 2
+    assert streak.attributes["cuest_kind"] == "streak"
+    assert streak.attributes["ha_person"] == "person.ada"
+    await _push(hass, client, [PLAYER_BEN], [])
+    ben = _entity(hass, "cuest_p2_streak")
+    assert ben.state == "unknown" or ben.state == "0"
+    assert ben.attributes["best_streak"] == 0
+    assert ben.attributes["chest_keys"] == 0

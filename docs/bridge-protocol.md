@@ -57,7 +57,7 @@ The first message must be `hello` with the shared secret, within 5 seconds. Othe
 ```json
 { "type": "call_service", "id": "7c1e...", "domain": "notify", "service": "mobile_app_phone", "data": { "message": "Quest ready" }, "target": { "entity_id": "light.hall" } }
 ```
-`target` is optional. The bridge executes service calls in the fixed domains `notify` and `light`. It also executes `turn_on` for a `scene`, `script`, `switch` or `input_boolean` entity, but only when `target.entity_id` is a single string that is on the owner's treat list (chosen in the integration options, read on every call). Anything else is reported back as a failed `result` with `error: "not_allowed"`.
+`target` is optional. The bridge executes service calls in the fixed domains `notify` and `light`. It also executes `turn_on` for a `scene`, `script`, `switch` or `input_boolean` entity, but only when `target.entity_id` is a single string that is on the owner's treat list (chosen in the integration options, read on every call). It also executes `scene.turn_on` for the single sprint scene chosen in the integration options (Celebrations), under the same rules: one string `entity_id`, no other target keys, service data dropped. Celebration flashes use the fixed `light` domain (`light.turn_on` with `flash: short` or `long`). Anything else is reported back as a failed `result` with `error: "not_allowed"`.
 
 `error` (sent before closing the socket)
 ```json

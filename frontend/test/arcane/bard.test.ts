@@ -258,6 +258,23 @@ describe('full bard', () => {
     expect(h.callService).toHaveBeenCalledTimes(3);
   });
 
+  it('sends a queued volume when the card leaves the page', async () => {
+    const d = deferred();
+    const h = world();
+    h.callService.mockImplementationOnce(() => d.promise);
+    const el = await mount(TAG, { entity: ID }, h);
+    setVol(el, 40);
+    setVol(el, 70);
+    expect(h.callService).toHaveBeenCalledTimes(1);
+    el.remove();
+    expect(h.callService).toHaveBeenCalledTimes(2);
+    expect(h.callService).toHaveBeenLastCalledWith('media_player', 'volume_set', { entity_id: ID, volume_level: 0.7 });
+    d.resolve();
+    await flush();
+    expect(h.callService).toHaveBeenCalledTimes(2);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it('a late resolve after removal arms no timer and a reconnect starts clean', async () => {
     const d = deferred();
     const h = world();

@@ -127,7 +127,13 @@ export class CuestBardCard extends ArcaneCard<BardConfig> {
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
+    // A volume waiting behind an in-flight call goes out now; the in-flight reply is ignored after the reset.
+    const queued = this._volQueued;
+    const h = this._hass;
     this.resetVolume();
+    if (queued !== null && h) {
+      void callSafely(() => h.callService('media_player', 'volume_set', { entity_id: this.config.entity, volume_level: queued / 100 }));
+    }
   }
 
   private resetVolume(): void {

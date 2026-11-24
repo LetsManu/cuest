@@ -81,12 +81,25 @@ describe('climate rune', () => {
     expect(text(b)).toContain('23.5°');
   });
 
-  it('drops a pending tap when the card leaves the page', async () => {
+  it('sends a pending tap at once when the card leaves the page, then clears its timers', async () => {
     const h = fakeHass({ states: { 'climate.living': heater() } });
     const el = await mount(TAG, { entity: 'climate.living' }, h);
     btn(el, 'Warmer').click();
+    btn(el, 'Warmer').click();
     el.remove();
-    vi.advanceTimersByTime(2000);
+    expect(h.callService).toHaveBeenCalledOnce();
+    expect(h.callService).toHaveBeenCalledWith('climate', 'set_temperature', { entity_id: 'climate.living', temperature: 24 });
+    expect(vi.getTimerCount()).toBe(0);
+    vi.advanceTimersByTime(10_000);
+    expect(h.callService).toHaveBeenCalledOnce();
+  });
+
+  it('sends nothing on leaving when the taps ended where they started', async () => {
+    const h = fakeHass({ states: { 'climate.living': heater() } });
+    const el = await mount(TAG, { entity: 'climate.living' }, h);
+    btn(el, 'Warmer').click();
+    btn(el, 'Cooler').click();
+    el.remove();
     expect(h.callService).not.toHaveBeenCalled();
     expect(vi.getTimerCount()).toBe(0);
   });

@@ -155,6 +155,11 @@ export class CuestRuneGauge extends ArcaneCard<RuneConfig> {
 
   disconnectedCallback(): void {
     super.disconnectedCallback();
+    // A tap still inside the debounce goes out now rather than being lost (navigating away, a re-layout).
+    if (this._timer !== undefined) {
+      clearTimeout(this._timer);
+      this.send();
+    }
     this.cancel();
   }
 

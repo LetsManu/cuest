@@ -8,3 +8,5 @@ import './quest-board';
 import './allies';
 import './rooms';
 import './stamina';
+import './bard';
+import './spell-tile';

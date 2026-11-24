@@ -84,10 +84,10 @@ export const arcaneBase = css`
     --arc-bg:${u(A.bg)};--arc-panel:${u(A.panel)};--arc-panel-border:${u(A.panelBorder)};--arc-rim:${u(A.rim)};
     --arc-gold:${u(A.gold)};--arc-gold-text:${u(A.goldText)};--arc-lantern:${u(A.lantern)};--arc-text:${u(A.text)};
     --arc-muted:${u(A.muted)};--arc-soft:${u(A.soft)};--arc-well:${u(A.well)};--arc-track:${u(A.track)};
-    --arc-ember:${u(A.ember)};--arc-arcane:${u(A.arcane)};--arc-font-pixel:${u(FONT_PIXEL)}}
-  .panel{background:${u(A.panel)};border:2px solid ${u(A.panelBorder)};border-radius:18px;padding:14px 16px;box-sizing:border-box;color:${u(A.text)}}
+    --arc-ember:${u(A.ember)};--arc-arcane:${u(A.arcane)};--arc-font-pixel:${u(FONT_PIXEL)};--arc-radius:18px}
+  .panel{background:${u(A.panel)};border:2px solid ${u(A.panelBorder)};border-radius:var(--arc-radius);padding:14px 16px;box-sizing:border-box;color:${u(A.text)}}
   .panel.rim{border-color:${u(A.rim)}}
-  .warn{background:${u(A.panel)};border:2px solid ${u(A.scrollBang)};border-radius:18px;padding:14px 16px;color:${u(A.soft)};font-size:13px}
+  .warn{background:${u(A.panel)};border:2px solid ${u(A.scrollBang)};border-radius:var(--arc-radius);padding:14px 16px;color:${u(A.soft)};font-size:13px}
   .num{font-family:${u(FONT_BODY)};font-weight:700;font-variant-numeric:tabular-nums}
   .done{background:${u(A.wellDoneBg)};border:2px solid ${u(A.wellDoneBorder)};border-radius:14px;padding:12px;font-size:13px;color:${u(A.wellDoneText)}}
   h2{margin:0;font-family:${u(FONT_PIXEL)};font-weight:500;font-size:18px;color:${u(A.goldText)}}

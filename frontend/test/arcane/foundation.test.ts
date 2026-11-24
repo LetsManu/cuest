@@ -36,6 +36,12 @@ describe('format', () => {
   it('builds the clock line', () => {
     expect(clockLine(new Date(2026, 10, 24, 16, 40), 'en')).toBe('Tuesday 16:40');
   });
+  it('builds the clock line in a given time zone and falls back for an unknown one', () => {
+    const d = new Date(Date.UTC(2026, 10, 24, 15, 40));
+    expect(clockLine(d, 'en', 'Asia/Tokyo')).toBe('Wednesday 00:40');
+    expect(clockLine(d, 'en', 'UTC')).toBe('Tuesday 15:40');
+    expect(clockLine(d, 'en', 'Not/AZone')).toBe(clockLine(d, 'en'));
+  });
 });
 
 describe('shared helpers', () => {
@@ -142,7 +148,8 @@ describe('theme', () => {
     expect(rule(css, 'done')).toMatch(/background:#1F3A2C;border:2px solid #3E7A55;border-radius:14px/);
   });
   it('panel rules', () => {
-    expect(rule(css, 'panel')).toMatch(/border-radius:\s*18px/);
+    expect(css).toMatch(/--arc-radius:18px/);
+    expect(rule(css, 'panel')).toMatch(/border-radius:\s*var\(--arc-radius\)/);
     expect(css).toMatch(/\.panel\.rim\s*\{[^}]*border-color:\s*#6B5A2E/);
   });
   it('warn is a status panel', async () => {

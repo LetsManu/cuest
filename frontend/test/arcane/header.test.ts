@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { expectClean, fakeHass, mount, st, text } from './fake-hass';
 import { CuestArcaneHeader } from '../../src/arcane/header';
+import { clockLine } from '../../src/arcane/format';
 import '../../src/arcane/orb';
 
 const TAG = 'cuest-arcane-header';
@@ -83,6 +84,29 @@ describe('header phone', () => {
     expect(text(el)).toContain('22° inside');
   });
 
+  it('scales the village to the card width with the ground reaching both edges', async () => {
+    const el = await mount(TAG, {}, fakeHass({ states: lights(1) }));
+    const svg = root(el).querySelector('svg.village')!;
+    expect(svg.getAttribute('width')).toBe('100%');
+    expect(svg.getAttribute('height')).toBe('210');
+    expect(svg.getAttribute('viewBox')).toBe('0 0 390 210');
+    expect(svg.getAttribute('preserveAspectRatio')).toBe('xMidYMax meet');
+    const ground = svg.querySelector('rect.ground')!;
+    expect(Number(ground.getAttribute('x'))).toBeLessThanOrEqual(-1000);
+    expect(Number(ground.getAttribute('x')) + Number(ground.getAttribute('width'))).toBeGreaterThanOrEqual(1390);
+    const css = CuestArcaneHeader.styles.map((s) => (s as { cssText: string }).cssText).join('\n');
+    expect(css).toMatch(/\.village\{[^}]*width:100%/);
+  });
+
+  it('is a rounded card like the others', async () => {
+    const css = CuestArcaneHeader.styles.map((s) => (s as { cssText: string }).cssText).join('\n');
+    expect(css).toMatch(/--arc-radius:18px/);
+    expect(css).toMatch(/\.sky\{[^}]*border-radius:var\(--arc-radius\)/);
+    expect(css).toMatch(/\.panel\{[^}]*border-radius:var\(--arc-radius\)/);
+    const el = await mount(TAG, {}, fakeHass({ states: lights(1) }));
+    expect(root(el).querySelector('.sky')).not.toBeNull();
+  });
+
   it('flickers lit windows but honours reduced motion', () => {
     const css = CuestArcaneHeader.styles.map((s) => (s as { cssText: string }).cssText).join('\n');
     expect(css).toMatch(/\.win\.lit\{[^}]*animation:flicker 4s/);
@@ -102,6 +126,20 @@ describe('header clock', () => {
     expect(text(el)).toContain('16:42');
     el.remove();
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("uses Home Assistant's time zone unless the user picked their own", async () => {
+    vi.setSystemTime(new Date(Date.UTC(2026, 10, 24, 15, 40)));
+    const withTz = (time_zone?: 'local' | 'server') =>
+      Object.assign(fakeHass({ states: lights(1) }), { config: { time_zone: 'Asia/Tokyo' }, locale: { language: 'en', ...(time_zone ? { time_zone } : {}) } });
+    const server = await mount(TAG, {}, withTz('server'));
+    expect(text(server)).toContain('Wednesday 00:40 · the house is happy');
+    const unset = await mount(TAG, {}, withTz());
+    expect(text(unset)).toContain('Wednesday 00:40');
+    const local = await mount(TAG, {}, withTz('local'));
+    expect(text(local)).toContain(`${clockLine(new Date(), 'en')} · the house is happy`);
+    const wide = await mount(TAG, { variant: 'wide' }, withTz('server'));
+    expect(text(wide)).toContain('Wednesday 00:40');
   });
 
   it('aligns the first tick to the minute boundary', async () => {
@@ -139,6 +177,14 @@ describe('header wide', () => {
     expect(CuestArcaneHeader.styles.map((x) => (x as { cssText: string }).cssText).join('')).not.toMatch(/drop-shadow/);
     expect(text(el)).toContain('Glow · 1 light on');
     expectClean(el);
+  });
+
+  it('shows the inside temperature too, like the phone header', async () => {
+    const h = fakeHass({ states: { ...states, 'sensor.inside': st('21.5') } });
+    const el = await mount(TAG, { variant: 'wide', outside: 'sensor.outside', inside: 'sensor.inside' }, h);
+    expect(text(el)).toContain('Tuesday 16:40 · the house is happy · -0.7° outside · 21.5° inside');
+    const only = await mount(TAG, { variant: 'wide', inside: 'sensor.inside' }, h);
+    expect(text(only)).toContain('the house is happy · 21.5° inside');
   });
 
   it('rejects orbs on the phone variant', () => {

@@ -2,7 +2,7 @@ import { css, html, nothing, svg, unsafeCSS, type TemplateResult } from 'lit';
 import type { HomeAssistant } from '../hass-types';
 import { ArcaneCard, ConfigError, registerCard, v } from './base';
 import { ARCANE_COPY, fill } from './copy';
-import { clockLine, fmtTemp, num } from './format';
+import { clockLine, clockZone, fmtTemp, num } from './format';
 import { lightStats } from './house';
 import { missingOrbEntity, orbColorText, orbValue, renderOrb, validateOrb, type OrbItem } from './orb';
 import { ARCANE, FONT_BODY, FONT_PIXEL } from './theme';
@@ -56,7 +56,7 @@ export class CuestArcaneHeader extends ArcaneCard<HeaderConfig> {
   static styles = [
     ...ArcaneCard.styles,
     css`
-      .sky{position:relative;overflow:hidden;background:linear-gradient(${u(A.skyTop)},${u(A.skyBottom)});border-bottom:3px solid ${u(A.rim)}}
+      .sky{position:relative;overflow:hidden;background:linear-gradient(${u(A.skyTop)},${u(A.skyBottom)});border-bottom:3px solid ${u(A.rim)};border-radius:var(--arc-radius)}
       .sky.phone{height:210px}
       .titles{display:flex;flex-direction:column;gap:4px}
       .phone .titles{position:absolute;left:16px;top:18px}
@@ -66,7 +66,7 @@ export class CuestArcaneHeader extends ArcaneCard<HeaderConfig> {
       .wide .status{font-size:14px;margin-top:4px}
       .moon{position:absolute;right:40px;top:30px;width:34px;height:34px;border-radius:99px;background:#F3E6C0;box-shadow:0 0 24px #F3E6C0}
       .moon-cut{position:absolute;right:30px;top:26px;width:30px;height:30px;border-radius:99px;background:#1A1F3E}
-      .village{position:absolute;left:0;bottom:0}
+      .village{position:absolute;left:0;bottom:0;width:100%;height:210px}
       .win.lit{animation:flicker 4s ease-in-out infinite}
       .temps{position:absolute;right:16px;bottom:44px;font-size:12px;color:${u(A.soft)};text-align:right}
       .inner{max-width:1280px;margin:0 auto;padding:22px 24px;display:flex;flex-wrap:wrap;align-items:center;gap:24px;position:relative}
@@ -151,6 +151,10 @@ export class CuestArcaneHeader extends ArcaneCard<HeaderConfig> {
     return this.config.variant === 'wide' ? this.wide(h) : this.phone(h);
   }
 
+  private clock(h: HomeAssistant): string {
+    return clockLine(new Date(), h.locale?.language, clockZone(h.locale, h.config));
+  }
+
   private stars(list: typeof STARS_PHONE): TemplateResult[] {
     return list.map((s) => html`<span class="star" style="left:${s.left};top:${s.top};animation-delay:${s.delay}s"></span>`);
   }
@@ -159,15 +163,14 @@ export class CuestArcaneHeader extends ArcaneCard<HeaderConfig> {
     const c = this.config;
     const l = lightStats(h);
     const lit = litWindows(l.on, l.total);
-    const lang = h.locale?.language;
     const out = this.temp(h, c.outside, C.header.outside);
     const inn = this.temp(h, c.inside, C.header.inside);
     return html`<div class="sky phone">
       ${this.stars(STARS_PHONE)}
       <span class="moon"></span><span class="moon-cut"></span>
-      <div class="titles"><h1>${c.title}</h1><span class="status">${clockLine(new Date(), lang)} · ${c.mood}</span></div>
-      <svg class="village" width="390" height="210" viewBox="0 0 390 210" aria-hidden="true" focusable="false">
-        <rect x="0" y="176" width="390" height="34" fill="${A.wellDoneBg}"/>
+      <div class="titles"><h1>${c.title}</h1><span class="status">${this.clock(h)} · ${c.mood}</span></div>
+      <svg class="village" width="100%" height="210" viewBox="0 0 390 210" preserveAspectRatio="xMidYMax meet" aria-hidden="true" focusable="false">
+        <rect class="ground" x="-1200" y="176" width="2790" height="34" fill="${A.wellDoneBg}"/>
         <g class="house"><rect x="28" y="114" width="96" height="62" fill="#3B3226"/><polygon points="20,114 132,114 76,78" fill="#6B3A2E"/><rect x="64" y="150" width="18" height="26" fill="#2A2018"/></g>
         <g class="house"><rect x="150" y="132" width="64" height="44" fill="#34302A"/><polygon points="144,132 220,132 182,106" fill="#5A3328"/></g>
         <rect x="250" y="136" width="6" height="40" fill="#3B3226"/>
@@ -184,7 +187,8 @@ export class CuestArcaneHeader extends ArcaneCard<HeaderConfig> {
   private wide(h: HomeAssistant): TemplateResult {
     const c = this.config;
     const out = this.temp(h, c.outside, C.header.outside);
-    const status = [clockLine(new Date(), h.locale?.language), c.mood, out].filter(Boolean).join(' · ');
+    const inn = this.temp(h, c.inside, C.header.inside);
+    const status = [this.clock(h), c.mood, out, inn].filter(Boolean).join(' · ');
     return html`<div class="sky wide">
       ${this.stars(STARS_WIDE)}
       <div class="inner">

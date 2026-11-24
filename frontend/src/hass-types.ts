@@ -30,7 +30,9 @@ export interface HomeAssistant {
   devices?: Record<string, HassDevice>;
   areas?: Record<string, HassArea>;
   user?: { id: string; is_admin: boolean };
-  locale?: { language: string };
+  /** `time_zone`: the user's choice of clock, "local" (browser) or "server" (Home Assistant's own). */
+  locale?: { language: string; time_zone?: string };
+  config?: { time_zone?: string };
   callWS<T = unknown>(msg: Record<string, unknown>): Promise<T>;
   callService(domain: string, service: string, data?: Record<string, unknown>): Promise<unknown>;
   callApi?<T = unknown>(method: string, path: string, parameters?: Record<string, unknown>): Promise<T>;

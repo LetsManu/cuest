@@ -29,11 +29,22 @@ export function fmtPercent(p: number | null): string {
   return p === null || !Number.isFinite(p) ? '—' : `${Math.round(p)}%`;
 }
 
-/** "Tuesday 16:40" */
-export function clockLine(d: Date, lang = 'en'): string {
-  const day = new Intl.DateTimeFormat(lang, { weekday: 'long' }).format(d);
-  const time = new Intl.DateTimeFormat(lang, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(d);
+/** "Tuesday 16:40" in `timeZone` (an IANA name), or in the browser's zone when it is missing or unknown. */
+export function clockLine(d: Date, lang = 'en', timeZone?: string): string {
+  let tz = timeZone;
+  try {
+    if (tz) new Intl.DateTimeFormat('en', { timeZone: tz });
+  } catch {
+    tz = undefined;
+  }
+  const day = new Intl.DateTimeFormat(lang, { weekday: 'long', timeZone: tz }).format(d);
+  const time = new Intl.DateTimeFormat(lang, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: tz }).format(d);
   return `${day} ${time}`;
+}
+
+/** Home Assistant's own zone unless the user's profile asks for the browser's ("local"). */
+export function clockZone(locale: { time_zone?: string } | undefined, config: { time_zone?: string } | undefined): string | undefined {
+  return locale?.time_zone === 'local' ? undefined : config?.time_zone || undefined;
 }
 
 export function toCelsius(v: number, unit: unknown): number {

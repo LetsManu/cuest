@@ -92,7 +92,9 @@ Entity ids in the options always look like `domain.name`.
 ### cuest-arcane-header
 
 The pixel-art house under a night sky. Lit windows follow the lights that are
-on: none on gives none lit, otherwise at least 1 and at most 5 lit.
+on: none on gives none lit, otherwise at least 1 and at most 5 lit. The clock
+uses Home Assistant's time zone, or the browser's when your profile's time
+zone setting says so. Both variants show `outside` and `inside`.
 
 | Option | Default | Notes |
 |---|---|---|

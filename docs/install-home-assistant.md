@@ -83,6 +83,10 @@ Cuest adds its own page to Home Assistant.
 3. To play as someone else, use **Switch player**. It only shows when there is
    more than one player.
 
+A family member whose Home Assistant user is linked to a player (through their
+person) always plays as themselves. A shared account with no linked person,
+such as a wall tablet, can switch between players.
+
 People who are not Home Assistant administrators can play (finish quests) and
 shop, but they cannot change settings.
 
@@ -109,6 +113,7 @@ For "Gaming PC for 1 hour":
    `switch.gaming_pc`. In YAML it looks like this:
 
    ```yaml
+   mode: queued
    sequence:
      - action: switch.turn_on
        target:
@@ -119,6 +124,8 @@ For "Gaming PC for 1 hour":
          entity_id: switch.gaming_pc
    ```
 
+   `mode: queued` means buying the treat again while it is still running adds
+   another hour after the current one, instead of being ignored.
 3. Save it with a clear name, then pick that script under **House treats**.
 
 If Home Assistant is not connected to Cuest, the shop shows a message and no

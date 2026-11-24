@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Arcane Hearth desktop</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&amp;family=Inter:wght@400;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#14172A}
+a{color:#F7D27A}a:hover{color:#FFE7A8}
+@keyframes wave{from{transform:translateX(0)}to{transform:translateX(-60px)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes draw{from{stroke-dashoffset:900}to{stroke-dashoffset:0}}
+@keyframes pulse{0%,100%{opacity:.55}50%{opacity:1}}
+@keyframes twinkle{0%,100%{opacity:.25}50%{opacity:1}}
+@keyframes shimmer{from{transform:translateX(-80px)}to{transform:translateX(600px)}}
+.wave{animation:wave 3.2s linear infinite}
+.spin{transform-origin:50% 50%;transform-box:fill-box;animation:spin 18s linear infinite}
+.draw{stroke-dasharray:900;animation:draw 2.6s ease-out both}
+.pulse{animation:pulse 2.4s ease-in-out infinite}
+.star{position:absolute;width:3px;height:3px;background:#FFF3D0;animation:twinkle 3s ease-in-out infinite}
+.shimmer{animation:shimmer 3.4s ease-in-out infinite}
+@media (prefers-reduced-motion: reduce){.wave,.spin,.draw,.pulse,.star,.shimmer{animation:none}.shimmer{display:none}}
+</style>
+</helmet>
+<div style="width: 100%; min-height: 960px; box-sizing: border-box; background: #14172A; font-family: Inter, sans-serif; color: #ECE4D2">
+  <div style="position: relative; background: linear-gradient(#0F1226, #232A52); border-bottom: 3px solid #6B5A2E; overflow: hidden">
+    <span class="star" style="left: 6%; top: 18px"></span><span class="star" style="left: 22%; top: 40px; animation-delay: .8s"></span><span class="star" style="left: 48%; top: 16px; animation-delay: 1.6s"></span><span class="star" style="left: 66%; top: 34px; animation-delay: .4s"></span><span class="star" style="left: 88%; top: 22px; animation-delay: 2.2s"></span>
+    <div style="max-width: 1280px; margin: 0 auto; padding: 22px 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 24px; position: relative">
+      <div style="flex: 1 1 260px">
+        <h1 style="margin: 0; font-family: 'Pixelify Sans', monospace; font-size: 34px; color: #F7D27A">Cuest Home</h1>
+        <div style="font-size: 14px; color: #CFC8DB; margin-top: 4px">Tuesday 16:40 · the house is happy · -0.7° outside</div>
+      </div>
+      <div style="display: flex; gap: 22px; flex-wrap: wrap">
+        <div style="display: flex; align-items: center; gap: 10px">
+          <svg width="72" height="72" viewBox="0 0 120 120" role="img" aria-label="Mana 88 percent of devices online"><defs><clipPath id="fdM"><circle cx="60" cy="60" r="52"/></clipPath><linearGradient id="fdMG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8FDCFF"/><stop offset="1" stop-color="#3550D6"/></linearGradient></defs><circle cx="60" cy="60" r="52" fill="#0E1124"/><g clip-path="url(#fdM)"><g transform="translate(0,-4)"><g class="wave"><path d="M0 26 Q15 18 30 26 T60 26 T90 26 T120 26 T150 26 T180 26 T210 26 V140 H0 Z" fill="url(#fdMG)"/></g></g></g><circle cx="60" cy="60" r="54" fill="none" stroke="#C9A14A" stroke-width="5"/></svg>
+          <div><div style="font-family: 'Pixelify Sans', monospace; font-size: 18px; color: #8FDCFF">88%</div><div style="font-size: 12px; color: #A9A3BE">Mana · online</div></div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px">
+          <svg width="72" height="72" viewBox="0 0 120 120" role="img" aria-label="Health 84 percent"><defs><clipPath id="fdH"><circle cx="60" cy="60" r="52"/></clipPath><linearGradient id="fdHG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FF9A8A"/><stop offset="1" stop-color="#B8323A"/></linearGradient></defs><circle cx="60" cy="60" r="52" fill="#0E1124"/><g clip-path="url(#fdH)"><g transform="translate(0,2)"><g class="wave"><path d="M0 26 Q15 18 30 26 T60 26 T90 26 T120 26 T150 26 T180 26 T210 26 V140 H0 Z" fill="url(#fdHG)"/></g></g></g><circle cx="60" cy="60" r="54" fill="none" stroke="#C9A14A" stroke-width="5"/></svg>
+          <div><div style="font-family: 'Pixelify Sans', monospace; font-size: 18px; color: #FF9A8A">84%</div><div style="font-size: 12px; color: #A9A3BE">Health · 19 quests</div></div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px">
+          <svg width="72" height="72" viewBox="0 0 120 120" role="img" aria-label="Glow 13 lights on"><defs><clipPath id="fdG"><circle cx="60" cy="60" r="52"/></clipPath><linearGradient id="fdGG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFE7A8"/><stop offset="1" stop-color="#D9862B"/></linearGradient></defs><circle cx="60" cy="60" r="52" fill="#0E1124"/><g clip-path="url(#fdG)"><g transform="translate(0,34)"><g class="wave"><path d="M0 26 Q15 18 30 26 T60 26 T90 26 T120 26 T150 26 T180 26 T210 26 V140 H0 Z" fill="url(#fdGG)"/></g></g></g><circle cx="60" cy="60" r="54" fill="none" stroke="#C9A14A" stroke-width="5"/></svg>
+          <div><div style="font-family: 'Pixelify Sans', monospace; font-size: 18px; color: #FFE7A8">13</div><div style="font-size: 12px; color: #A9A3BE">Glow · lights on</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="max-width: 1280px; margin: 0 auto; padding: 24px; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; box-sizing: border-box">
+    <div style="display: flex; flex-direction: column; gap: 16px; min-width: 0">
+      <div style="background: #1D2140; border: 2px solid #6B5A2E; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 8px">
+        <div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-family: 'Pixelify Sans', monospace; font-size: 18px; color: #F7D27A">Lv 4 Hearthkeeper</span><span style="font-size: 12px; color: #FFB27A">6-day streak</span></div>
+        <div style="position: relative; height: 14px; background: #0E1124; border: 2px solid #C9A14A; border-radius: 8px; overflow: hidden"><div style="width: 30%; height: 100%; background: linear-gradient(90deg, #D9862B, #FFE7A8)"></div><div class="shimmer" style="position: absolute; top: 0; left: 0; width: 50px; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent)"></div></div>
+        <span style="font-size: 12px; color: #A9A3BE">70 XP to level 5 · 2 chest keys</span>
+      </div>
+      <div style="background: #1D2140; border: 2px solid #33395F; border-radius: 18px; overflow: hidden">
+        <div style="padding: 12px 16px; font-family: 'Pixelify Sans', monospace; font-size: 17px; color: #F7D27A; border-bottom: 1px solid #2C3256">Rooms</div>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #2C3256"><span style="flex: 1; font-weight: 600">Wohnzimmer</span><span style="font-family: 'Pixelify Sans', monospace; font-size: 18px">21.5°</span><span style="width: 52px; text-align: right; font-size: 12px; color: #FFE7A8">12 lit</span></div>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #2C3256"><span style="flex: 1; font-weight: 600">Küche</span><span style="font-family: 'Pixelify Sans', monospace; font-size: 18px">22.5°</span><span style="width: 52px; text-align: right; font-size: 12px; color: #A9A3BE">dark</span></div>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #2C3256"><span style="flex: 1; font-weight: 600">Schlafzimmer</span><span style="font-family: 'Pixelify Sans', monospace; font-size: 18px; color: #A9A3BE">—</span><span style="width: 52px; text-align: right; font-size: 12px; color: #FFE7A8">1 lit</span></div>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px"><span style="flex: 1; font-weight: 600">Büro</span><span style="font-family: 'Pixelify Sans', monospace; font-size: 18px; color: #FFB27A">?</span><span style="width: 52px; text-align: right; font-size: 12px; color: #FFB27A">battery</span></div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 16px; min-width: 0">
+      <div style="background: #1D2140; border: 2px solid #33395F; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 8px">
+        <div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-family: 'Pixelify Sans', monospace; font-size: 17px; color: #F7D27A">Warmth trail</span><span style="font-size: 12px; color: #A9A3BE">24 h</span></div>
+        <svg width="100%" height="140" viewBox="0 0 326 120" preserveAspectRatio="none" role="img" aria-label="Wohnzimmer temperature over the last 24 hours, between 20.5 and 22.3 degrees">
+          <defs><linearGradient id="fdTF" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FF8A5B" stop-opacity="0.45"/><stop offset="1" stop-color="#FF8A5B" stop-opacity="0"/></linearGradient></defs>
+          <path d="M0,56 L27,62 L54,65 L81,59 L109,44 L136,26 L163,17 L190,20 L217,23 L244,11 L272,26 L299,35 L326,35 L326,120 L0,120 Z" fill="url(#fdTF)"/>
+          <polyline class="draw" points="0,56 27,62 54,65 81,59 109,44 136,26 163,17 190,20 217,23 244,11 272,26 299,35 326,35" fill="none" stroke="#FFB27A" stroke-width="3" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+          <polyline class="draw" points="0,104 27,106 54,108 81,107 109,102 136,96 163,91 190,89 217,90 244,94 272,98 299,99 326,100" fill="none" stroke="#8FDCFF" stroke-width="2" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>
+        </svg>
+        <div style="display: flex; gap: 14px; font-size: 12px; color: #A9A3BE"><span><b style="color: #FFB27A">—</b> Wohnzimmer 21.5°</span><span><b style="color: #8FDCFF">- -</b> outside -0.7°</span></div>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+        <div style="background: #1D2140; border: 2px solid #33395F; border-radius: 18px; padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 4px">
+          <svg width="110" height="110" viewBox="0 0 120 120" role="img" aria-label="Heating now 21.5, target 23 degrees"><circle class="spin" cx="60" cy="60" r="56" fill="none" stroke="#6B5A2E" stroke-width="2" stroke-dasharray="1 7"/><circle cx="60" cy="60" r="44" fill="none" stroke="#2C3256" stroke-width="10"/><circle cx="60" cy="60" r="44" fill="none" stroke="#FF8A5B" stroke-width="10" stroke-linecap="round" stroke-dasharray="207 277" transform="rotate(-90 60 60)"/><text x="60" y="66" text-anchor="middle" font-family="Pixelify Sans, monospace" font-size="22" fill="#FFE7A8">21.5°</text></svg>
+          <span style="font-size: 13px">Fire rune · to 23°</span>
+        </div>
+        <div style="background: #1D2140; border: 2px solid #33395F; border-radius: 18px; padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 4px">
+          <svg width="110" height="110" viewBox="0 0 120 120" role="img" aria-label="Humidity 38 percent"><circle class="spin" cx="60" cy="60" r="56" fill="none" stroke="#2E5E7A" stroke-width="2" stroke-dasharray="1 7"/><circle cx="60" cy="60" r="44" fill="none" stroke="#2C3256" stroke-width="10"/><circle cx="60" cy="60" r="44" fill="none" stroke="#8FDCFF" stroke-width="10" stroke-linecap="round" stroke-dasharray="105 277" transform="rotate(-90 60 60)"/><text x="60" y="66" text-anchor="middle" font-family="Pixelify Sans, monospace" font-size="22" fill="#BFE6FF">38%</text></svg>
+          <span style="font-size: 13px">Water rune · air</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 12px; min-width: 0">
+      <div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-family: 'Pixelify Sans', monospace; font-size: 18px; color: #F7D27A">Quest board</span><a href="FinalFaults.dc.html" style="font-size: 13px; font-weight: 600">All 19 →</a></div>
+      <div style="background: #F4EAD5; border: 2px solid #C9A14A; border-radius: 6px; box-shadow: 3px 3px 0 #6B5A2E; padding: 10px 12px; color: #2B2620; display: flex; gap: 10px; align-items: center"><span class="pulse" style="font-family: 'Pixelify Sans', monospace; background: #E0A33A; border-radius: 4px; padding: 2px 7px; font-size: 13px">!</span><span style="flex: 1; font-size: 14px"><b>Change the Büro battery</b><br><span style="font-size: 12px; color: #6B5F4E">Thermostat at 0 %</span></span><span style="font-family: 'Pixelify Sans', monospace; font-size: 13px; color: #2E5E4E">+30 XP</span></div>
+      <div style="background: #F4EAD5; border: 2px solid #C9A14A; border-radius: 6px; box-shadow: 3px 3px 0 #6B5A2E; padding: 10px 12px; color: #2B2620; display: flex; gap: 10px; align-items: center"><span style="font-family: 'Pixelify Sans', monospace; background: #E0A33A; border-radius: 4px; padding: 2px 7px; font-size: 13px">!</span><span style="flex: 1; font-size: 14px"><b>Check 3 thermostat valves</b><br><span style="font-size: 12px; color: #6B5F4E">Wohnzimmer ×2 · Küche</span></span><span style="font-family: 'Pixelify Sans', monospace; font-size: 13px; color: #2E5E4E">+20 XP</span></div>
+      <div style="background: #F4EAD5; border: 2px solid #C9A14A; border-radius: 6px; box-shadow: 3px 3px 0 #6B5A2E; padding: 10px 12px; color: #2B2620; display: flex; gap: 10px; align-items: center"><span style="font-family: 'Pixelify Sans', monospace; background: #8FB3D9; border-radius: 4px; padding: 2px 7px; font-size: 13px">↑</span><span style="flex: 1; font-size: 14px"><b>Home Assistant update</b><br><span style="font-size: 12px; color: #6B5F4E">Core update ready</span></span><button type="button" style="min-height: 44px; border: 2px solid #2E5E4E; background: #2E5E4E; color: #F4EAD5; border-radius: 10px; padding: 0 12px; font: 600 13px Inter, sans-serif">Install</button></div>
+      <div style="background: #2E3450; border: 2px solid #6B5A2E; border-radius: 18px; padding: 14px; display: flex; align-items: center; gap: 12px; margin-top: 4px">
+        <div style="flex: 1"><div style="font-family: 'Pixelify Sans', monospace; font-size: 16px; color: #F7D27A">Bard · Wohnzimmer</div><div style="font-size: 12px; color: #CFC8DB">Ready to play</div></div>
+        <button type="button" aria-label="Play" style="width: 48px; height: 48px; border-radius: 999px; border: 0; background: #F7D27A; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="#2E3450" aria-hidden="true"><path d="M7 4l13 8-13 8z"/></svg></button>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":960}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

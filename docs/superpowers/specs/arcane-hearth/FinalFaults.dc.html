@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Arcane Hearth quest board</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&amp;family=Inter:wght@400;600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#F7D27A}a:hover{color:#FFE7A8}
+@keyframes wave{from{transform:translateX(0)}to{transform:translateX(-60px)}}
+@keyframes pulse{0%,100%{opacity:.55}50%{opacity:1}}
+.wave{animation:wave 3.2s linear infinite}
+.pulse{animation:pulse 2.4s ease-in-out infinite}
+@media (prefers-reduced-motion: reduce){.wave,.pulse{animation:none}}
+</style>
+</helmet>
+<div style="width: 390px; height: 1360px; box-sizing: border-box; background: #14172A; font-family: Inter, sans-serif; color: #ECE4D2; padding: 20px 16px; display: flex; flex-direction: column; gap: 14px">
+  <div style="display: flex; justify-content: space-between; align-items: center">
+    <h1 style="margin: 0; font-family: 'Pixelify Sans', monospace; font-size: 28px; color: #F7D27A">Quest board</h1>
+    <a href="FinalOverview.dc.html" style="font-size: 14px; font-weight: 600; min-height: 44px; display: flex; align-items: center">Home</a>
+  </div>
+
+  <div style="background: #1D2140; border: 2px solid #6B5A2E; border-radius: 18px; padding: 14px; display: flex; align-items: center; gap: 14px">
+    <svg width="80" height="80" viewBox="0 0 120 120" role="img" aria-label="House health 84 percent">
+      <defs><clipPath id="ffHp"><circle cx="60" cy="60" r="52"/></clipPath><linearGradient id="ffHpG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FF9A8A"/><stop offset="1" stop-color="#B8323A"/></linearGradient></defs>
+      <circle cx="60" cy="60" r="52" fill="#0E1124"/>
+      <g clip-path="url(#ffHp)"><g transform="translate(0,2)"><g class="wave"><path d="M0 26 Q15 18 30 26 T60 26 T90 26 T120 26 T150 26 T180 26 T210 26 V140 H0 Z" fill="url(#ffHpG)"/></g></g></g>
+      <circle cx="60" cy="60" r="54" fill="none" stroke="#C9A14A" stroke-width="4"/>
+    </svg>
+    <div style="flex: 1; display: flex; flex-direction: column; gap: 6px">
+      <div style="font-family: 'Pixelify Sans', monospace; font-size: 20px; color: #FF9A8A">Health 84%</div>
+      <div style="font-size: 13px; color: #CFC8DB">19 small quests. Nothing urgent.</div>
+      <div style="display: flex; gap: 6px; flex-wrap: wrap">
+        <span style="background: #2A2F48; border-radius: 999px; padding: 3px 9px; font-size: 11px">3 devices</span>
+        <span style="background: #2A2F48; border-radius: 999px; padding: 3px 9px; font-size: 11px">2 batteries</span>
+        <span style="background: #2A2F48; border-radius: 999px; padding: 3px 9px; font-size: 11px">1 update</span>
+        <span style="background: #2A2F48; border-radius: 999px; padding: 3px 9px; font-size: 11px">12 services</span>
+      </div>
+    </div>
+  </div>
+
+  <h2 style="margin: 4px 0 0; font-family: 'Pixelify Sans', monospace; font-size: 18px; color: #F7D27A">Quick quests</h2>
+
+  <div style="background: #F4EAD5; border: 2px solid #C9A14A; border-radius: 6px; box-shadow: 3px 3px 0 #6B5A2E; padding: 12px; color: #2B2620; display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; gap: 10px; align-items: flex-start">
+      <span class="pulse" style="font-family: 'Pixelify Sans', monospace; background: #E0A33A; border-radius: 4px; padding: 2px 7px; font-size: 13px">!</span>
+      <div style="flex: 1"><b style="font-size: 15px">Change the Büro thermostat battery</b><div style="font-size: 13px; color: #6B5F4E">Battery 0 % · it reads -327.7 °C until then</div></div>
+      <span style="font-family: 'Pixelify Sans', monospace; font-size: 13px; color: #2E5E4E">+30 XP</span>
+    </div>
+    <button type="button" style="align-self: flex-start; min-height: 44px; border: 2px solid #2E5E4E; background: #2E5E4E; color: #F4EAD5; border-radius: 10px; padding: 0 14px; font: 600 13px Inter, sans-serif">Add to my Cuest quests</button>
+  </div>
+
+  <div style="background: #F4EAD5; border: 2px solid #C9A14A; border-radius: 6px; box-shadow: 3px 3px 0 #6B5A2E; padding: 12px; color: #2B2620; display: flex; gap: 10px; align-items: flex-start">
+    <span style="font-family: 'Pixelify Sans', monospace; background: #E0A33A; border-radius: 4px; padding: 2px 7px; font-size: 13px">!</span>
+    <div style="flex: 1"><b style="font-size: 15px">Check 3 thermostat valves</b><div style="font-size: 13px; color: #6B5F4E">Wohnzimmer ×2 · Küche report a valve alarm</div></div>
+    <span style="font-family: 'Pixelify Sans', monospace; font-size: 13px; color: #2E5E4E">+20 XP</span>
+  </div>
+
+  <div style="background: #F4EAD5; border: 2px solid #C9A14A; border-radius: 6px; box-shadow: 3px 3px 0 #6B5A2E; padding: 12px; color: #2B2620; display: flex; gap: 10px; align-items: flex-start">
+    <span style="font-family: 'Pixelify Sans', monospace; background: #E0A33A; border-radius: 4px; padding: 2px 7px; font-size: 13px">!</span>
+    <div style="flex: 1"><b style="font-size: 15px">Charge the MacBook</b><div style="font-size: 13px; color: #6B5F4E">Battery 14 %</div></div>
+    <span style="font-family: 'Pixelify Sans', monospace; font-size: 13px; color: #2E5E4E">+5 XP</span>
+  </div>
+
+  <div style="background: #F4EAD5; border: 2px solid #C9A14A; border-radius: 6px; box-shadow: 3px 3px 0 #6B5A2E; padding: 12px; color: #2B2620; display: flex; gap: 10px; align-items: center">
+    <span style="font-family: 'Pixelify Sans', monospace; background: #8FB3D9; border-radius: 4px; padding: 2px 7px; font-size: 13px">↑</span>
+    <div style="flex: 1"><b style="font-size: 15px">Home Assistant update</b><div style="font-size: 13px; color: #6B5F4E">Core update ready</div></div>
+    <button type="button" style="min-height: 44px; border: 2px solid #2E5E4E; background: #2E5E4E; color: #F4EAD5; border-radius: 10px; padding: 0 12px; font: 600 13px Inter, sans-serif">Install</button>
+  </div>
+
+  <h2 style="margin: 4px 0 0; font-family: 'Pixelify Sans', monospace; font-size: 18px; color: #F7D27A">Resting allies</h2>
+  <div style="background: #1D2140; border: 2px solid #33395F; border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; align-items: center; gap: 10px; font-size: 13px"><span style="width: 100px; font-weight: 600">FRITZ!Box</span><span style="flex: 1; height: 10px; background: #2C3256; border-radius: 3px"><span style="display: block; width: 4%; height: 100%; background: #FFB27A; border-radius: 3px"></span></span><span style="width: 74px; text-align: right; color: #A9A3BE">0 of 122</span></div>
+    <div style="display: flex; align-items: center; gap: 10px; font-size: 13px"><span style="width: 100px; font-weight: 600">SmartThings</span><span style="flex: 1; height: 10px; background: #2C3256; border-radius: 3px"><span style="display: block; width: 4%; height: 100%; background: #FFB27A; border-radius: 3px"></span></span><span style="width: 74px; text-align: right; color: #A9A3BE">0 of 32</span></div>
+    <div style="display: flex; align-items: center; gap: 10px; font-size: 13px"><span style="width: 100px; font-weight: 600">Tuya</span><span style="flex: 1; height: 10px; background: #2C3256; border-radius: 3px"><span style="display: block; width: 4%; height: 100%; background: #FFB27A; border-radius: 3px"></span></span><span style="width: 74px; text-align: right; color: #A9A3BE">0 of 20</span></div>
+    <div style="display: flex; align-items: center; gap: 10px; font-size: 13px"><span style="width: 100px; font-weight: 600">Music Assistant</span><span style="flex: 1; height: 10px; background: #2C3256; border-radius: 3px"><span style="display: block; width: 25%; height: 100%; background: #8FDCFF; border-radius: 3px"></span></span><span style="width: 74px; text-align: right; color: #A9A3BE">2 of 8</span></div>
+    <a href="#" style="font-size: 14px; font-weight: 600; min-height: 44px; display: flex; align-items: center">+ 8 more allies</a>
+  </div>
+
+  <div style="background: #1F3A2C; border: 2px solid #3E7A55; border-radius: 14px; padding: 12px; font-size: 13px; color: #CFEBD6">Everything else is well. New problems appear here by themselves.</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1360}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

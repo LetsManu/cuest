@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Arcane graph card kit</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&amp;family=Inter:wght@400;600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#F7D27A}a:hover{color:#FFE7A8}
+@keyframes wave{from{transform:translateX(0)}to{transform:translateX(-60px)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes spinr{to{transform:rotate(-360deg)}}
+@keyframes draw{from{stroke-dashoffset:700}to{stroke-dashoffset:0}}
+@keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}
+@keyframes shimmer{from{transform:translateX(-120px)}to{transform:translateX(420px)}}
+@keyframes grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+.wave{animation:wave 3.2s linear infinite}
+.spin{transform-origin:50% 50%;transform-box:fill-box;animation:spin 14s linear infinite}
+.spinr{transform-origin:50% 50%;transform-box:fill-box;animation:spinr 9s linear infinite}
+.draw{stroke-dasharray:700;animation:draw 2.4s ease-out both}
+.pulse{animation:pulse 2.2s ease-in-out infinite}
+.shimmer{animation:shimmer 2.8s ease-in-out infinite}
+.bar{transform-origin:bottom;animation:grow 1.2s ease-out both}
+@media (prefers-reduced-motion: reduce){.wave,.spin,.spinr,.draw,.pulse,.shimmer,.bar{animation:none}.shimmer{display:none}}
+</style>
+</helmet>
+<div style="width: 880px; height: 1240px; box-sizing: border-box; background: #14172A; font-family: Inter, sans-serif; color: #ECE4D2; padding: 32px; display: flex; flex-direction: column; gap: 22px">
+  <div>
+    <h1 style="margin: 0; font-family: 'Pixelify Sans', monospace; font-size: 32px; color: #F7D27A">Arcane graph cards</h1>
+    <p style="margin: 6px 0 0; font-size: 14px; color: #A9A3BE">Each card takes any Home Assistant sensor. Animations stop when the phone asks for reduced motion.</p>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px">
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <code style="font-size: 12px; color: #C9A14A">arcane-orb-card</code>
+      <div style="background: #1D2140; border: 2px solid #6B5A2E; border-radius: 18px; padding: 16px; display: flex; align-items: center; gap: 16px">
+        <svg width="96" height="96" viewBox="0 0 120 120" role="img" aria-label="Mana orb at 72 percent">
+          <defs>
+            <clipPath id="kOrb"><circle cx="60" cy="60" r="52"/></clipPath>
+            <linearGradient id="kOrbG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8FDCFF"/><stop offset="1" stop-color="#3550D6"/></linearGradient>
+          </defs>
+          <circle cx="60" cy="60" r="52" fill="#0E1124"/>
+          <g clip-path="url(#kOrb)"><g transform="translate(0,12)"><g class="wave"><path d="M0 26 Q15 18 30 26 T60 26 T90 26 T120 26 T150 26 T180 26 T210 26 V140 H0 Z" fill="url(#kOrbG)"/></g></g></g>
+          <circle cx="60" cy="60" r="54" fill="none" stroke="#C9A14A" stroke-width="4"/>
+        </svg>
+        <div style="flex: 1; font-size: 13px; color: #A9A3BE">Any percent: devices online, battery, washer progress. Colours: mana, health, glow.</div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <code style="font-size: 12px; color: #C9A14A">arcane-trail-card</code>
+      <div style="background: #1D2140; border: 2px solid #33395F; border-radius: 18px; padding: 16px">
+        <svg width="372" height="96" viewBox="0 0 372 96" role="img" aria-label="History line chart">
+          <defs><linearGradient id="kTrail" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#B98CFF"/><stop offset="1" stop-color="#8FDCFF"/></linearGradient></defs>
+          <polyline class="draw" points="0,70 31,64 62,72 93,50 124,58 155,34 186,40 217,22 248,30 279,18 310,26 341,12 372,16" fill="none" stroke="url(#kTrail)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle class="pulse" cx="368" cy="16" r="5" fill="#DCCBFF"/>
+        </svg>
+        <div style="font-size: 13px; color: #A9A3BE; margin-top: 6px">Draws a glowing spell trail from sensor history; tap for 24 h, 7 d, 30 d.</div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <code style="font-size: 12px; color: #C9A14A">arcane-rune-gauge</code>
+      <div style="background: #1D2140; border: 2px solid #33395F; border-radius: 18px; padding: 16px; display: flex; align-items: center; gap: 16px">
+        <svg width="110" height="110" viewBox="0 0 120 120" role="img" aria-label="Rune gauge 75 percent">
+          <circle class="spin" cx="60" cy="60" r="56" fill="none" stroke="#6B5A2E" stroke-width="2" stroke-dasharray="1 7"/>
+          <polygon class="spinr" points="60,14 100,83 20,83" fill="none" stroke="#3A3F66" stroke-width="1.5"/>
+          <circle cx="60" cy="60" r="44" fill="none" stroke="#2C3256" stroke-width="10"/>
+          <circle cx="60" cy="60" r="44" fill="none" stroke="#B98CFF" stroke-width="10" stroke-linecap="round" stroke-dasharray="207 277" transform="rotate(-90 60 60)"/>
+          <text x="60" y="66" text-anchor="middle" font-family="Pixelify Sans, monospace" font-size="22" fill="#DCCBFF">75%</text>
+        </svg>
+        <div style="flex: 1; font-size: 13px; color: #A9A3BE">Thermostats, humidity, disk space. Rings turn slowly; the arc fills to the value.</div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <code style="font-size: 12px; color: #C9A14A">arcane-flow-card</code>
+      <div style="background: #1D2140; border: 2px solid #33395F; border-radius: 18px; padding: 16px; display: flex; align-items: center; gap: 16px">
+        <svg width="110" height="110" viewBox="0 0 120 120" role="img" aria-label="Power flow circle">
+          <circle cx="60" cy="60" r="50" fill="none" stroke="#2C3256" stroke-width="2"/>
+          <g class="spin"><circle cx="60" cy="10" r="4" fill="#8FDCFF"/><circle cx="110" cy="60" r="3" fill="#B98CFF"/><circle cx="60" cy="110" r="4" fill="#8FDCFF"/><circle cx="10" cy="60" r="3" fill="#B98CFF"/></g>
+          <g class="spinr"><rect x="38" y="38" width="44" height="44" fill="none" stroke="#C9A14A" stroke-width="1.5"/></g>
+          <text x="60" y="66" text-anchor="middle" font-family="Pixelify Sans, monospace" font-size="18" fill="#BFE6FF">[W]</text>
+        </svg>
+        <div style="flex: 1; font-size: 13px; color: #A9A3BE">Mana flow for a power sensor: the more watts, the faster the sparks circle. Needs a power or energy sensor.</div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <code style="font-size: 12px; color: #C9A14A">arcane-bars-card</code>
+      <div style="background: #1D2140; border: 2px solid #33395F; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+        <div style="display: flex; align-items: flex-end; gap: 12px; height: 90px; border-bottom: 2px solid #33395F">
+          <div class="bar" style="flex: 1; height: 80px; border-radius: 6px 6px 0 0; background: linear-gradient(#FFE7A8, #D9862B); box-shadow: 0 0 14px #D9862B"></div>
+          <div class="bar" style="flex: 1; height: 46px; border-radius: 6px 6px 0 0; background: linear-gradient(#8FDCFF, #3550D6); animation-delay: .1s"></div>
+          <div class="bar" style="flex: 1; height: 62px; border-radius: 6px 6px 0 0; background: linear-gradient(#DCCBFF, #7A4FD6); animation-delay: .2s"></div>
+          <div class="bar" style="flex: 1; height: 24px; border-radius: 6px 6px 0 0; background: linear-gradient(#A8F0B0, #3E9A5A); animation-delay: .3s"></div>
+        </div>
+        <div style="font-size: 13px; color: #A9A3BE">Compare rooms or days: lights on, minutes of music, quests done.</div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <code style="font-size: 12px; color: #C9A14A">arcane-stamina-card</code>
+      <div style="background: #1D2140; border: 2px solid #33395F; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+        <div style="display: flex; align-items: center; gap: 10px; font-size: 13px"><span style="width: 120px">Thermostat Büro</span><span style="flex: 1; display: flex; gap: 3px"><i class="pulse" style="flex: 1; height: 12px; background: #FF8A7A"></i><i style="flex: 1; height: 12px; background: #2C3256"></i><i style="flex: 1; height: 12px; background: #2C3256"></i><i style="flex: 1; height: 12px; background: #2C3256"></i><i style="flex: 1; height: 12px; background: #2C3256"></i></span></div>
+        <div style="display: flex; align-items: center; gap: 10px; font-size: 13px"><span style="width: 120px">Climate sensor</span><span style="flex: 1; display: flex; gap: 3px"><i style="flex: 1; height: 12px; background: #7FD17E"></i><i style="flex: 1; height: 12px; background: #7FD17E"></i><i style="flex: 1; height: 12px; background: #2C3256"></i><i style="flex: 1; height: 12px; background: #2C3256"></i><i style="flex: 1; height: 12px; background: #2C3256"></i></span></div>
+        <div style="font-size: 13px; color: #A9A3BE">Every battery as a stamina bar; empty ones glow softly and sort to the top.</div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <code style="font-size: 12px; color: #C9A14A">arcane-level-card</code>
+      <div style="background: #1D2140; border: 2px solid #6B5A2E; border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 8px">
+        <div style="display: flex; justify-content: space-between"><span style="font-family: 'Pixelify Sans', monospace; font-size: 18px; color: #F7D27A">Level 4 Hearthkeeper</span><span style="font-size: 13px; color: #A9A3BE">70 XP to go</span></div>
+        <div style="position: relative; height: 16px; background: #0E1124; border: 2px solid #C9A14A; border-radius: 8px; overflow: hidden">
+          <div style="width: 30%; height: 100%; background: linear-gradient(90deg, #D9862B, #FFE7A8)"></div>
+          <div class="shimmer" style="position: absolute; top: 0; left: 0; width: 60px; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent)"></div>
+        </div>
+        <div style="font-size: 13px; color: #A9A3BE">Your Cuest hero on the dashboard: level, XP, streak flame.</div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <code style="font-size: 12px; color: #C9A14A">arcane-quest-card</code>
+      <a href="#" style="display: flex; align-items: center; gap: 12px; background: #2A2340; border: 2px solid #C9A14A; border-radius: 16px; padding: 16px; text-decoration: none; min-height: 44px; box-sizing: border-box">
+        <span class="pulse" style="width: 14px; height: 14px; background: #F7D27A; transform: rotate(45deg)"></span>
+        <span style="flex: 1; color: #F7D27A; font-weight: 600">Change the Büro battery</span>
+        <span style="font-family: 'Pixelify Sans', monospace; color: #8FDCFF">+30 XP</span>
+      </a>
+      <div style="font-size: 13px; color: #A9A3BE">A fault becomes a Cuest quest; finishing it pays XP.</div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":880,"height":1240}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

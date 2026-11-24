@@ -7,7 +7,7 @@ from typing import Any
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
@@ -17,7 +17,10 @@ from .coordinator import CuestData
 def device_info(entry: ConfigEntry) -> DeviceInfo:
     """One Cuest service device per config entry."""
     return DeviceInfo(
-        identifiers={(DOMAIN, entry.entry_id)}, name="Cuest", manufacturer="Cuest"
+        entry_type=DeviceEntryType.SERVICE,
+        identifiers={(DOMAIN, entry.entry_id)},
+        name="Cuest",
+        manufacturer="Cuest",
     )
 
 

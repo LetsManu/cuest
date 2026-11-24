@@ -59,6 +59,7 @@ async def test_already_done_is_swallowed(cuest, status) -> None:
     await _setup(hass, client)
     client.api_result = (status, {"error": "x"})
     await _complete(hass, "q1")
+    assert client.api_calls == [("POST", "/api/quests/q1/done", {"playerId": "p2"})]
 
 
 async def test_other_error_raises_friendly(cuest) -> None:

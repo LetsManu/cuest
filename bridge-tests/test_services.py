@@ -53,3 +53,15 @@ async def test_services_removed_on_unload(cuest) -> None:
     await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()
     assert not hass.services.has_service(DOMAIN, "complete_quest")
+
+
+async def test_unlinked_person_raises_no_player(cuest) -> None:
+    hass, client, _ = cuest
+    await _setup(hass, client)
+    hass.states.async_set("person.zed", "home")
+    with pytest.raises(ServiceValidationError) as err:
+        await hass.services.async_call(
+            DOMAIN, "complete_quest", {"quest_id": "q1", "person": "person.zed"}, blocking=True
+        )
+    assert err.value.translation_key == "no_player"
+    assert client.api_calls == []

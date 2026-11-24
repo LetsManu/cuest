@@ -59,6 +59,7 @@ class CuestQuestsTodo(TodoListEntity):
 
     async def async_update_todo_item(self, item: TodoItem) -> None:
         if item.status != TodoItemStatus.COMPLETED or item.uid is None:
+            self.async_write_ha_state()
             return
         player = self._data.player_for_user(self._context.user_id if self._context else None)
         if player is None:

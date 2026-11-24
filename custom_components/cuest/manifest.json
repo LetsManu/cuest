@@ -1,13 +1,18 @@
 {
   "domain": "cuest",
   "name": "Cuest",
-  "codeowners": ["@LetsManu"],
+  "codeowners": [
+    "@LetsManu"
+  ],
   "config_flow": true,
-  "dependencies": ["http"],
+  "dependencies": [
+    "http"
+  ],
   "documentation": "https://github.com/LetsManu/cuest",
   "integration_type": "service",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/LetsManu/cuest/issues",
   "requirements": [],
+  "single_config_entry": true,
   "version": "0.1.0"
 }

@@ -56,16 +56,15 @@ async def test_user_flow_errors_then_recovers(hass: HomeAssistant, error, key) -
     assert result["type"] is FlowResultType.CREATE_ENTRY
 
 
-async def test_user_flow_duplicate_url_aborts(hass: HomeAssistant) -> None:
+async def test_user_flow_second_entry_aborts(hass: HomeAssistant) -> None:
     MockConfigEntry(
         domain=DOMAIN,
         unique_id="http://cuest.local:8787",
         data={CONF_URL: "http://cuest.local:8787", CONF_SECRET: "x"},
     ).add_to_hass(hass)
-    result, validate = await _start(hass, "http://CUEST.local:8787/")
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": SOURCE_USER})
     assert result["type"] is FlowResultType.ABORT
-    assert result["reason"] == "already_configured"
-    validate.assert_not_awaited()
+    assert result["reason"] == "single_instance_allowed"
 
 
 # ---- options flow ----

@@ -77,13 +77,11 @@ class CuestData:
     def find_player(self, player_id: str) -> dict[str, Any] | None:
         return next((p for p in self.players if p.get("id") == player_id), None)
 
-    def player_for_person(self, person_entity_id: str | None) -> dict[str, Any] | None:
-        """Player whose haPerson is the given person entity, else the first player."""
-        if person_entity_id:
-            for player in self.players:
-                if player.get("haPerson") == person_entity_id:
-                    return player
-        return self.players[0] if self.players else None
+    def player_for_person(self, person_entity_id: str) -> dict[str, Any] | None:
+        """Player linked to the given person entity, or None."""
+        return next(
+            (p for p in self.players if p.get("haPerson") == person_entity_id), None
+        )
 
     def player_for_user(self, user_id: str | None) -> dict[str, Any] | None:
         """Map a Home Assistant user to a player via the person entity."""
@@ -93,7 +91,8 @@ class CuestData:
                 if state.attributes.get("user_id") == user_id:
                     person_id = state.entity_id
                     break
-        return self.player_for_person(person_id)
+        player = self.player_for_person(person_id) if person_id else None
+        return player or (self.players[0] if self.players else None)
 
     def newest_quest_by_title(self, title: str) -> dict[str, Any] | None:
         wanted = title.strip().casefold()

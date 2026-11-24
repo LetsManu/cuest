@@ -20,7 +20,8 @@
       "invalid_url": "That address doesn't look right. Example: http://192.168.1.20:8787"
     },
     "abort": {
-      "already_configured": "This Cuest server is already set up."
+      "already_configured": "This Cuest server is already set up.",
+      "single_instance_allowed": "Cuest is already set up. Only one Cuest server can be connected."
     }
   },
   "issues": {
@@ -101,7 +102,7 @@
       "message": "No matching quest was found. It may already be done."
     },
     "no_player": {
-      "message": "Cuest does not know a player for this yet. Add people in the Cuest settings."
+      "message": "That person isn't linked to Cuest yet. Link them in the Cuest integration options → People."
     },
     "not_connected": {
       "message": "Cuest is not connected right now. Please try again in a moment."

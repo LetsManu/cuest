@@ -30,6 +30,8 @@ async def test_snapshot_creates_and_updates_sensors(cuest) -> None:
     assert level.attributes["player_name"] == "Ada"
     assert level.attributes["cuest_player_id"] == "p1"
     assert level.attributes["ha_person"] == "person.ada"
+    assert _entity(hass, "cuest_p1_xp").attributes["ha_person"] == "person.ada"
+    assert _entity(hass, "cuest_p1_gold").attributes["ha_person"] == "person.ada"
     assert _entity(hass, "cuest_p1_xp").state == "120"
     assert _entity(hass, "cuest_p1_gold").state == "15"
     assert _entity(hass, "cuest_p1_gold").attributes["cuest_player_id"] == "p1"

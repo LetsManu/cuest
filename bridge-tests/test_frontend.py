@@ -17,6 +17,30 @@ async def test_card_served(cuest, hass_client):
     assert "customCards" in text
 
 
+ARCANE_TAGS = [
+    "cuest-arcane-header", "cuest-orb-card", "cuest-trail-card", "cuest-rune-gauge",
+    "cuest-quest-board", "cuest-allies-card", "cuest-hero-card", "cuest-rooms-card",
+    "cuest-bard-card", "cuest-spell-tile", "cuest-stamina-card",
+]
+
+
+async def test_arcane_bundle_served(cuest, hass_client):
+    client = await hass_client()
+    resp = await client.get("/cuest/cuest-arcane.js")
+    assert resp.status == 200
+    text = await resp.text()
+    for tag in ARCANE_TAGS:
+        assert tag in text, tag
+    assert "customCards" in text
+
+
+async def test_arcane_registered_as_extra_js(cuest):
+    hass, _, _ = cuest
+    from homeassistant.components.frontend import DATA_EXTRA_MODULE_URL
+
+    assert "/cuest/cuest-arcane.js" in hass.data[DATA_EXTRA_MODULE_URL].urls
+
+
 async def test_card_registered_as_extra_js(cuest):
     hass, _, _ = cuest
     from homeassistant.components.frontend import DATA_EXTRA_MODULE_URL
@@ -38,6 +62,7 @@ async def test_reload_does_not_register_card_twice(cuest):
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
     assert list(hass.data[DATA_EXTRA_MODULE_URL].urls).count("/cuest/cuest-card.js") == 1
+    assert list(hass.data[DATA_EXTRA_MODULE_URL].urls).count("/cuest/cuest-arcane.js") == 1
 
 
 async def test_panel_served(cuest, hass_client):

@@ -67,6 +67,11 @@ Store integration) installed.
 The card shows your hero (wearing your outfit), level, XP bar, gold and your
 open quests, each with a **Done** button.
 
+Cuest also ships the Arcane Hearth cards (header, orbs, quest board, rooms,
+bard and more). They load automatically with the integration; there is nothing
+to install. Ready-to-paste dashboards, the matching theme and every option are
+in [arcane-dashboards.md](arcane-dashboards.md).
+
 Note: **Done** on the card (and ticking a quest in the to-do list) credits the
 player linked to the Home Assistant user who is logged in. On a shared wall
 tablet, log in as the person who did the quest, or use their phone.

@@ -31,6 +31,21 @@ export interface ApiRequest {
 }
 export type ApiHandler = (req: ApiRequest) => Promise<{ status: number; body: unknown }>;
 
+/** Gate for the api tunnel: only plain /api/... paths, no traversal or encoded separators. */
+function isSafeApiPath(path: string): boolean {
+  if (!path.startsWith('/api/')) return false;
+  if (/[\x00-\x1f\x7f\\]/.test(path)) return false;
+  if (/%(2e|2f|5c)/i.test(path)) return false;
+  const pathname = path.split('?')[0]!;
+  if (pathname.split('/').includes('..')) return false;
+  try {
+    const url = new URL(path, 'http://x');
+    return url.pathname.startsWith('/api/') && url.pathname === pathname;
+  } catch {
+    return false;
+  }
+}
+
 export class BridgeHub {
   private active: WebSocketLike | null = null;
   private subscriptions: string[] = [];
@@ -196,7 +211,7 @@ export class BridgeHub {
   ): Promise<void> {
     let status = 500;
     let body: unknown = { error: 'internal error' };
-    if (!msg.path.startsWith('/api/')) {
+    if (!isSafeApiPath(msg.path)) {
       status = 400;
       body = { error: 'path must start with /api/' };
     } else if (!this.apiHandler) {
@@ -212,7 +227,13 @@ export class BridgeHub {
       }
     }
     if (this.active !== socket) return;
-    this.sendTo(socket, { type: 'api_result', id: msg.id, status, body });
+    let result: ServerMessage = { type: 'api_result', id: msg.id, status, body };
+    try {
+      JSON.stringify(result);
+    } catch {
+      result = { type: 'api_result', id: msg.id, status: 500, body: { error: 'unserializable' } };
+    }
+    this.sendTo(socket, result);
   }
 
   onState(fn: (ev: StateEvent) => void): void {

@@ -341,3 +341,131 @@ describe('bridge protocol extensions', () => {
     await until(() => c.messages.some((m) => m.type === 'fire_event'));
   });
 });
+
+describe('bridge security', () => {
+  it.each(['/api/../bridge', '/api/%2e%2e/bridge', '/api/%2E%2E/bridge', '/api/x\\..\\bridge', '/api/x\u0000y'])(
+    'unsafe api path %j is refused with 400',
+    async (path) => {
+      await setup();
+      const handler = vi.fn(async () => ({ status: 200, body: null }));
+      hub.setApiHandler(handler);
+      const c = await connect(SECRET);
+      c.ws.send(JSON.stringify({ type: 'api', id: 'p', method: 'GET', path }));
+      await until(() => c.messages.some((m) => m.type === 'api_result'));
+      expect(c.messages.find((m) => m.type === 'api_result')).toMatchObject({ id: 'p', status: 400 });
+      expect(handler).not.toHaveBeenCalled();
+    },
+  );
+
+  it('api path with a query string is accepted', async () => {
+    await setup();
+    hub.setApiHandler(async (req) => ({ status: 200, body: req.path }));
+    const c = await connect(SECRET);
+    c.ws.send(JSON.stringify({ type: 'api', id: 'q', method: 'GET', path: '/api/players?x=1' }));
+    await until(() => c.messages.some((m) => m.type === 'api_result'));
+    expect(c.messages.find((m) => m.type === 'api_result')).toMatchObject({ status: 200, body: '/api/players?x=1' });
+  });
+
+  it('api and entities before hello are rejected and never delivered', async () => {
+    await setup();
+    const handler = vi.fn(async () => ({ status: 200, body: null }));
+    const onEnt = vi.fn();
+    hub.setApiHandler(handler);
+    hub.onEntities(onEnt);
+    for (const msg of [
+      { type: 'api', id: 'x', method: 'GET', path: '/api/players' },
+      { type: 'entities', chunk: 0, last: true, entities: [ent('sensor.a')] },
+    ]) {
+      const c = await connect(null);
+      c.ws.send(JSON.stringify(msg));
+      expect(await c.closed).toBe(4001);
+    }
+    expect(handler).not.toHaveBeenCalled();
+    expect(onEnt).not.toHaveBeenCalled();
+  });
+
+  it('api_result is dropped when the socket was replaced while the handler ran', async () => {
+    await setup();
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    hub.setApiHandler(async () => {
+      await gate;
+      return { status: 200, body: 1 };
+    });
+    const a = await connect(SECRET);
+    await until(() => a.messages.length >= 2);
+    a.ws.send(JSON.stringify({ type: 'api', id: 's', method: 'GET', path: '/api/players' }));
+    await new Promise((r) => setTimeout(r, 50));
+    const b = await connect(SECRET);
+    await until(() => b.messages.length >= 2);
+    release();
+    await new Promise((r) => setTimeout(r, 100));
+    expect(a.messages.some((m) => m.type === 'api_result')).toBe(false);
+    expect(b.messages.some((m) => m.type === 'api_result')).toBe(false);
+  });
+
+  it('api_result is dropped when the socket closed while the handler ran', async () => {
+    await setup();
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    hub.setApiHandler(async () => {
+      await gate;
+      return { status: 200, body: 1 };
+    });
+    const a = await connect(SECRET);
+    await until(() => a.messages.length >= 2);
+    a.ws.send(JSON.stringify({ type: 'api', id: 's', method: 'GET', path: '/api/players' }));
+    await new Promise((r) => setTimeout(r, 50));
+    a.ws.close();
+    await a.closed;
+    await until(() => !hub.isConnected());
+    release();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(a.messages.some((m) => m.type === 'api_result')).toBe(false);
+  });
+
+  it('a replaced socket api and entities messages are ignored', async () => {
+    const h = new BridgeHub({ secret: SECRET, log: () => {} });
+    const handler = vi.fn(async () => ({ status: 200, body: null }));
+    const onEnt = vi.fn();
+    h.setApiHandler(handler);
+    h.onEntities(onEnt);
+    const mk = (): { sock: Parameters<BridgeHub['attach']>[0]; emit: (m: unknown) => void; sent: unknown[] } => {
+      let onMsg: (raw: string) => void = () => {};
+      const sent: unknown[] = [];
+      const sock = {
+        send: (d: string) => void sent.push(JSON.parse(d)),
+        close: () => {},
+        on: (ev: string, fn: (...a: never[]) => void) => {
+          if (ev === 'message') onMsg = fn as unknown as (raw: string) => void;
+        },
+      };
+      return { sock, emit: (m) => onMsg(JSON.stringify(m)), sent };
+    };
+    const a = mk();
+    const b = mk();
+    h.attach(a.sock);
+    a.emit({ type: 'hello', secret: SECRET, version: '1' });
+    h.attach(b.sock);
+    b.emit({ type: 'hello', secret: SECRET, version: '1' });
+    a.emit({ type: 'api', id: 'o', method: 'GET', path: '/api/players' });
+    a.emit({ type: 'entities', chunk: 0, last: true, entities: [ent('sensor.a')] });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(handler).not.toHaveBeenCalled();
+    expect(onEnt).not.toHaveBeenCalled();
+    expect(a.sent.some((m) => (m as { type: string }).type === 'api_result')).toBe(false);
+  });
+
+  it('unserializable api body gives a 500 api_result', async () => {
+    await setup();
+    const cyc: Record<string, unknown> = {};
+    cyc.self = cyc;
+    hub.setApiHandler(async () => ({ status: 200, body: cyc }));
+    const c = await connect(SECRET);
+    c.ws.send(JSON.stringify({ type: 'api', id: 'u', method: 'GET', path: '/api/x' }));
+    await until(() => c.messages.some((m) => m.type === 'api_result'));
+    expect(c.messages.find((m) => m.type === 'api_result')).toEqual({
+      type: 'api_result', id: 'u', status: 500, body: { error: 'unserializable' },
+    });
+  });
+});

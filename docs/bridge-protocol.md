@@ -36,7 +36,7 @@ The first message must be `hello` with the shared secret, within 5 seconds. Othe
 { "type": "entities", "chunk": 0, "last": true, "entities": [ { "entityId": "sensor.washer_state", "domain": "sensor", "deviceId": "d1", "deviceClass": "enum", "platform": "miele", "translationKey": "status", "options": ["running", "finished"], "unit": null, "name": "Washer", "deviceName": "Washer", "manufacturer": "Miele", "model": "WWB", "state": "running" } ] }
 ```
 
-`api` (tunnel to the Cuest REST API, answered by `api_result` with the same `id`). `method` is `GET`, `POST`, `PATCH` or `DELETE`; `path` must start with `/api/`, otherwise the server answers status `400` without handling it. `body` is optional.
+`api` (tunnel to the Cuest REST API, answered by `api_result` with the same `id`). `method` is `GET`, `POST`, `PATCH` or `DELETE`; `path` must start with `/api/`, otherwise the server answers status `400` without handling it. Paths containing `..` segments, backslashes, control characters or percent-encoded `.`, `/` or `\` are refused the same way. If the server has no API handler it answers status `503`. `body` is optional.
 ```json
 { "type": "api", "id": "a1", "method": "POST", "path": "/api/quests/8f2c1a/complete", "body": { "playerId": "b71d09" } }
 ```
@@ -64,7 +64,7 @@ The first message must be `hello` with the shared secret, within 5 seconds. Othe
 { "type": "error", "reason": "unauthorized" }
 ```
 
-`api_result` (answer to `api`; handler failures give status `500`, an unsupported path `400`)
+`api_result` (answer to `api`; handler failures give status `500`, an unsupported path `400`, no handler `503`; a body that cannot be serialised gives `500` with `{ "error": "unserializable" }`)
 ```json
 { "type": "api_result", "id": "a1", "status": 200, "body": { "ok": true } }
 ```

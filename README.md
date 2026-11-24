@@ -8,8 +8,8 @@ until you are ready.
 
 **Set up with Home Assistant:** [docs/install-home-assistant.md](docs/install-home-assistant.md)
 
-**Status: early development.** Only the server core exists so far. It is not
-ready for everyday use yet.
+**Status: early development.** The server and the Home Assistant integration
+exist; the web app is coming. It is not ready for everyday use yet.
 
 ## Install (PC or NAS with Docker)
 

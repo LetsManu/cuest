@@ -242,6 +242,7 @@
     }
   }
 
+  if (customElements.get('cuest-card')) return;
   customElements.define('cuest-card', CuestCard);
   window.customCards = window.customCards || [];
   window.customCards.push({

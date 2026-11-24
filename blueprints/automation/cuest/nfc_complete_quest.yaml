@@ -2,9 +2,8 @@ blueprint:
   name: Cuest - complete a quest with an NFC tag
   description: >
     Scan an NFC tag (for example on the washing machine) to mark a Cuest quest
-    as done. The quest is found by its title. Cuest decides who gets the
-    credit: the person linked to the user who runs the automation, otherwise the
-    first player in Cuest.
+    as done. The quest is found by its title. Automations do not carry a user,
+    so the quest is credited to the first Cuest player.
   domain: automation
   source_url: https://github.com/LetsManu/cuest/blob/main/blueprints/automation/cuest/nfc_complete_quest.yaml
   input:

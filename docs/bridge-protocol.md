@@ -38,7 +38,7 @@ The first message must be `hello` with the shared secret, within 5 seconds. Othe
 
 `api` (tunnel to the Cuest REST API, answered by `api_result` with the same `id`). `method` is `GET`, `POST`, `PATCH` or `DELETE`; `path` must start with `/api/`, otherwise the server answers status `400` without handling it. Paths containing `..` segments, backslashes, control characters or percent-encoded `.`, `/` or `\` are refused the same way. If the server has no API handler it answers status `503`. `body` is optional.
 ```json
-{ "type": "api", "id": "a1", "method": "POST", "path": "/api/quests/8f2c1a/complete", "body": { "playerId": "b71d09" } }
+{ "type": "api", "id": "a1", "method": "POST", "path": "/api/quests/8f2c1a/done", "body": { "playerId": "b71d09" } }
 ```
 
 ## Server to bridge
@@ -74,7 +74,11 @@ The first message must be `hello` with the shared secret, within 5 seconds. Othe
 { "type": "snapshot", "players": [ { "id": "b71d09", "name": "Ada", "haPerson": "person.ada", "level": 3, "title": "Squire", "xp": 120, "gold": 15, "intoLevel": 20, "toNext": 80 } ], "quests": [ { "id": "8f2c1a", "title": "Empty the washer", "status": "open", "claimedBy": null, "xp": 10, "minutes": 5, "templateId": null, "createdAt": "2026-01-01T10:00:00.000Z" } ] }
 ```
 
-`fire_event` (the bridge fires this HA event on the event bus). `event` is one of `cuest_quest_opened`, `cuest_quest_done`, `cuest_level_up`.
+`fire_event` (the bridge fires this HA event on the event bus). `event` is one of `cuest_quest_opened`, `cuest_quest_done`, `cuest_level_up`. The `data` keys are:
+- `cuest_quest_opened`: `quest_id`, `title`, `xp`, `minutes`
+- `cuest_quest_done`: `quest_id`, `title`, `player_id`, `player_name`, `xp`, `gold`
+- `cuest_level_up`: `player_id`, `player_name`, `level`, `title`
+
 ```json
-{ "type": "fire_event", "event": "cuest_level_up", "data": { "playerId": "b71d09", "level": 4 } }
+{ "type": "fire_event", "event": "cuest_level_up", "data": { "player_id": "b71d09", "player_name": "Ada", "level": 4, "title": "Squire" } }
 ```

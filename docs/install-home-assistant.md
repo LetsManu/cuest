@@ -2,7 +2,8 @@
 
 This guide is for you if you are not a developer. Follow the steps in order.
 It takes about 20 minutes. You need a PC or NAS that stays on (for the Cuest
-server) and a working Home Assistant with the HACS add-on installed.
+server) and a working Home Assistant with HACS (the Home Assistant Community
+Store integration) installed.
 
 ## Part 1: Start the Cuest server
 
@@ -80,9 +81,9 @@ Assistant app so it is registered, then:
    `https://github.com/LetsManu/cuest/blob/main/blueprints/automation/cuest/nfc_complete_quest.yaml`
 2. Create an automation from it. Enter the tag's ID and the exact title of the
    quest (for example "Empty the dishwasher").
-3. Scanning the tag now completes that quest. The credit goes to the player
-   linked to whoever runs the automation, or the first player if there is
-   none.
+3. Scanning the tag now completes that quest. The quest is credited to the
+   first Cuest player (Home Assistant automations do not say who scanned the
+   tag).
 
 ## When something goes wrong
 

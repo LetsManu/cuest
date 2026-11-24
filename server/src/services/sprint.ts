@@ -58,6 +58,7 @@ export class SprintService {
   private readonly bus: Bus;
   private readonly clock: Clock;
   private readonly tx: <T>(fn: () => T) => T;
+  private readonly log_: (m: string) => void;
 
   constructor(deps: {
     db: DatabaseSync;
@@ -66,7 +67,9 @@ export class SprintService {
     bus: Bus;
     clock: Clock;
     tx?: <T>(fn: () => T) => T;
+    log?: (m: string) => void;
   }) {
+    this.log_ = deps.log ?? ((m) => console.error(m));
     this.db = deps.db;
     this.players = deps.players;
     this.ledger = deps.ledger;
@@ -126,7 +129,12 @@ export class SprintService {
     const rows = this.db.prepare('SELECT * FROM sprints WHERE ended_at IS NULL').all() as unknown as Row[];
     for (const r of rows) {
       const endsAt = new Date(r.started_at).getTime() + r.minutes * 60_000;
-      if (endsAt <= now.getTime()) this.end(r.player_id, new Date(endsAt), true);
+      if (endsAt > now.getTime()) continue;
+      try {
+        this.end(r.player_id, new Date(endsAt), true);
+      } catch (err) {
+        this.log_(`sprint tick: could not finish sprint ${r.id}: ${String(err)}`);
+      }
     }
   }
 

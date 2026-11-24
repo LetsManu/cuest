@@ -62,8 +62,8 @@ export async function createEngine(deps: {
     onDone: (playerId, doneAt) => daily.onQuestDone(playerId, doneAt),
     onLoot: (playerId, guaranteed) => shop.rollLoot(playerId, guaranteed),
   });
-  const dice = new DiceService({ quests });
-  const sprints = new SprintService({ db, players, ledger, bus, clock, tx: (fn) => transaction(db, fn) });
+  const dice = new DiceService({ quests, tx: (fn) => transaction(db, fn) });
+  const sprints = new SprintService({ db, players, ledger, bus, clock, tx: (fn) => transaction(db, fn), log });
   bus.on('quest:opened', (q) => daily.onQuestOpened(q, clock.now()));
   const hub = new BridgeHub({ secret: config.bridgeSecret, log });
   const shop = new ShopService({ players, items, ledger, unlocks, hub, bus, clock, tx: (fn) => transaction(db, fn) });

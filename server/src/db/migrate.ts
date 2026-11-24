@@ -116,6 +116,7 @@ export const MIGRATIONS: string[] = [
     xp INTEGER
   );
   CREATE INDEX idx_sprints_player ON sprints(player_id, ended_at);
+  CREATE UNIQUE INDEX sprints_one_active ON sprints(player_id) WHERE ended_at IS NULL;
   `,
 ];
 

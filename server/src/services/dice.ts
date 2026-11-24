@@ -15,8 +15,10 @@ const ORDER: Energy[] = ['low', 'medium', 'high'];
 export class DiceService {
   private readonly quests: QuestService;
   private readonly rng: () => number;
+  private readonly tx: <T>(fn: () => T) => T;
 
-  constructor(deps: { quests: QuestService; rng?: () => number }) {
+  constructor(deps: { quests: QuestService; rng?: () => number; tx?: <T>(fn: () => T) => T }) {
+    this.tx = deps.tx ?? ((fn) => fn());
     this.quests = deps.quests;
     this.rng = deps.rng ?? Math.random;
   }
@@ -34,12 +36,14 @@ export class DiceService {
 
   /** Accepting the suggestion creates a manual quest and starts it for the player. */
   accept(playerId: string, suggestion: Suggestion): Quest {
-    const { quest } = this.quests.open({
-      title: suggestion.title,
-      energy: suggestion.energy,
-      minutes: suggestion.minutes,
-      xp: suggestion.xp,
+    return this.tx(() => {
+      const { quest } = this.quests.open({
+        title: suggestion.title,
+        energy: suggestion.energy,
+        minutes: suggestion.minutes,
+        xp: suggestion.xp,
+      });
+      return this.quests.start(quest.id, playerId);
     });
-    return this.quests.start(quest.id, playerId);
   }
 }

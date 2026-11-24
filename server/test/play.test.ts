@@ -7,6 +7,8 @@ import { migrate } from '../src/db/migrate.js';
 import { createEngine, type Engine } from '../src/engine.js';
 import { copy } from '../src/copy.js';
 import { Bus } from '../src/bus.js';
+import { transaction } from '../src/db/db.js';
+import { SprintService } from '../src/services/sprint.js';
 import { DiceService } from '../src/services/dice.js';
 import { QuestService } from '../src/services/quests.js';
 import { LedgerRepo } from '../src/repos/ledger.js';
@@ -53,6 +55,13 @@ describe('energy dice', () => {
   it('low falls through to high when medium is empty', async () => {
     const high = await mkQuest('High one', 'high');
     expect((await get(`/api/dice?playerId=${pid}&energy=low`)).json().quest.id).toBe(high.id);
+  });
+
+  it('accept leaves no orphan quest when start fails', () => {
+    const quests = new QuestService({ quests: new QuestsRepo(db), players: new PlayersRepo(db), ledger: new LedgerRepo(db), bus: new Bus(), clock });
+    const dice = new DiceService({ quests, tx: (fn) => transaction(db, fn) });
+    expect(() => dice.accept('nope', copy.dice.suggestion)).toThrow();
+    expect(quests.listVisible().open).toHaveLength(0);
   });
 
   it('uses the injected rng to pick among matches', () => {
@@ -153,6 +162,36 @@ describe('power sprint', () => {
     expect(xp()).toBe(5 + 10);
     const row = db.prepare('SELECT minutes, ended_at, xp, logs FROM sprints').get() as Record<string, unknown>;
     expect(row).toMatchObject({ xp: 10, logs: 1, ended_at: '2026-11-24T10:05:00.000Z' });
+  });
+
+  it('finishing long after the end still caps at the sprint length', async () => {
+    await start(5);
+    clock.advance(20);
+    expect((await post('/api/sprint/finish', { playerId: pid })).json().xp).toBe(10);
+    expect(xp()).toBe(10);
+  });
+
+  it('a whitespace-only note is rejected and pays nothing', async () => {
+    await start();
+    expect((await post('/api/sprint/log', { playerId: pid, note: '   ' })).statusCode).toBe(400);
+    expect(xp()).toBe(0);
+  });
+
+  it('the database allows only one active sprint per player', () => {
+    db.prepare("INSERT INTO sprints (id, player_id, minutes, started_at) VALUES ('a', ?, 5, 'x')").run(pid);
+    expect(() => db.prepare("INSERT INTO sprints (id, player_id, minutes, started_at) VALUES ('b', ?, 5, 'x')").run(pid)).toThrow();
+  });
+
+  it('one broken sprint row does not stop the others from finishing', async () => {
+    await start(5);
+    db.exec('PRAGMA foreign_keys = OFF');
+    db.prepare("INSERT INTO sprints (id, player_id, minutes, started_at) VALUES ('bad', 'ghost', 5, '2026-11-24T09:00:00.000Z')").run();
+    const logs: string[] = [];
+    const svc = new SprintService({ db, players: new PlayersRepo(db), ledger: new LedgerRepo(db), bus: new Bus(), clock, tx: (fn) => transaction(db, fn), log: (m) => logs.push(m) });
+    clock.advance(10);
+    expect(() => svc.tick(clock.now())).not.toThrow();
+    expect(svc.current(pid)).toBeNull();
+    expect(logs.length).toBe(1);
   });
 
   it('survives an engine restart (state lives in the DB)', async () => {

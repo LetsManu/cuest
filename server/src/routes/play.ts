@@ -18,7 +18,7 @@ const startBody = z.object({
   playerId: z.string().min(1),
   minutes: z.number().refine((m) => (SPRINT_MINUTES as readonly number[]).includes(m), 'minutes must be 5, 15 or 25'),
 });
-const logBody = z.object({ playerId: z.string().min(1), note: z.string().max(MAX_NOTE) });
+const logBody = z.object({ playerId: z.string().min(1), note: z.string().trim().min(1).max(MAX_NOTE) });
 const playerBody = z.object({ playerId: z.string().min(1) });
 
 function sameSuggestion(s: { title: string; minutes: number; xp: number; energy: string }): boolean {

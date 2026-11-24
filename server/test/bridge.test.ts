@@ -164,6 +164,40 @@ describe('bridge hub', () => {
     expect(typeof c.messages[2]!.id).toBe('string');
   });
 
+  it('a rejected socket cannot authenticate with a later hello', async () => {
+    await setup();
+    const good = await connect(SECRET);
+    await until(() => good.messages.length >= 1);
+    const bad = await connect(null);
+    bad.ws.send(JSON.stringify({ type: 'hello', secret: 'wrong-wrong', version: '1' }));
+    bad.ws.send(JSON.stringify({ type: 'hello', secret: SECRET, version: '1' }));
+    expect(await bad.closed).toBe(4001);
+    expect(bad.messages.some((m) => m.type === 'welcome')).toBe(false);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(good.ws.readyState).toBe(WebSocket.OPEN);
+    expect(hub.isConnected()).toBe(true);
+  });
+
+  it('a throwing handler does not stop others or drop the connection', async () => {
+    await setup();
+    const events: StateEvent[] = [];
+    hub.onState(() => {
+      throw new Error('boom');
+    });
+    hub.onState((e) => events.push(e));
+    const c = await connect(SECRET);
+    await until(() => c.messages.length >= 1);
+    c.ws.send(
+      JSON.stringify({ type: 'state', entityId: 'a', oldState: null, newState: 'on', at: '2026-01-01T10:00:00.000Z' }),
+    );
+    await until(() => events.length === 1);
+    expect(c.ws.readyState).toBe(WebSocket.OPEN);
+  });
+
+  it('constructor rejects an empty secret', () => {
+    expect(() => new BridgeHub({ secret: '', log: () => {} })).toThrow();
+  });
+
   it('garbage after auth is ignored', async () => {
     await setup();
     const events: StateEvent[] = [];

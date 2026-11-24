@@ -30,20 +30,31 @@ export class BridgeHub {
   private stateHandlers: Array<(ev: StateEvent) => void> = [];
   private actionHandlers: Array<(action: string) => void> = [];
 
-  constructor(private readonly opts: BridgeHubOptions) {}
+  constructor(private readonly opts: BridgeHubOptions) {
+    if (!opts.secret) throw new Error('BridgeHub requires a non-empty secret');
+  }
 
   attach(socket: WebSocketLike): void {
-    let authed = false;
+    let state: 'pending' | 'authed' | 'rejected' = 'pending';
     const timer = setTimeout(() => {
-      if (!authed) this.reject(socket, 'auth timeout');
+      if (state === 'pending') {
+        state = 'rejected';
+        this.reject(socket, 'auth timeout');
+      }
     }, AUTH_TIMEOUT_MS);
+    const deny = (reason: string): void => {
+      clearTimeout(timer);
+      state = 'rejected';
+      this.reject(socket, reason);
+    };
 
     socket.on('message', (raw: unknown) => {
+      if (state === 'rejected') return;
+      const authed = state === 'authed';
       const text = this.toText(raw);
       if (text === null) {
         if (!authed) {
-          clearTimeout(timer);
-          this.reject(socket, 'bad message');
+          deny('bad message');
         } else {
           this.opts.log('bridge: oversized or unreadable message ignored');
         }
@@ -54,8 +65,7 @@ export class BridgeHub {
         json = JSON.parse(text);
       } catch {
         if (!authed) {
-          clearTimeout(timer);
-          this.reject(socket, 'bad message');
+          deny('bad message');
         } else {
           this.opts.log('bridge: invalid JSON ignored');
         }
@@ -64,12 +74,12 @@ export class BridgeHub {
       const parsed = bridgeMessage.safeParse(json);
 
       if (!authed) {
-        clearTimeout(timer);
         if (!parsed.success || parsed.data.type !== 'hello' || !secretMatches(this.opts.secret, parsed.data.secret)) {
-          this.reject(socket, 'unauthorized');
+          deny('unauthorized');
           return;
         }
-        authed = true;
+        clearTimeout(timer);
+        state = 'authed';
         this.promote(socket);
         return;
       }
@@ -88,11 +98,11 @@ export class BridgeHub {
             return;
           }
           const ev: StateEvent = { entityId: msg.entityId, oldState: msg.oldState, newState: msg.newState, at };
-          for (const fn of this.stateHandlers) fn(ev);
+          for (const fn of this.stateHandlers) this.safe(() => fn(ev));
           return;
         }
         case 'notification_action':
-          for (const fn of this.actionHandlers) fn(msg.action);
+          for (const fn of this.actionHandlers) this.safe(() => fn(msg.action));
           return;
         case 'result':
           if (!msg.ok) this.opts.log(`bridge: service call ${msg.id} failed: ${msg.error ?? 'unknown'}`);
@@ -138,6 +148,14 @@ export class BridgeHub {
 
   onNotificationAction(fn: (action: string) => void): void {
     this.actionHandlers.push(fn);
+  }
+
+  private safe(fn: () => void): void {
+    try {
+      fn();
+    } catch (err) {
+      this.opts.log(`bridge: handler threw: ${String(err)}`);
+    }
   }
 
   private promote(socket: WebSocketLike): void {

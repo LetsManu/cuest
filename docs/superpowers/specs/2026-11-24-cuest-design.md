@@ -58,7 +58,7 @@ as an open-source project others can install.
      themselves.
 5. **No shame**
    - No red "overdue" lists. Missed quests quietly move to a "whenever" pool.
-   - Never lose XP, gold, or levels.
+   - Never lose XP, gold, or levels. (Spending your own gold on something you chose is not losing it; Cuest itself never takes gold away.)
    - Streaks have freezes / rest days, so one missed day doesn't reset them.
    - Reminder wording is always kind.
 6. **Voice through HA Assist** on the phone (and via Siri, which the HA iOS app can hand to
@@ -198,7 +198,7 @@ Two parts:
 
 **1. Cuest server** (Docker container on the home PC/NAS)
 - Holds all game logic, quests, players, XP, gold, unlocks, and the database.
-- Serves the cozy web app (phone, tablet).
+- Holds the shop catalog, inventories and outfits; never serves the UI to the network directly (the UI comes through Home Assistant, see bridge).
 - Keeps the full picture of quest rules (which entity, which condition makes a quest).
 
 **2. Cuest bridge** (small HA custom integration, installed via HACS)
@@ -210,8 +210,8 @@ Two parts:
 - Sends the entity list with registry details for auto-detect (goal 9).
 - Publishes Cuest's sensors, events, to-do list and "complete quest" actions in HA (goal 10).
 - Ships the Cuest dashboard card.
-- Adds a "Cuest" entry to the HA sidebar that opens the server's web app, so the game opens
-  inside the HA Companion app on the phone and on the wall tablet.
+- House treats: the owner picks in the integration options which scenes, scripts or switches Cuest may turn on, with a name and gold price each. The bridge only executes `turn_on` for exactly those entities. Timed treats are HA scripts the owner builds.
+- Serves the cozy web app as a Home Assistant sidebar panel ("Cuest", at `/cuest`). The panel talks to the server through the bridge (an authenticated HA API endpoint that forwards over the bridge socket), so it works in the HA Companion app, remotely, and behind the HA login. Decided in plan 3; replaces the earlier "open the server's web page" idea.
 - Optionally exposes a few sensors (current quest, level, open quests) for HA dashboards.
 - Must stay light: no game logic, no database.
 - Setup through the HA UI (config flow): enter the server address, pair once.

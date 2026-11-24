@@ -9,6 +9,7 @@ const equipBody = z.object({
   slot: z.enum(['hood', 'scarf', 'broom']),
   itemId: z.string().min(1).nullable(),
 });
+const chestBody = z.object({ playerId: z.string().min(1) });
 const viewQuery = z.object({ playerId: z.string().min(1) });
 
 export function registerShopRoutes(app: FastifyInstance, shop: ShopService): void {
@@ -27,6 +28,26 @@ export function registerShopRoutes(app: FastifyInstance, shop: ShopService): voi
     if (!body) return reply;
     try {
       return body.itemId.startsWith('treat:') ? await shop.buyTreat(body.playerId, body.itemId) : shop.buy(body.playerId, body.itemId);
+    } catch (e) {
+      return sendShopError(e, reply);
+    }
+  });
+
+  app.post('/api/shop/open-chest', async (req, reply) => {
+    const body = parseBody(chestBody, req.body, reply);
+    if (!body) return reply;
+    try {
+      return shop.openChest(body.playerId);
+    } catch (e) {
+      return sendShopError(e, reply);
+    }
+  });
+
+  app.get('/api/collection', async (req, reply) => {
+    const q = parseBody(viewQuery, req.query, reply);
+    if (!q) return reply;
+    try {
+      return { items: shop.collection(q.playerId) };
     } catch (e) {
       return sendShopError(e, reply);
     }

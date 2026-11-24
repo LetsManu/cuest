@@ -57,7 +57,7 @@ The first message must be `hello` with the shared secret, within 5 seconds. Othe
 ```json
 { "type": "call_service", "id": "7c1e...", "domain": "notify", "service": "mobile_app_phone", "data": { "message": "Quest ready" }, "target": { "entity_id": "light.hall" } }
 ```
-`target` is optional. The bridge executes service calls in the fixed domains `notify` and `light`. It also executes `turn_on` for a `scene`, `script`, `switch` or `input_boolean` entity, but only when `target.entity_id` is a single string that is on the owner's treat list (chosen in the integration options, read on every call). Anything else is reported back as a failed `result` with `error: "not_allowed"`.
+`target` is optional. The bridge executes service calls in the fixed domains `notify` and `light`. It also executes `turn_on` for a `scene`, `script`, `switch` or `input_boolean` entity, but only when `target.entity_id` is a single string that is on the owner's treat list (chosen in the integration options, read on every call). It also executes `scene.turn_on` for the single sprint scene chosen in the integration options (Celebrations), under the same rules: one string `entity_id`, no other target keys, service data dropped. Celebration flashes use the fixed `light` domain (`light.turn_on` with `flash: short` or `long`). Anything else is reported back as a failed `result` with `error: "not_allowed"`.
 
 `error` (sent before closing the socket)
 ```json
@@ -69,15 +69,15 @@ The first message must be `hello` with the shared secret, within 5 seconds. Othe
 { "type": "api_result", "id": "a1", "status": 200, "body": { "ok": true } }
 ```
 
-`snapshot` (current players and open/active/whenever quests; the bridge renders it into HA entities). Each player also carries `outfit` (`items` per slot, `null` if empty; `palette` is the merged colour overrides of the equipped items), `decor` (owned decor item ids), `restTokens` and `boostUntil` (ISO time while a double-XP boost runs, else `null`).
+`snapshot` (current players and open/active/whenever quests; the bridge renders it into HA entities). Each player also carries `outfit` (`items` per slot, `null` if empty; `palette` is the merged colour overrides of the equipped items), `decor` (owned decor item ids), `restTokens`, `chestKeys` (unused chest keys, one earned per 5 quests done), `streak` (current kind streak in days, as it stands now: `0` once days off can no longer be covered by a rest day or token, until the next finished quest starts a new one), `bestStreak` and `boostUntil` (ISO time while a double-XP boost runs, else `null`). The root also carries `questOfDay`: the id of today's quest of the day (local day in `CUEST_TZ`), or `null` when there is none yet. Bridges must ignore snapshot keys they do not know.
 ```json
-{ "type": "snapshot", "players": [ { "id": "b71d09", "name": "Ada", "haPerson": "person.ada", "level": 3, "title": "Squire", "xp": 120, "gold": 15, "intoLevel": 20, "toNext": 80, "outfit": { "items": { "hood": "hood_ember", "scarf": null, "broom": null }, "palette": { "G": "#B5523B", "L": "#D47A5E", "g": "#8E3E2C" } }, "decor": ["lantern"], "restTokens": 1, "boostUntil": null } ], "quests": [ { "id": "8f2c1a", "title": "Empty the washer", "status": "open", "claimedBy": null, "xp": 10, "minutes": 5, "templateId": null, "createdAt": "2026-01-01T10:00:00.000Z" } ] }
+{ "type": "snapshot", "players": [ { "id": "b71d09", "name": "Ada", "haPerson": "person.ada", "level": 3, "title": "Squire", "xp": 120, "gold": 15, "intoLevel": 20, "toNext": 80, "outfit": { "items": { "hood": "hood_ember", "scarf": null, "broom": null }, "palette": { "G": "#B5523B", "L": "#D47A5E", "g": "#8E3E2C" } }, "decor": ["lantern"], "restTokens": 1, "chestKeys": 1, "streak": 4, "bestStreak": 9, "boostUntil": null } ], "quests": [ { "id": "8f2c1a", "title": "Empty the washer", "status": "open", "claimedBy": null, "xp": 10, "minutes": 5, "templateId": null, "createdAt": "2026-01-01T10:00:00.000Z" } ], "questOfDay": "8f2c1a" }
 ```
 
 `fire_event` (the bridge fires this HA event on the event bus). `event` is one of `cuest_quest_opened`, `cuest_quest_done`, `cuest_level_up`. The `data` keys are:
 - `cuest_quest_opened`: `quest_id`, `title`, `xp`, `minutes`
 - `cuest_quest_done`: `quest_id`, `title`, `player_id`, `player_name`, `xp`, `gold`
-- `cuest_level_up`: `player_id`, `player_name`, `level`, `title`
+- `cuest_level_up`: `player_id`, `player_name`, `level`, `title` (fired whenever XP crosses a level: a finished quest, a finished power sprint or a sprint quick-log note)
 
 ```json
 { "type": "fire_event", "event": "cuest_level_up", "data": { "player_id": "b71d09", "player_name": "Ada", "level": 4, "title": "Hearthkeeper" } }

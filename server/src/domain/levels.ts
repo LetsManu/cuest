@@ -10,3 +10,9 @@ export function titleForLevel(level: number): 'Apprentice' | 'Hearthkeeper' | 'H
   if (level <= 7) return 'Hearthkeeper';
   return 'Hearth Warden';
 }
+
+/** The new level (and its title) when gaining `gained` XP up to `xpAfter` crossed a level, else null. */
+export function levelUp(xpAfter: number, gained: number): { level: number; title: ReturnType<typeof titleForLevel> } | null {
+  const after = levelForXp(xpAfter).level;
+  return after > levelForXp(xpAfter - gained).level ? { level: after, title: titleForLevel(after) } : null;
+}

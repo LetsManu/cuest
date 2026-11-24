@@ -389,7 +389,7 @@ describe('bridge protocol extensions', () => {
 
   it('send returns false when no bridge', async () => {
     await setup();
-    expect(hub.send({ type: 'snapshot', players: [], quests: [] })).toBe(false);
+    expect(hub.send({ type: 'snapshot', players: [], quests: [], questOfDay: null })).toBe(false);
   });
 
   it('send delivers to the active bridge and onAuthenticated fires', async () => {

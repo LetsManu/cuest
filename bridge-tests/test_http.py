@@ -217,9 +217,13 @@ async def test_non_admin_may_play(cuest, hass_client, hass_read_only_access_toke
     _, client, _ = cuest
     http = await hass_client(hass_read_only_access_token)
     assert (await http.get("/api/cuest/quests")).status == 200
-    for p in ("quests/q1/start", "quests/q1/done", "quests/q1/later", "shop/buy", "shop/equip"):
+    plays = (
+        "quests/q1/start", "quests/q1/done", "quests/q1/later", "shop/buy", "shop/equip",
+        "shop/open-chest", "sprint/start", "sprint/log", "sprint/finish", "dice/accept",
+    )
+    for p in plays:
         assert (await http.post("/api/cuest/" + p, json={})).status == 200
-    assert len(client.api_calls) == 6
+    assert len(client.api_calls) == 1 + len(plays)
 
 
 @pytest.mark.parametrize(
@@ -231,6 +235,13 @@ async def test_non_admin_may_play(cuest, hass_client, hass_read_only_access_toke
         ("post", "players"),
         ("post", "suggestions"),
         ("post", "quests/q1/done/x"),
+        ("patch", "settings"),
+        ("post", "settings"),
+        ("post", "sprint/start/x"),
+        ("post", "sprint"),
+        ("post", "dice"),
+        ("post", "dice/roll"),
+        ("post", "shop/open-chest/x"),
     ],
 )
 async def test_non_admin_writes_403(
@@ -262,7 +273,10 @@ def test_query_encoded_dots_slashes_rejected(q) -> None:
     assert _valid_query(make_mocked_request("GET", "/api/cuest/x?a=b&c=d"))
 
 
-_BOUND = ["quests/q1/start", "quests/q1/done", "shop/buy", "shop/equip"]
+_BOUND = [
+    "quests/q1/start", "quests/q1/done", "shop/buy", "shop/equip", "shop/open-chest",
+    "sprint/start", "sprint/log", "sprint/finish", "dice/accept",
+]
 
 
 @pytest.mark.parametrize("path", _BOUND)
@@ -292,3 +306,21 @@ async def test_linked_admin_and_unlinked_non_admin_may_pick_any_player(
     assert (await admin.post("/api/cuest/shop/buy", json={"playerId": "p2"})).status == 200
     shared = await hass_client(hass_read_only_access_token)
     assert (await shared.post("/api/cuest/shop/buy", json={"playerId": "p2"})).status == 200
+
+
+async def test_admin_patch_settings_forwarded(cuest, hass_client) -> None:
+    _, client, _ = cuest
+    http = await hass_client()
+    body = {"celebrationLights": ["light.hall"], "sprintScene": None}
+    assert (await http.patch("/api/cuest/settings", json=body)).status == 200
+    assert client.api_calls == [("PATCH", "/api/settings", body)]
+
+
+async def test_non_admin_can_read_settings_but_not_write(
+    cuest, hass_client, hass_read_only_access_token
+) -> None:
+    _, client, _ = cuest
+    http = await hass_client(hass_read_only_access_token)
+    assert (await http.get("/api/cuest/settings")).status == 200
+    assert (await http.patch("/api/cuest/settings", json={"sprintScene": None})).status == 403
+    assert client.api_calls == [("GET", "/api/settings", None)]

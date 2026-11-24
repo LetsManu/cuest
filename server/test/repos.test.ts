@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import type { DatabaseSync } from 'node:sqlite';
 import { openDb } from '../src/db/db.js';
-import { migrate } from '../src/db/migrate.js';
+import { migrate, MIGRATIONS } from '../src/db/migrate.js';
 import { PlayersRepo } from '../src/repos/players.js';
 import { TemplatesRepo } from '../src/repos/templates.js';
 import { QuestsRepo } from '../src/repos/quests.js';
@@ -46,7 +46,7 @@ describe('repos', () => {
     migrate(db);
     migrate(db);
     const rows = db.prepare('SELECT version FROM schema_version').all() as { version: number }[];
-    expect(rows).toEqual([{ version: 3 }]);
+    expect(rows).toEqual([{ version: 9 }]);
   });
 
   it('players round-trip', () => {
@@ -122,6 +122,29 @@ describe('repos', () => {
     expect(updated.status).toBe('done');
     expect(quests.findLiveByTemplate(t.id)).toBeNull();
     expect(() => quests.update('nope', { title: 'x' })).toThrow();
+  });
+
+  it('migration 9 upgrades a v8 database: existing quests get no source', () => {
+    const old = openDb(':memory:');
+    old.exec('CREATE TABLE schema_version (version INTEGER NOT NULL)');
+    for (const m of MIGRATIONS.slice(0, 8)) old.exec(m);
+    old.exec(`INSERT INTO schema_version VALUES (8);
+      INSERT INTO quests (id, title, energy, minutes, xp, gold, status, created_at, whenever_after_hours)
+      VALUES ('q1', 'Old', 'low', 5, 10, 3, 'open', '2026-11-24T10:00:00.000Z', 12);`);
+    migrate(old);
+    expect(new QuestsRepo(old).get('q1')).toMatchObject({ title: 'Old', source: null });
+    expect(old.prepare('SELECT version FROM schema_version').all()).toEqual([{ version: 9 }]);
+  });
+
+  it('quest source round-trips (null by default, dice_suggestion when set)', () => {
+    const quests = new QuestsRepo(db);
+    const plain = makeQuest();
+    const dice = makeQuest({ source: 'dice_suggestion' });
+    quests.insert(plain);
+    quests.insert(dice);
+    expect(quests.get(plain.id)?.source).toBeNull();
+    expect(quests.get(dice.id)?.source).toBe('dice_suggestion');
+    expect(quests.update(dice.id, { status: 'active' }).source).toBe('dice_suggestion');
   });
 
   it('quests listByStatus oldest first; ledger round-trips', () => {

@@ -24,6 +24,12 @@ export interface VillageProps {
   onStart(q: Quest): void;
   onLater(q: Quest): void;
   onTogglePool(): void;
+  questOfDay: string | null;
+  soundOn: boolean;
+  onSound(): void;
+  onOpenChest(): void;
+  onDice(): void;
+  onSprint(): void;
 }
 
 export const villageStyles = [
@@ -64,6 +70,13 @@ export const villageStyles = [
   .btn:disabled{opacity:.55;cursor:default}
   .btn.primary{flex:1;background:${unsafeCSS(COLORS.forest)};color:${unsafeCSS(COLORS.card)}}
   .btn.ghost{background:transparent;border-color:#C9B791;color:#4A4033}
+  .streak{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;background:#1E2338;border:2px solid #4A5275;border-radius:999px;padding:3px 10px 3px 6px;font-size:13px;font-weight:800;color:#F6E2B8}
+  .streak svg{flex:none}
+  .qotd{align-self:flex-start;background:#F6E2B8;color:${unsafeCSS(COLORS.ink)};border:2px solid #B07A1E;border-radius:8px;padding:2px 8px;font-family:${unsafeCSS(FONT_PIXEL)};font-size:13px;font-weight:700}
+  .actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .tools{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .tools .btn{background:${unsafeCSS(COLORS.card)};border-color:${unsafeCSS(COLORS.line)};color:${unsafeCSS(COLORS.ink)}}
+  .btn.amber{background:${unsafeCSS(COLORS.amber)};color:${unsafeCSS(COLORS.ink)};font-family:${unsafeCSS(FONT_PIXEL)}}
   .boost{background:#F6E2B8;color:${unsafeCSS(COLORS.ink)};border-radius:12px;padding:8px 12px;font-weight:800;font-size:13px;text-align:center}
   .empty{background:${unsafeCSS(COLORS.card)};border:2px dashed #C9B791;border-radius:16px;padding:18px;text-align:center;color:${unsafeCSS(COLORS.muted)};line-height:1.45}
   .empty strong{display:block;color:${unsafeCSS(COLORS.ink)};font-family:${unsafeCSS(FONT_PIXEL)};font-size:18px;margin-bottom:4px}
@@ -72,6 +85,15 @@ export const villageStyles = [
   .poolitem{display:flex;justify-content:space-between;align-items:center;gap:8px;background:${unsafeCSS(COLORS.card)};border:2px solid ${unsafeCSS(COLORS.line)};border-radius:12px;padding:8px 10px;color:${unsafeCSS(COLORS.ink)}}
   .poolitem span{min-width:0;overflow-wrap:anywhere}
 `];
+
+/** Pixel flame, drawn from rects so it stays crisp at any size (no emoji). */
+const FLAME = html`<svg width="16" height="20" viewBox="0 0 8 10" shape-rendering="crispEdges" aria-hidden="true"><path fill="#C8541E" d="M3 0h1v1h1v2h1v1h1v4H6v1H2V9H1V5h1V3h1z"></path><path fill="#E0A43A" d="M4 3h1v2h1v3H5v1H3V8H2V6h1V5h1z"></path><path fill="#F7D27A" d="M4 6h1v2H4z"></path></svg>`;
+
+function streakBadge(s: Summary | null): TemplateResult | typeof nothing {
+  const n = s?.streak ?? 0;
+  if (!s || n < 1) return nothing;
+  return html`<div class="streak" data-role="streak">${FLAME}<span>${STRINGS.streakBadge(n, s.restTokens ?? s.player.restTokens ?? 0)}</span></div>`;
+}
 
 function hhmm(iso: string | null): string {
   return clock24(iso);
@@ -90,6 +112,7 @@ function questCard(p: VillageProps, q: Quest): TemplateResult {
   const active = q.status === 'active';
   const busy = !!p.busy[q.id];
   return html`<article class="qcard${active ? ' active' : ''}">
+    ${p.questOfDay === q.id ? html`<div class="qotd" data-role="qotd">${STRINGS.questOfDay} ×3</div>` : nothing}
     <div class="qrow"><div class="qicon">${ICON}</div>
       <div class="qtext"><div class="qtitle">${q.title}</div><div class="qmeta">${questMeta(q)}</div></div>
       <div class="qxp">+${q.xp} XP</div></div>
@@ -115,7 +138,8 @@ export function villageView(p: VillageProps): TemplateResult {
   const title = s?.title ?? '';
   const into = s?.intoLevel ?? 0;
   const toNext = s?.toNext ?? 0;
-  const pct = into + toNext > 0 ? Math.max(0, Math.min(100, Math.round((100 * into) / (into + toNext)))) : 0;
+  const remaining = Math.max(0, toNext - into);
+  const pct = toNext > 0 ? Math.max(0, Math.min(100, Math.round((100 * into) / toNext))) : 0;
   const q = p.quests;
   const open = q ? [...q.active, ...q.open] : [];
   const pool = q?.whenever ?? [];
@@ -130,9 +154,14 @@ export function villageView(p: VillageProps): TemplateResult {
         <div class="dot" style="left:${-PX}px;top:${-PX}px;width:${PX}px;height:${PX}px;box-shadow:${spriteShadow(stageForLevel(level), PX, p.palette)}"></div>
       </div>
       <div class="info"><div class="lvl">${STRINGS.level} ${level}</div>${title ? html`<div class="ttl">${title}</div>` : nothing}
-        <div class="sub">${toNext} ${STRINGS.xpToLevel} ${level + 1}</div>
+        ${streakBadge(s)}
+        <div class="sub">${remaining} ${STRINGS.xpToLevel} ${level + 1}</div>
         <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div></div>
     </section>
+    <div class="actions">${(s?.chestKeys ?? 0) > 0 ? html`<button type="button" class="btn amber" data-act="open-chest" ?disabled=${!!p.busy['chest']} @click=${p.onOpenChest}>${STRINGS.openChest} (${s?.chestKeys})</button>` : nothing}
+      <button type="button" class="btn ghost" data-act="sound" aria-pressed="${p.soundOn}" @click=${p.onSound}>${STRINGS.sound}</button></div>
+    <div class="tools"><button type="button" class="btn" data-act="dice" @click=${p.onDice}>${STRINGS.diceBtn}</button>
+      <button type="button" class="btn" data-act="sprint" @click=${p.onSprint}>${STRINGS.sprintBtn}</button></div>
     <div class="h2row"><h2>${STRINGS.houseNeedsYou}</h2><span>${open.length} ${open.length === 1 ? STRINGS.questOne : STRINGS.questMany}</span></div>
     ${q && !open.length ? html`<div class="empty"><strong>${STRINGS.allQuiet}</strong>${STRINGS.allQuietBody}</div>` : nothing}
     ${open.map((x) => (claimedByOther(p, x) ? otherCard(x) : questCard(p, x)))}

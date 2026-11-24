@@ -15,6 +15,9 @@ export const CATALOG: readonly ShopItem[] = [
   { id: 'rest_token', kind: 'helper', name: n.rest_token, cost: 50 },
   { id: 'mystery_chest', kind: 'helper', name: n.mystery_chest, cost: 40 },
   { id: 'xp_potion', kind: 'helper', name: n.xp_potion, cost: 70 },
+  { id: 'hood_starry', kind: 'wardrobe', name: n.hood_starry, cost: 0, lootOnly: true, slot: 'hood', palette: { G: '#1F2A4A', L: '#F7D27A', g: '#141C33' } },
+  { id: 'broom_moss', kind: 'wardrobe', name: n.broom_moss, cost: 0, lootOnly: true, slot: 'broom', palette: { T: '#5A4630', F: '#6FAE8C', f: '#3B6E57' } },
+  { id: 'owl', kind: 'decor', name: n.owl, cost: 0, lootOnly: true },
 ];
 
 export function findItem(id: string): ShopItem | null {

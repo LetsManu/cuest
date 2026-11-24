@@ -95,6 +95,9 @@ export const snapshotPlayer = z.object({
   }),
   decor: z.array(z.string()),
   restTokens: z.number(),
+  chestKeys: z.number(),
+  streak: z.number(),
+  bestStreak: z.number(),
   boostUntil: z.string().nullable(),
 });
 export const snapshotQuest = z.object({
@@ -113,6 +116,7 @@ export const snapshotMsg = z.object({
   type: z.literal('snapshot'),
   players: z.array(snapshotPlayer),
   quests: z.array(snapshotQuest),
+  questOfDay: z.string().nullable(),
 });
 export const fireEventMsg = z.object({
   type: z.literal('fire_event'),

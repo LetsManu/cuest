@@ -31,6 +31,14 @@ export interface Player {
   gold: number;
   restTokens: number;
   boostUntil: string | null;
+  comboCount: number;
+  lastDoneAt: string | null;
+  streak: number;
+  bestStreak: number;
+  lastStreakDay: string | null;
+  restWeek: string | null;
+  chestKeys: number;
+  doneCount: number;
   createdAt: string;
 }
 export interface QuestTemplate {
@@ -49,6 +57,8 @@ export interface QuestTemplate {
   lastSpawnedAt: string | null;
   createdAt: string;
 }
+/** Where a quest came from when that changes its rewards; null for a normal quest. */
+export type QuestSource = 'dice_suggestion';
 export interface Quest {
   id: string;
   templateId: string | null;
@@ -68,12 +78,15 @@ export interface Quest {
   snoozedUntil: string | null;
   nudgeCount: number;
   lastNudgeAt: string | null;
+  /** 'dice_suggestion': accepted from the energy dice; pays a small flat reward. */
+  source?: QuestSource | null;
 }
 export interface LedgerEntry {
   id: string;
   playerId: string;
   questId: string | null;
-  kind: 'quest_done' | 'purchase';
+  /** 'sprint' rows are power-sprint XP (no quest); 'quest_done' rows are finished quests only. */
+  kind: 'quest_done' | 'sprint' | 'purchase';
   xp: number;
   gold: number;
   at: string;
@@ -101,4 +114,6 @@ export interface ShopItem {
   cost: number;
   slot?: Slot;
   palette?: Record<string, string>;
+  /** Only ever won as a loot drop: not buyable, not in the shop, not in chests. */
+  lootOnly?: boolean;
 }

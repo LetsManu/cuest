@@ -12,6 +12,14 @@ interface Row {
   gold: number;
   rest_tokens: number;
   boost_until: string | null;
+  combo_count: number;
+  last_done_at: string | null;
+  streak: number;
+  best_streak: number;
+  last_streak_day: string | null;
+  rest_week: string | null;
+  chest_keys: number;
+  done_count: number;
   created_at: string;
 }
 
@@ -24,6 +32,14 @@ const toPlayer = (r: Row): Player => ({
   gold: r.gold,
   restTokens: r.rest_tokens,
   boostUntil: r.boost_until,
+  comboCount: r.combo_count,
+  lastDoneAt: r.last_done_at,
+  streak: r.streak,
+  bestStreak: r.best_streak,
+  lastStreakDay: r.last_streak_day,
+  restWeek: r.rest_week,
+  chestKeys: r.chest_keys,
+  doneCount: r.done_count,
   createdAt: r.created_at,
 });
 
@@ -80,6 +96,46 @@ export class PlayersRepo {
   addRestTokens(id: string, n: number): Player {
     if (n < 0) throw new Error('tokens must not be negative');
     const res = this.db.prepare('UPDATE players SET rest_tokens = rest_tokens + ? WHERE id = ?').run(n, id);
+    if (res.changes === 0) throw new Error(`unknown player ${id}`);
+    return this.get(id) as Player;
+  }
+
+  /** Spends one rest token; never goes below zero. Returns false when none was left. */
+  consumeRestToken(id: string): boolean {
+    const res = this.db.prepare('UPDATE players SET rest_tokens = rest_tokens - 1 WHERE id = ? AND rest_tokens > 0').run(id);
+    return res.changes > 0;
+  }
+
+  /** Counts one finished quest; returns the new total. */
+  incrementDoneCount(id: string): number {
+    const res = this.db.prepare('UPDATE players SET done_count = done_count + 1 WHERE id = ?').run(id);
+    if (res.changes === 0) throw new Error(`unknown player ${id}`);
+    return (this.get(id) as Player).doneCount;
+  }
+
+  addChestKeys(id: string, n: number): Player {
+    if (n < 0) throw new Error('keys must not be negative');
+    const res = this.db.prepare('UPDATE players SET chest_keys = chest_keys + ? WHERE id = ?').run(n, id);
+    if (res.changes === 0) throw new Error(`unknown player ${id}`);
+    return this.get(id) as Player;
+  }
+
+  /** Uses one chest key; never goes below zero. Returns false when none was left. */
+  consumeChestKey(id: string): boolean {
+    const res = this.db.prepare('UPDATE players SET chest_keys = chest_keys - 1 WHERE id = ? AND chest_keys > 0').run(id);
+    return res.changes > 0;
+  }
+
+  setStreak(id: string, s: { streak: number; bestStreak: number; lastStreakDay: string; restWeek: string | null }): Player {
+    const res = this.db
+      .prepare('UPDATE players SET streak = ?, best_streak = ?, last_streak_day = ?, rest_week = ? WHERE id = ?')
+      .run(s.streak, s.bestStreak, s.lastStreakDay, s.restWeek, id);
+    if (res.changes === 0) throw new Error(`unknown player ${id}`);
+    return this.get(id) as Player;
+  }
+
+  setCombo(id: string, comboCount: number, lastDoneAt: string): Player {
+    const res = this.db.prepare('UPDATE players SET combo_count = ?, last_done_at = ? WHERE id = ?').run(comboCount, lastDoneAt, id);
     if (res.changes === 0) throw new Error(`unknown player ${id}`);
     return this.get(id) as Player;
   }

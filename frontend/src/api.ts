@@ -6,6 +6,9 @@ export interface WhoAmI {
   isAdmin: boolean;
   players: { id: string; name: string }[];
 }
+export type Energy = 'low' | 'medium' | 'high';
+export interface Suggestion { title: string; minutes: number; xp: number; energy: Energy }
+export type DiceResult = { quest: Quest } | { suggestion: Suggestion };
 export interface Quest {
   id: string;
   title: string;
@@ -18,16 +21,34 @@ export interface Quest {
   claimedBy: string | null;
   templateId: string | null;
   snoozedUntil: string | null;
+  energy?: Energy;
 }
-export interface QuestLists { active: Quest[]; open: Quest[]; whenever: Quest[] }
+/** Sprint XP credit; `levelUp` is set when it took the player over a level. */
+export interface SprintCredit { sprint: Sprint; xp: number; levelUp?: { level: number; title: string } | null }
+export interface Sprint { id: string; playerId: string; minutes: number; startedAt: string; endedAt: string | null; logs: number; xp: number | null }
+export interface QuestLists { active: Quest[]; open: Quest[]; whenever: Quest[]; questOfDay?: string | null }
 export interface Summary {
   player: { id: string; name: string; xp: number; gold: number; restTokens: number; boostUntil: string | null };
   level: number;
   title: string;
   intoLevel: number;
   toNext: number;
+  streak?: number;
+  bestStreak?: number;
+  restTokens?: number;
+  chestKeys?: number;
+}
+export interface RewardLine { label: string; xp: number; gold: number }
+export interface DoneResult {
+  quest: Quest;
+  reward: { xp: number; gold: number; lines: RewardLine[] };
+  player: Summary['player'];
+  streak?: { streak: number; restarted: boolean; usedRest: 'free' | 'token' | null };
+  loot?: { itemId: string; name: string } | null;
+  chestKey?: boolean;
 }
 export interface ShopItem { id: string; kind: string; name: string; cost: number; slot?: string; palette?: Record<string, string>; owned: boolean }
+export interface CollectionItem { id: string; kind: 'wardrobe' | 'decor'; name: string; owned: boolean; lootOnly: boolean; slot?: string; palette?: Record<string, string> }
 export type BuyResult = {
   player: Record<string, unknown>;
   result:
@@ -102,9 +123,17 @@ export class CuestApi {
   quests() { return this.call<QuestLists>('GET', 'cuest/quests'); }
   summary(playerId: string) { return this.call<Summary>('GET', `cuest/players/${encodeURIComponent(playerId)}/summary`); }
   shop(playerId: string) { return this.call<ShopView>('GET', `cuest/shop?playerId=${encodeURIComponent(playerId)}`); }
+  collection(playerId: string) { return this.call<{ items: CollectionItem[] }>('GET', `cuest/collection?playerId=${encodeURIComponent(playerId)}`); }
   start(questId: string, playerId: string) { return this.call<{ quest: Quest }>('POST', `cuest/quests/${encodeURIComponent(questId)}/start`, { playerId }); }
-  done(questId: string, playerId: string) { return this.call<{ quest: Quest; reward: { xp: number; gold: number; lines: string[] }; player: Summary['player'] }>('POST', `cuest/quests/${encodeURIComponent(questId)}/done`, { playerId }); }
+  done(questId: string, playerId: string) { return this.call<DoneResult>('POST', `cuest/quests/${encodeURIComponent(questId)}/done`, { playerId }); }
+  dice(playerId: string, energy: Energy) { return this.call<DiceResult>('GET', `cuest/dice?playerId=${encodeURIComponent(playerId)}&energy=${energy}`); }
+  acceptDice(playerId: string, suggestion: Suggestion) { return this.call<Quest>('POST', 'cuest/dice/accept', { playerId, suggestion }); }
+  sprint(playerId: string) { return this.call<{ sprint: Sprint | null }>('GET', `cuest/sprint?playerId=${encodeURIComponent(playerId)}`); }
+  sprintStart(playerId: string, minutes: number) { return this.call<Sprint>('POST', 'cuest/sprint/start', { playerId, minutes }); }
+  sprintLog(playerId: string, note: string) { return this.call<SprintCredit>('POST', 'cuest/sprint/log', { playerId, note }); }
+  sprintFinish(playerId: string) { return this.call<SprintCredit>('POST', 'cuest/sprint/finish', { playerId }); }
   later(questId: string) { return this.call<{ quest: Quest }>('POST', `cuest/quests/${encodeURIComponent(questId)}/later`, {}); }
   buy(playerId: string, itemId: string) { return this.call<BuyResult>('POST', 'cuest/shop/buy', { playerId, itemId }); }
+  openChest(playerId: string) { return this.call<BuyResult>('POST', 'cuest/shop/open-chest', { playerId }); }
   equip(playerId: string, slot: string, itemId: string | null) { return this.call<unknown>('POST', 'cuest/shop/equip', { playerId, slot, itemId }); }
 }

@@ -203,3 +203,43 @@ describe('computeReward', () => {
     });
   });
 });
+
+describe('QuestService.done reward engine v2', () => {
+  const mk = (title: string, xp = 30) => service.open({ title, energy: 'low', minutes: 5, xp });
+
+  it('combo carries across dones within 10 minutes and persists on the player', () => {
+    const q1 = mk('a').quest;
+    const q2 = mk('b').quest;
+    const q3 = mk('c').quest;
+    const r1 = service.done(q1.id, A.id);
+    expect(r1.reward.lines.map((l) => l.label)).toEqual(['Quest']);
+    expect(players.get(A.id)).toMatchObject({ comboCount: 1, lastDoneAt: clock.now().toISOString() });
+    clock.advance(5);
+    const r2 = service.done(q2.id, A.id);
+    expect(r2.reward.lines.map((l) => l.label)).toEqual(['Quest', 'Combo ×2']);
+    expect(players.get(A.id)?.comboCount).toBe(2);
+    clock.advance(11);
+    const r3 = service.done(q3.id, A.id);
+    expect(r3.reward.lines).toHaveLength(1);
+    expect(players.get(A.id)?.comboCount).toBe(1);
+  });
+
+  it('fresh and keep-going use startedAt and the quest createdAt', () => {
+    const q = mk('a').quest;
+    clock.advance(5);
+    service.start(q.id, A.id);
+    clock.advance(7);
+    const r = service.done(q.id, A.id);
+    expect(r.reward.lines.map((l) => l.label)).toEqual(['Quest', 'Kept going', 'Fresh quest']);
+  });
+
+  it('quest of the day comes from the injected predicate', () => {
+    const svc = new QuestService({
+      quests, players, ledger, bus, clock, tx: (fn) => transaction(db, fn),
+      isQuestOfDay: (id) => id === q.id,
+    });
+    const q = mk('a').quest;
+    const r = svc.done(q.id, A.id);
+    expect(r.reward.lines.map((l) => l.label)).toEqual(['Quest', 'Quest of the day']);
+  });
+});

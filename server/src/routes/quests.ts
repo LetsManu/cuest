@@ -13,8 +13,12 @@ const createBody = z.object({
 const playerBody = z.object({ playerId: z.string().min(1) });
 const laterBody = z.object({ minutes: nonNegInt.max(7 * 24 * 60).optional() });
 
-export function registerQuestRoutes(app: FastifyInstance, quests: QuestService): void {
-  app.get('/api/quests', async () => quests.listVisible());
+export function registerQuestRoutes(
+  app: FastifyInstance,
+  quests: QuestService,
+  questOfDay: () => string | null = () => null,
+): void {
+  app.get('/api/quests', async () => ({ ...quests.listVisible(), questOfDay: questOfDay() }));
 
   app.post('/api/quests', async (req, reply) => {
     const body = parseBody(createBody, req.body, reply);

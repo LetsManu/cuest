@@ -1,17 +1,21 @@
 import { LitElement, css, html, nothing, unsafeCSS } from 'lit';
-import { CuestApi, toApiError, type BuyResult, type QuestLists, type Quest, type ShopItem, type ShopView, type Summary, type WhoAmI } from './api';
+import { CuestApi, toApiError, type BuyResult, type CollectionItem, type DiceResult, type Energy, type QuestLists, type Quest, type Sprint, type ShopItem, type ShopView, type SprintCredit, type Summary, type WhoAmI } from './api';
 import type { HomeAssistant } from './hass-types';
 import { COLORS, FONT_BODY, FONT_PIXEL } from './palette';
 import { cuestSignature, playersFromSensors } from './sensors';
 import type { Palette } from './sprite';
 import { STRINGS } from './strings';
+import { isSoundOn, playFanfare, setSoundOn, unlock } from './sound';
 import { levelForXp, titleForLevel } from './levels';
+import { diceStyles, diceView } from './views/dice';
+import { collectionStyles } from './views/collection';
 import { heroStyles, heroView } from './views/hero';
 import { questStyles, questView, rewardToast, toastStyles, type Reward } from './views/quest';
 import { clock24, noticeToast, shopStyles, shopView, type ShopTab } from './views/shop';
+import { MAX_LOGS, XP_PER_LOG, XP_PER_MINUTE, endsAtMs, sprintStyles, sprintView, type SprintSummary } from './views/sprint';
 import { villageStyles, villageView } from './views/village';
 
-type View = 'village' | 'shop' | 'hero' | 'quest';
+type View = 'village' | 'shop' | 'hero' | 'quest' | 'dice' | 'sprint';
 const STORE_KEY = 'cuest.player';
 const REFRESH_MS = 30_000;
 
@@ -46,16 +50,27 @@ export class CuestPanel extends LitElement {
     _reward: { state: true },
     _tick: { state: true },
     _shop: { state: true },
+    _collection: { state: true },
     _shopTab: { state: true },
     _notice: { state: true },
+    _sound: { state: true },
+    _energy: { state: true },
+    _dice: { state: true },
+    _sprint: { state: true },
+    _sprintSummary: { state: true },
+    _sprintNote: { state: true },
+    _rolling: { state: true },
   };
 
   static styles = [
     villageStyles,
     heroStyles,
+    collectionStyles,
     questStyles,
     toastStyles,
     shopStyles,
+    diceStyles,
+    sprintStyles,
     css`
     :host{display:block;min-height:100%;background:${unsafeCSS(COLORS.parchment)};color:${unsafeCSS(COLORS.ink)};font-family:${unsafeCSS(FONT_BODY)};font-size:15px;box-sizing:border-box}
     *{box-sizing:border-box}
@@ -94,11 +109,21 @@ export class CuestPanel extends LitElement {
   declare _reward: Reward | null;
   declare _tick: number;
   declare _shop: ShopView | null;
+  declare _collection: CollectionItem[] | null;
   declare _shopTab: ShopTab;
   declare _notice: string;
+  declare _sound: boolean;
+  declare _energy: Energy;
+  declare _dice: DiceResult | null;
+  declare _rolling: boolean;
+  declare _sprint: Sprint | null;
+  declare _sprintSummary: SprintSummary | null;
+  declare _sprintNote: string;
 
   /** Injectable clock (ms) so tests can drive the quest timer. */
   now: () => number = () => Date.now();
+  /** Minimum time the die keeps rolling, so the animation is seen even on a fast reply. */
+  diceDelayMs = 600;
 
   private _api: CuestApi | null = null;
   private _sig: string | null = null;
@@ -107,6 +132,13 @@ export class CuestPanel extends LitElement {
   private _pending = false;
   private _qTimer: ReturnType<typeof setInterval> | undefined;
   private _toastTimer: ReturnType<typeof setTimeout> | undefined;
+  /**
+   * The collection only changes on loot, buys, chests and equips, so it is not re-fetched on every
+   * refresh: `_colWanted` is bumped when a fetch is due (first load, Hero opens, after those results)
+   * and `_colHave` records the request that last succeeded.
+   */
+  private _colWanted = 1;
+  private _colHave = 0;
 
   constructor() {
     super();
@@ -116,6 +148,7 @@ export class CuestPanel extends LitElement {
     this._summary = null;
     this._quests = null;
     this._shop = null;
+    this._collection = null;
     this._view = 'village';
     this._questId = null;
     this._offline = false;
@@ -128,12 +161,19 @@ export class CuestPanel extends LitElement {
     this._tick = 0;
     this._shopTab = 'treat';
     this._notice = '';
+    this._sound = isSoundOn();
+    this._energy = 'medium';
+    this._dice = null;
+    this._rolling = false;
+    this._sprint = null;
+    this._sprintSummary = null;
+    this._sprintNote = '';
   }
 
   connectedCallback() {
     super.connectedCallback();
     this._timer = setInterval(() => { if (typeof document === 'undefined' || !document.hidden) void this._refresh(); }, REFRESH_MS);
-    if (this._view === 'quest') this._armTick();
+    if (this._view === 'quest' || (this._view === 'sprint' && this._sprint)) this._armTick();
   }
 
   disconnectedCallback() {
@@ -144,14 +184,14 @@ export class CuestPanel extends LitElement {
   }
 
   protected updated(changed: Map<string, unknown>) {
-    if (!changed.has('_view')) return;
-    if (this._view === 'quest') {
-      this._armTick();
-    } else this._stopTick();
+    if (!changed.has('_view') && !changed.has('_sprint')) return;
+    // One 1s ticker serves the quest timer and the sprint countdown; it only runs while one is on screen.
+    if (this._view === 'quest' || (this._view === 'sprint' && this._sprint)) this._armTick();
+    else this._stopTick();
   }
 
   private _armTick() {
-    if (!this._qTimer) this._qTimer = setInterval(() => { this._tick++; }, 1000);
+    if (!this._qTimer) this._qTimer = setInterval(() => { this._tick++; if (this._view === 'sprint') this._sprintWatch(); }, 1000);
   }
 
   private _stopTick() {
@@ -173,18 +213,29 @@ export class CuestPanel extends LitElement {
     if (text) this._toastTimer = setTimeout(() => { this._notice = ''; }, 8000);
   }
 
-  private _finish = (q: Quest) => {
+  private _finish = (q: Quest, after: () => void = () => { this._view = 'village'; this._questId = null; }) => {
     const pid = this._playerId;
     const api = this._api;
     if (!pid || !api) return;
+    if (this._sound) unlock();
     void this._act(q, async () => {
       const res = await api.done(q.id, pid);
-      const r = res.reward as { xp: number; gold: number };
+      this._colWanted++; // loot may have been found
+      const r = res.reward as { xp: number; gold: number; lines?: { label: string; xp: number }[] };
       const xp = res.player?.xp;
       const level = typeof xp === 'number' ? levelForXp(xp).level : 0;
       const up = typeof xp === 'number' && level > levelForXp(xp - r.xp).level;
-      this._setReward({ xp: r.xp, gold: r.gold, level: up ? level : null, title: up ? titleForLevel(level) : '' });
-    }, () => { this._view = 'village'; this._questId = null; });
+      const st = res.streak;
+      const streak = !st ? [] : [
+        ...(st.usedRest ? [STRINGS.streakRestUsed] : []),
+        st.restarted ? STRINGS.streakRestarted : STRINGS.streakLine(st.streak),
+      ];
+      this._setReward({
+        xp: r.xp, gold: r.gold, level: up ? level : null, title: up ? titleForLevel(level) : '',
+        lines: Array.isArray(r.lines) ? r.lines : [], loot: res.loot?.name ?? null, chestKey: !!res.chestKey, streak,
+      });
+      if (this._sound) playFanfare(up ? 'level' : res.loot ? 'loot' : 'done');
+    }, after);
   };
 
   protected willUpdate(changed: Map<string, unknown>) {
@@ -211,13 +262,23 @@ export class CuestPanel extends LitElement {
       this._offline = false;
       if (this._playerId) {
         const pid = this._playerId;
-        const [summary, quests, shop] = await Promise.all([this._api.summary(pid), this._api.quests(), this._api.shop(pid).catch(() => null)]);
+        const colWant = this._colWanted;
+        const colDue = colWant !== this._colHave;
+        const [summary, quests, shop, col] = await Promise.all([
+          this._api.summary(pid), this._api.quests(), this._api.shop(pid).catch(() => null),
+          colDue ? this._api.collection(pid).catch(() => null) : Promise.resolve(null),
+        ]);
         // A different player was picked while this load ran: drop the stale data but
         // still fall through so a queued re-run (below) happens.
         if (pid === this._playerId) {
           this._summary = summary;
           this._quests = quests;
           this._shop = Array.isArray(shop?.catalog) ? shop : null;
+          // A failed or malformed fetch keeps what we had and tries again on the next refresh.
+          if (colDue && Array.isArray(col?.items)) {
+            this._collection = col.items;
+            this._colHave = colWant;
+          }
         }
       }
       this._error = '';
@@ -251,6 +312,8 @@ export class CuestPanel extends LitElement {
     this._summary = null;
     this._quests = null;
     this._shop = null;
+    this._collection = null;
+    this._colWanted++;
     void this._refresh();
   }
 
@@ -320,7 +383,12 @@ export class CuestPanel extends LitElement {
   }
 
   private _decor(): string[] {
-    if (this._shop) return this._shop.catalog.filter((c) => c.kind === 'decor' && c.owned).map((c) => c.id);
+    if (this._shop) {
+      const ids = this._shop.catalog.filter((c) => c.kind === 'decor' && c.owned).map((c) => c.id);
+      // Loot-only decor (e.g. the owl) is not in the shop catalog; the collection knows it.
+      for (const c of this._collection ?? []) if (c.kind === 'decor' && c.owned && !ids.includes(c.id)) ids.push(c.id);
+      return ids;
+    }
     const a = this._sensorAttrs();
     return Array.isArray(a.decor) ? (a.decor as string[]) : [];
   }
@@ -342,6 +410,7 @@ export class CuestPanel extends LitElement {
     let msg = '';
     try {
       msg = await fn();
+      this._colWanted++; // a buy, chest or equip can change what is owned
       this._error = '';
     } catch (e) {
       const err = toApiError(e);
@@ -369,6 +438,224 @@ export class CuestPanel extends LitElement {
     const slot = item.slot;
     const on = this._shop?.equipped[slot] === item.id;
     void this._shopAct(`shop:${item.id}`, async () => { await api.equip(pid, slot, on ? null : item.id); return ''; });
+  };
+
+  private _openChest = () => {
+    const pid = this._playerId;
+    const api = this._api;
+    if (!pid || !api) return;
+    if (this._sound) unlock();
+    void this._shopAct('chest', async () => {
+      const r = (await api.openChest(pid)).result;
+      if (this._sound) playFanfare('loot');
+      return this._buyMessage({ id: 'mystery_chest' } as ShopItem, r);
+    });
+  };
+
+  private _openDice = () => {
+    this._dice = null;
+    this._rolling = false;
+    this._view = 'dice';
+  };
+
+  private _roll = () => {
+    const pid = this._playerId;
+    const api = this._api;
+    if (!pid || !api || this._rolling) return;
+    if (this._sound) unlock();
+    this._rolling = true;
+    const energy = this._energy;
+    void (async () => {
+      try {
+        const [res] = await Promise.all([api.dice(pid, energy), new Promise((ok) => setTimeout(ok, this.diceDelayMs))]);
+        if (this._view === 'dice' && pid === this._playerId && energy === this._energy) { this._dice = res; this._error = ''; this._offline = false; }
+      } catch (e) {
+        const err = toApiError(e);
+        if (err.offline) this._offline = true;
+        else this._error = err.message || STRINGS.diceFailed;
+      }
+      this._rolling = false;
+    })();
+  };
+
+  private _diceStart = () => {
+    const pid = this._playerId;
+    const api = this._api;
+    const r = this._dice;
+    if (!pid || !api || !r) return;
+    // Synchronous double-tap guard: _act sets the busy flag before its first await.
+    if (this._busy['dice'] || ('quest' in r && this._busy[r.quest.id])) return;
+    if (this._sound) unlock();
+    if ('quest' in r) {
+      this._start(r.quest);
+      return;
+    }
+    const key = 'dice';
+    void this._act({ id: key } as Quest, async () => {
+      const q = await api.acceptDice(pid, r.suggestion);
+      this._questId = q.id;
+    }, () => { this._view = 'quest'; });
+  };
+
+  private _openSprint = () => {
+    this._sprintSummary = null;
+    this._sprintNote = '';
+    this._view = 'sprint';
+    void this._loadSprint();
+  };
+
+  /** Resume: ask the server for the current sprint (it owns startedAt), e.g. after a reload. */
+  private async _loadSprint() {
+    const pid = this._playerId;
+    const api = this._api;
+    if (!pid || !api) return;
+    const token = ++this._sprintReq;
+    try {
+      const { sprint } = await api.sprint(pid);
+      // Stale: a newer load, start or finish happened while this request was in flight.
+      if (pid !== this._playerId || token !== this._sprintReq) return;
+      this._sprintSettle(sprint);
+      this._error = '';
+      this._offline = false;
+    } catch (e) {
+      const err = toApiError(e);
+      if (err.offline) this._offline = true;
+      else this._error = err.message || STRINGS.sprintFailed;
+    }
+  }
+
+  /** Apply a fresh GET /sprint. If a sprint we were showing is gone, the server auto-finished it: show the result. */
+  private _sprintSettle(sprint: Sprint | null) {
+    const prev = this._sprint;
+    // Gone from the server. Near its natural end it auto-finished (full minutes). Earlier than that it
+    // ended elsewhere and only the elapsed minutes were paid, so show no XP number rather than a wrong one.
+    if (!sprint && prev && prev.id !== this._sprintSummaryId) {
+      const natural = this.now() >= endsAtMs(prev) - 5000;
+      this._sprintSummary = natural
+        ? { minutes: prev.minutes, logs: prev.logs, xp: prev.minutes * XP_PER_MINUTE + prev.logs * XP_PER_LOG }
+        : { minutes: prev.minutes, logs: prev.logs, xp: null };
+      this._sprintSummaryId = prev.id;
+      void this._refresh();
+    }
+    this._sprint = sprint;
+  }
+
+  private _sprintReq = 0;
+  private _sprintSummaryId = '';
+  private _sprintPolling = false;
+  private _sprintPolledAt = 0;
+
+  /** Called every second while on the sprint view: once the time is up, poll until the server has auto-finished. */
+  private _sprintWatch() {
+    const s = this._sprint;
+    if (!s || this._sprintPolling) return;
+    const t = this.now();
+    if (t < endsAtMs(s) || t - this._sprintPolledAt < 3000) return;
+    this._sprintPolling = true;
+    this._sprintPolledAt = t;
+    void this._loadSprint().finally(() => { this._sprintPolling = false; });
+  }
+
+  /** Run one sprint call under the synchronous 'sprint' busy flag (double-tap guard). */
+  private async _sprintAct(fn: () => Promise<void>) {
+    if (this._busy['sprint']) return;
+    this._busy = { ...this._busy, sprint: true };
+    try {
+      await fn();
+      this._error = '';
+      this._offline = false;
+    } catch (e) {
+      const err = toApiError(e);
+      if (err.offline) this._offline = true;
+      else {
+        // Already running (another device started one), or time ran out and the server just finished it:
+        // reload so the running sprint or its summary shows, no scolding.
+        if (err.code === 'sprint_running' || err.code === 'sprint_over') await this._loadSprint();
+        else this._error = err.message || STRINGS.sprintFailed;
+      }
+    }
+    const { sprint: _gone, ...rest } = this._busy;
+    this._busy = rest;
+  }
+
+  private _sprintStart = (minutes: number) => {
+    const pid = this._playerId;
+    const api = this._api;
+    if (!pid || !api || this._busy['sprint']) return;
+    if (this._sound) unlock();
+    this._sprintSummary = null;
+    this._sprintNote = '';
+    void this._sprintAct(async () => {
+      this._sprintReq++;
+      const started = await api.sprintStart(pid, minutes);
+      this._sprintReq++;
+      this._sprint = started;
+      this._sprintPolledAt = 0;
+    });
+  };
+
+  private _sprintLog = () => {
+    const pid = this._playerId;
+    const api = this._api;
+    const note = this._sprintNote.trim();
+    if (!pid || !api || !note || this._busy['sprint'] || (this._sprint?.logs ?? 0) >= MAX_LOGS) return;
+    if (this._sound) unlock();
+    void this._sprintAct(async () => {
+      this._sprintReq++;
+      const r = await api.sprintLog(pid, note);
+      this._sprintReq++;
+      this._sprint = r.sprint;
+      this._sprintNote = '';
+      if (this._sprintLevelUp(r) && this._sound) playFanfare('level');
+      void this._refresh();
+    });
+  };
+
+  /** Sprint XP that crossed a level gets the same level-up toast as a quest. Returns whether it did. */
+  private _sprintLevelUp(r: SprintCredit): boolean {
+    const up = r.levelUp;
+    if (!up || typeof up.level !== 'number') return false;
+    this._setReward({ xp: r.xp, gold: 0, level: up.level, title: up.title, lines: [] });
+    return true;
+  }
+
+  private _sprintFinish = () => {
+    const pid = this._playerId;
+    const api = this._api;
+    if (!pid || !api || this._busy['sprint']) return;
+    if (this._sound) unlock();
+    void this._sprintAct(async () => {
+      this._sprintReq++;
+      const r = await api.sprintFinish(pid);
+      this._sprintReq++;
+      const logs = r.sprint.logs;
+      this._sprintSummary = { minutes: Math.round(r.xp / XP_PER_MINUTE), logs, xp: r.xp + logs * XP_PER_LOG };
+      this._sprintSummaryId = r.sprint.id;
+      this._sprint = null;
+      const up = this._sprintLevelUp(r);
+      if (this._sound) playFanfare(up ? 'level' : 'done');
+      void this._refresh();
+    });
+  };
+
+  private _sprintQuestDone = (q: Quest) => {
+    if (this._busy[q.id]) return;
+    this._finish(q, () => { /* stay in the sprint */ });
+  };
+
+  private _go(v: View) {
+    this._view = v;
+    // The Hero tab shows the collection book: bring it up to date when it opens.
+    if (v === 'hero') {
+      this._colWanted++;
+      void this._refresh();
+    }
+  }
+
+  private _toggleSound = () => {
+    this._sound = !this._sound;
+    setSoundOn(this._sound);
+    if (this._sound) unlock();
   };
 
   private _buyMessage(item: ShopItem, r: BuyResult['result']): string {
@@ -414,6 +701,12 @@ export class CuestPanel extends LitElement {
         onStart: this._start,
         onLater: this._later,
         onTogglePool: () => { this._poolOpen = !this._poolOpen; },
+        questOfDay: this._quests?.questOfDay ?? null,
+        soundOn: this._sound,
+        onSound: this._toggleSound,
+        onOpenChest: this._openChest,
+        onDice: this._openDice,
+        onSprint: this._openSprint,
       });
     }
     if (this._view === 'quest') {
@@ -433,6 +726,38 @@ export class CuestPanel extends LitElement {
         onBack: () => { this._view = 'village'; },
       });
     }
+    if (this._view === 'dice') {
+      return diceView({
+        energy: this._energy,
+        result: this._dice,
+        rolling: this._rolling,
+        busy: !!this._busy['dice'] || !!(this._dice && 'quest' in this._dice && this._busy[this._dice.quest.id]),
+        onEnergy: (e) => { this._energy = e; this._dice = null; },
+        onRoll: this._roll,
+        onStart: this._diceStart,
+        onBack: () => { this._view = 'village'; },
+      });
+    }
+    if (this._view === 'sprint') {
+      const pid = this._playerId;
+      // Quests another player already claimed would only answer "already claimed": leave them out.
+      const qs = this._quests ? [...this._quests.active, ...this._quests.open, ...this._quests.whenever].filter((x) => !x.claimedBy || x.claimedBy === pid) : [];
+      return sprintView({
+        sprint: this._sprint,
+        summary: this._sprintSummary,
+        nowMs: this.now(),
+        note: this._sprintNote,
+        quests: qs,
+        busy: !!this._busy['sprint'],
+        onStart: this._sprintStart,
+        onNote: (t) => { this._sprintNote = t; },
+        onLog: this._sprintLog,
+        onFinish: this._sprintFinish,
+        onQuestDone: this._sprintQuestDone,
+        onAgain: () => { this._sprintSummary = null; },
+        onBack: () => { this._view = 'village'; },
+      });
+    }
     if (this._view === 'hero') {
       return heroView({
         summary: this._summary,
@@ -441,6 +766,7 @@ export class CuestPanel extends LitElement {
         onSwitch: this._switch,
         palette: this._palette(),
         decor: this._decor(),
+        collection: this._collection,
       });
     }
     return shopView({
@@ -459,7 +785,7 @@ export class CuestPanel extends LitElement {
 
   protected render() {
     const nav = this._who && this._playerId && this._view !== 'quest';
-    const item = (v: View, label: string) => html`<button type="button" data-go="${v}" aria-current=${this._view === v ? 'page' : nothing} @click=${() => { this._view = v; }}>${label}</button>`;
+    const item = (v: View, label: string) => html`<button type="button" data-go="${v}" aria-current=${this._view === v ? 'page' : nothing} @click=${() => this._go(v)}>${label}</button>`;
     return html`<div class="shell">
       <main>
         ${this.narrow && !(this._who && this._playerId && this._view !== 'quest') ? html`<div class="menu">${this._menu()}</div>` : nothing}

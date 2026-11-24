@@ -1,4 +1,4 @@
-"""Cuest sensors: per-player level, XP and gold, plus open quest count."""
+"""Cuest sensors: per-player level, XP, gold and streak, plus open quest count."""
 
 from __future__ import annotations
 
@@ -44,6 +44,7 @@ async def async_setup_entry(
                     CuestLevelSensor(data, entry, pid),
                     CuestXpSensor(data, entry, pid),
                     CuestGoldSensor(data, entry, pid),
+                    CuestStreakSensor(data, entry, pid),
                 ]
             )
         if new:
@@ -159,3 +160,19 @@ class CuestGoldSensor(CuestPlayerSensor):
     _attr_translation_key = "gold"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = "gold"
+
+
+class CuestStreakSensor(CuestPlayerSensor):
+    _key = "streak"
+    _attr_translation_key = "streak"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = "days"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        player = self._player or {}
+        return {
+            **super().extra_state_attributes,
+            "best_streak": player.get("bestStreak") or 0,
+            "chest_keys": player.get("chestKeys") or 0,
+        }

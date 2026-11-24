@@ -1,5 +1,5 @@
 import type { DatabaseSync, SQLInputValue } from 'node:sqlite';
-import type { Energy, Quest, QuestStatus } from '../domain/types.js';
+import type { Energy, Quest, QuestSource, QuestStatus } from '../domain/types.js';
 
 interface Row {
   id: string;
@@ -20,6 +20,7 @@ interface Row {
   snoozed_until: string | null;
   nudge_count: number;
   last_nudge_at: string | null;
+  source: string | null;
 }
 
 const toQuest = (r: Row): Quest => ({
@@ -41,12 +42,13 @@ const toQuest = (r: Row): Quest => ({
   snoozedUntil: r.snoozed_until,
   nudgeCount: r.nudge_count,
   lastNudgeAt: r.last_nudge_at,
+  source: (r.source as QuestSource | null) ?? null,
 });
 
 const values = (q: Quest): SQLInputValue[] => [
   q.id, q.templateId, q.title, q.energy, q.minutes, q.xp, q.gold, q.status, q.createdAt,
   q.wheneverAfterHours, q.claimedBy, q.startedAt, q.doneAt, q.doneBy, q.wheneverAt,
-  q.snoozedUntil, q.nudgeCount, q.lastNudgeAt,
+  q.snoozedUntil, q.nudgeCount, q.lastNudgeAt, q.source ?? null,
 ];
 
 export class QuestsRepo {
@@ -57,8 +59,8 @@ export class QuestsRepo {
       .prepare(
         `INSERT INTO quests (id, template_id, title, energy, minutes, xp, gold, status, created_at,
            whenever_after_hours, claimed_by, started_at, done_at, done_by, whenever_at,
-           snoozed_until, nudge_count, last_nudge_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           snoozed_until, nudge_count, last_nudge_at, source)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(...values(q));
   }
@@ -76,7 +78,8 @@ export class QuestsRepo {
       .prepare(
         `UPDATE quests SET id = ?, template_id = ?, title = ?, energy = ?, minutes = ?, xp = ?, gold = ?,
            status = ?, created_at = ?, whenever_after_hours = ?, claimed_by = ?, started_at = ?,
-           done_at = ?, done_by = ?, whenever_at = ?, snoozed_until = ?, nudge_count = ?, last_nudge_at = ?
+           done_at = ?, done_by = ?, whenever_at = ?, snoozed_until = ?, nudge_count = ?, last_nudge_at = ?,
+           source = ?
          WHERE id = ?`,
       )
       .run(...values(n), id);

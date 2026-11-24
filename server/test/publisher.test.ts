@@ -53,7 +53,6 @@ describe('Publisher', () => {
 
   it('snapshot has level/title after done and excludes done quests', () => {
     const q = open('Big', 120);
-    quests.start(q.id, pid);
     quests.done(q.id, pid);
     const snap = lastSnapshot();
     expect(snap.quests).toEqual([]);
@@ -112,5 +111,25 @@ describe('Publisher', () => {
     clock.advance(3601);
     const b = open('B', 10);
     expect(quests.done(b.id, pid).reward.xp).toBe(10);
+  });
+});
+
+describe('Publisher daily pick', () => {
+  it('publishes a snapshot with questOfDay on daily:picked', () => {
+    const db2 = openDb(':memory:');
+    migrate(db2);
+    const bus = new Bus();
+    const out: ServerMessage[] = [];
+    const hub = { send: (m: ServerMessage) => (out.push(m), true) };
+    let qod: string | null = null;
+    const p2 = new PlayersRepo(db2);
+    new Publisher({
+      bus, hub, players: p2, items: new ItemsRepo(db2), clock,
+      quests: new QuestService({ quests: new QuestsRepo(db2), players: p2, ledger: new LedgerRepo(db2), bus, clock }),
+      questOfDay: () => qod,
+    });
+    qod = 'q1';
+    bus.emit('daily:picked', { questId: 'q1' });
+    expect(out.at(-1)).toMatchObject({ type: 'snapshot', questOfDay: 'q1' });
   });
 });

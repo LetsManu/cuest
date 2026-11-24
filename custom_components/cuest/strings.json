@@ -38,7 +38,8 @@
         "menu_options": {
           "people": "People and their phones",
           "devices": "Devices found in your home",
-          "treats": "House treats"
+          "treats": "House treats",
+          "celebrations": "Celebrations"
         }
       },
       "people": {
@@ -80,11 +81,20 @@
           "name": "Name",
           "cost": "Price (gold)"
         }
+      },
+      "celebrations": {
+        "title": "Celebrations",
+        "description": "Pick the lights that flash when a quest is done (longer for a level up). Optionally pick a scene to switch on when a power sprint starts. Sounds play in the Cuest page (use its Sound button). For sound from your own speakers, use an automation that listens for the cuest_quest_done and cuest_level_up events.",
+        "data": {
+          "lights": "Celebration lights",
+          "scene": "Sprint scene (optional)"
+        }
       }
     },
     "error": {
       "cannot_connect": "Could not reach the Cuest server. Check the address and that the server is running.",
-      "server_rejected": "The Cuest server couldn't handle this request. Please try again."
+      "server_rejected": "The Cuest server couldn't handle this request. Please try again.",
+      "too_many_lights": "Please pick at most 20 celebration lights."
     },
     "abort": {
       "cannot_connect": "Could not reach the Cuest server. Check the address and that the server is running.",
@@ -105,6 +115,9 @@
       },
       "gold": {
         "name": "{player} gold"
+      },
+      "streak": {
+        "name": "{player} streak"
       }
     },
     "todo": {

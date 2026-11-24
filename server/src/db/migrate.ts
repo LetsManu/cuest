@@ -87,6 +87,46 @@ export const MIGRATIONS: string[] = [
     created_at TEXT NOT NULL
   );
   `,
+  `
+  ALTER TABLE players ADD COLUMN combo_count INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE players ADD COLUMN last_done_at TEXT;
+  `,
+  `
+  CREATE TABLE daily (
+    date TEXT PRIMARY KEY,
+    quest_id TEXT
+  );
+  ALTER TABLE players ADD COLUMN streak INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE players ADD COLUMN best_streak INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE players ADD COLUMN last_streak_day TEXT;
+  ALTER TABLE players ADD COLUMN rest_week TEXT;
+  `,
+  `
+  ALTER TABLE players ADD COLUMN chest_keys INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE players ADD COLUMN done_count INTEGER NOT NULL DEFAULT 0;
+  `,
+  `
+  CREATE TABLE sprints (
+    id TEXT PRIMARY KEY,
+    player_id TEXT NOT NULL REFERENCES players(id),
+    minutes INTEGER NOT NULL,
+    started_at TEXT NOT NULL,
+    ended_at TEXT,
+    logs INTEGER NOT NULL DEFAULT 0,
+    xp INTEGER
+  );
+  CREATE INDEX idx_sprints_player ON sprints(player_id, ended_at);
+  CREATE UNIQUE INDEX sprints_one_active ON sprints(player_id) WHERE ended_at IS NULL;
+  `,
+  `
+  CREATE TABLE settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
+  `,
+  `
+  ALTER TABLE quests ADD COLUMN source TEXT;
+  `,
 ];
 
 export function migrate(db: DatabaseSync): void {

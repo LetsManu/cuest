@@ -8,9 +8,9 @@ until you are ready.
 
 **Set up with Home Assistant:** [docs/install-home-assistant.md](docs/install-home-assistant.md)
 
-**Status: early development.** The server, the Home Assistant integration and
-the sidebar app with the shop exist. Game extras like bonuses, streaks and
-energy dice are coming next.
+**Status: Plans 1–4 implemented.** The server, the Home Assistant integration,
+the sidebar app with the shop, and the game layer (bonuses, streaks, energy
+dice, power sprints, loot and the collection book) are in place.
 
 Once installed, open **Cuest** in the Home Assistant sidebar to play and shop.
 

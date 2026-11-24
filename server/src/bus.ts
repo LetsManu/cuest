@@ -1,12 +1,19 @@
 import type { Player, Quest } from './domain/types.js';
+import type { StreakResult } from './services/daily.js';
+import type { Sprint } from './services/sprint.js';
 import type { Reward } from './domain/rewards.js';
 
 export type BusEvents = {
   'quest:opened': Quest;
   'quest:started': Quest;
-  'quest:done': { quest: Quest; reward: Reward; player: Player };
+  'quest:done': { quest: Quest; reward: Reward; player: Player; streak?: StreakResult };
   'quest:whenever': Quest;
   'quest:snoozed': Quest;
+  'daily:picked': { questId: string | null };
+  'sprint:started': { playerId: string; sprint: Sprint };
+  /** `player` is the fresh player after the sprint XP was credited (for snapshots and level-up checks). */
+  'sprint:finished': { playerId: string; sprint: Sprint; xp: number; auto: boolean; player: Player };
+  'sprint:logged': { playerId: string; sprint: Sprint; xp: number; player: Player };
   'shop:changed': { playerId: string };
 };
 

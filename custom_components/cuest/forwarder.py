@@ -11,7 +11,7 @@ from homeassistant.core import Event, EventStateChangedData, HomeAssistant, call
 from homeassistant.helpers.event import async_track_state_change_event
 
 from .client import CuestClient, CuestNotConnected
-from .const import ALLOWED_DOMAINS, CONF_TREATS, TREAT_DOMAINS
+from .const import ALLOWED_DOMAINS, CONF_SPRINT_SCENE, CONF_TREATS, TREAT_DOMAINS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -115,7 +115,7 @@ class Forwarder:
         self._hass.async_create_task(self._call_service(msg))
 
     def _is_allowed(self, domain: Any, service: Any, target: Any) -> bool:
-        """Allow fixed domains, or turn_on of one owner-chosen treat entity."""
+        """Allow fixed domains, or turn_on of one owner-chosen treat or sprint scene."""
         if not (isinstance(domain, str) and isinstance(service, str)):
             return False
         if domain in ALLOWED_DOMAINS:
@@ -125,11 +125,16 @@ class Forwarder:
         if not isinstance(target, dict) or set(target) != {"entity_id"}:
             return False
         entity_id = target["entity_id"]
-        treats = self._entry.options.get(CONF_TREATS, [])
+        if not (isinstance(entity_id, str) and entity_id.startswith(f"{domain}.")):
+            return False
+        if entity_id in self._entry.options.get(CONF_TREATS, []):
+            return True
+        # The one configured sprint scene (a single string, never widened).
+        sprint_scene = self._entry.options.get(CONF_SPRINT_SCENE)
         return (
-            isinstance(entity_id, str)
-            and entity_id.startswith(f"{domain}.")
-            and entity_id in treats
+            domain == "scene"
+            and isinstance(sprint_scene, str)
+            and entity_id == sprint_scene
         )
 
     async def _call_service(self, msg: dict) -> None:

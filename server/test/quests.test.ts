@@ -69,6 +69,19 @@ describe('QuestService', () => {
     expect(opened).toEqual([quest.id, quest.id]);
   });
 
+  it('revived quest restarts its whenever clock', () => {
+    const { quest } = service.open(input);
+    clock.advance(13 * 60);
+    service.sweep(clock.now());
+    expect(quests.get(quest.id)?.status).toBe('whenever');
+    service.open(input);
+    service.sweep(clock.now());
+    expect(quests.get(quest.id)?.status).toBe('open');
+    clock.advance(13 * 60);
+    service.sweep(clock.now());
+    expect(quests.get(quest.id)?.status).toBe('whenever');
+  });
+
   it('second player cannot steal an active quest', () => {
     const { quest } = service.open(input);
     const started = service.start(quest.id, A.id);

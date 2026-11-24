@@ -46,7 +46,12 @@ export class QuestService {
       const live = this.quests.findLiveByTemplate(input.templateId);
       if (live) {
         if (live.status === 'whenever') {
-          const quest = this.quests.update(live.id, { status: 'open', nudgeCount: 0, wheneverAt: null });
+          const quest = this.quests.update(live.id, {
+            status: 'open',
+            nudgeCount: 0,
+            wheneverAt: null,
+            createdAt: this.clock.now().toISOString(),
+          });
           this.bus.emit('quest:opened', quest);
           return { quest, created: false };
         }

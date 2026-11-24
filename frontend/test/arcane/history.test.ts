@@ -53,6 +53,11 @@ describe('trailGeometry', () => {
     expect(g.max).toBe(5);
   });
 
+  it('pads 8 percent by default', () => {
+    const g = trailGeometry([[0, 10]])!;
+    expect(g.segments[0][0]).toBe('0,101.2 326,8.8');
+  });
+
   it('shares the y range, pads 8 percent and puts the last point at the right edge', () => {
     const g = trailGeometry([[0, 10], [5, 5]], 326, 110, 0.08)!;
     const [a0, a1] = g.segments[0][0].split(' ').map((p) => p.split(',').map(Number));
@@ -87,6 +92,13 @@ describe('fetchHistory', () => {
       { t: 1764000100000, v: null },
     ]);
     expect(out['sensor.b']).toEqual([]);
+  });
+
+  it('reads the full first state (state, last_updated)', async () => {
+    const h = fakeHass();
+    h.callWS = vi.fn(async () => ({ 'sensor.a': [{ state: '7', last_updated: '2026-11-24T10:00:00+00:00' }, { s: '8' }] })) as never;
+    const out = await fetchHistory(h, ['sensor.a'], new Date(0), new Date(1));
+    expect(out['sensor.a']).toEqual([{ t: Date.parse('2026-11-24T10:00:00Z'), v: 7 }]);
   });
 
   it('treats a missing response as empty series', async () => {

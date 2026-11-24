@@ -93,6 +93,7 @@ export const arcaneBase = css`
   @keyframes spin{to{transform:rotate(360deg)}}
   @keyframes spinr{to{transform:rotate(-360deg)}}
   @keyframes draw{from{stroke-dashoffset:1000}to{stroke-dashoffset:0}}
+  @keyframes reveal{from{transform:scaleX(0)}to{transform:scaleX(1)}}
   @keyframes pulse{0%,100%{opacity:.55}50%{opacity:1}}
   @keyframes twinkle{0%,100%{opacity:.25}50%{opacity:1}}
   @keyframes flicker{0%,100%{opacity:1}45%{opacity:.8}55%{opacity:.95}}
@@ -105,6 +106,7 @@ export const arcaneBase = css`
   .spin{transform-origin:50% 50%;transform-box:fill-box;animation:spin 18s linear infinite}
   .spinr{transform-origin:50% 50%;transform-box:fill-box;animation:spinr 9s linear infinite}
   .draw{stroke-dasharray:1000;animation:draw 2.4s ease-out both}
+  .reveal{transform-box:fill-box;transform-origin:0 50%;animation:reveal 2.4s ease-out both}
   .pulse{animation:pulse 2.4s ease-in-out infinite}
   .star{position:absolute;width:3px;height:3px;background:#FFF3D0;animation:twinkle 3s ease-in-out infinite}
   .win{animation:flicker 4s ease-in-out infinite}
@@ -113,7 +115,7 @@ export const arcaneBase = css`
   .eq{transform-origin:bottom;animation:eq 1.1s ease-in-out infinite}
   .lit{animation:glow 3s ease-in-out infinite}
   @media (prefers-reduced-motion: reduce){
-    .wave,.wave2,.spin,.spinr,.draw,.pulse,.star,.win,.shimmer,.spark,.eq,.lit{animation:none}
+    .wave,.wave2,.spin,.spinr,.draw,.reveal,.pulse,.star,.win,.shimmer,.spark,.eq,.lit{animation:none}
     .spark,.shimmer{display:none}
   }
 `;

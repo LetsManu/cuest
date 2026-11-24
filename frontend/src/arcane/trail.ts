@@ -47,7 +47,9 @@ export class CuestTrailCard extends ArcaneCard<TrailConfig> {
       .head{display:flex;justify-content:space-between;align-items:baseline}
       h2{margin:0;font-family:${u(FONT_PIXEL)};font-size:18px;font-weight:400;color:${u(A.goldText)}}
       .hours{font-size:12px;color:${u(A.muted)}}
+      .plot{position:relative}
       svg.graph{display:block;width:100%;height:110px}
+      .dot{position:absolute;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:${u(A.lantern)}}
       .legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:${u(A.muted)}}
       .legend b{font-weight:700}
       .num{font-family:${u(FONT_BODY)};font-weight:700;font-variant-numeric:tabular-nums}
@@ -128,7 +130,6 @@ export class CuestTrailCard extends ArcaneCard<TrailConfig> {
       () => {
         if (token !== this._token) return;
         this._pending = -1;
-        this._loaded = undefined;
         this.requestUpdate();
       },
     );
@@ -161,29 +162,32 @@ export class CuestTrailCard extends ArcaneCard<TrailConfig> {
     const name2 = cfg.entity2 ? this.nameOf(h, cfg.entity2, cfg.name2) : '';
     const cur = (id: string): string => (geo ? fmtTemp(liveNum(h, id), lang) : '—');
     const unit = String(h.states[cfg.entity].attributes.unit_of_measurement ?? '');
+    const own = geo ? series[0].filter((x): x is number => x !== null) : [];
     const aria = fill(C.trailAria, {
       name: name1,
       hours: cfg.hours,
-      min: geo ? fmtNumber(geo.min, lang) : '—',
-      max: geo ? fmtNumber(geo.max, lang) : '—',
+      min: fmtNumber(Math.min(...own), lang),
+      max: fmtNumber(Math.max(...own), lang),
       unit,
     }).replace(/\s+\.?$/, '');
 
     return html`<div class="panel trail">
       <div class="head"><h2>${cfg.title}</h2><span class="hours">${fill(C.trailHours, { n: cfg.hours })}</span></div>
       ${geo
-        ? svg`<svg class="graph" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${aria}">
+        ? html`<div class="plot"><svg class="graph" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${aria}">
             <defs>
               <linearGradient id="trail-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${A.ember}" stop-opacity="0.45"/><stop offset="1" stop-color="${A.ember}" stop-opacity="0"/></linearGradient>
               <linearGradient id="trail-line" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#FFD27A"/><stop offset="1" stop-color="#FF7A6B"/></linearGradient>
+            <clipPath id="trail-clip"><rect class="reveal" x="0" y="-5" width="${W}" height="${H + 10}"/></clipPath>
             </defs>
             <line x1="0" y1="30" x2="${W}" y2="30" stroke="${A.track}" stroke-dasharray="2 6" vector-effect="non-scaling-stroke"/>
             <line x1="0" y1="70" x2="${W}" y2="70" stroke="${A.track}" stroke-dasharray="2 6" vector-effect="non-scaling-stroke"/>
-            ${geo.area ? svg`<path d="${geo.area}" fill="url(#trail-fill)"/>` : nothing}
-            ${geo.segments[0].map((p) => svg`<polyline class="draw" pathLength="1000" points="${p}" fill="none" stroke="url(#trail-line)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`)}
-            ${(geo.segments[1] ?? []).map((p) => svg`<polyline points="${p}" fill="none" stroke="${A.manaFrom}" stroke-width="2" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>`)}
-            ${geo.last ? svg`<circle class="pulse" cx="${Math.min(geo.last.x, W - 5)}" cy="${geo.last.y}" r="5" fill="${A.lantern}"/>` : nothing}
-          </svg>`
+            <g class="lines" clip-path="url(#trail-clip)">
+              ${geo.area ? svg`<path d="${geo.area}" fill="url(#trail-fill)"/>` : nothing}
+              ${geo.segments[0].map((p) => svg`<polyline points="${p}" fill="none" stroke="url(#trail-line)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>`)}
+              ${(geo.segments[1] ?? []).map((p) => svg`<polyline points="${p}" fill="none" stroke="${A.manaFrom}" stroke-width="2" stroke-dasharray="4 4" vector-effect="non-scaling-stroke"/>`)}
+            </g>
+          </svg>${geo.last ? html`<span class="dot pulse" style="left:${(100 * geo.last.x) / W}%;top:${(100 * geo.last.y) / H}%"></span>` : nothing}</div>`
         : nothing}
       <div class="legend">
         <span><b style="color:${A.emberText}">—</b> ${name1} <span class="num">${cur(cfg.entity)}</span></span>

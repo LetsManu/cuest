@@ -48,18 +48,26 @@ describe('trail card rendering', () => {
     await flush(el);
     const lines = root(el).querySelectorAll('polyline');
     expect(lines).toHaveLength(2);
-    expect(lines[0].getAttribute('class')).toContain('draw');
-    expect(lines[0].getAttribute('pathLength')).toBe('1000');
+    expect(lines[0].hasAttribute('stroke-dasharray')).toBe(false);
+    expect(lines[0].hasAttribute('pathLength')).toBe(false);
+    expect(lines[0].getAttribute('class') ?? '').not.toContain('draw');
     expect(lines[1].getAttribute('stroke-dasharray')).toBe('4 4');
-    expect(lines[1].getAttribute('class') ?? '').not.toContain('draw');
-    expect(root(el).querySelectorAll('circle.pulse')).toHaveLength(1);
+    const rect = root(el).querySelector('clipPath rect')!;
+    expect(rect.getAttribute('class')).toContain('reveal');
+    const clipId = root(el).querySelector('clipPath')!.id;
+    expect(root(el).querySelector('.lines')!.getAttribute('clip-path')).toBe(`url(#${clipId})`);
+    expect(root(el).querySelectorAll('circle')).toHaveLength(0);
+    const dot = root(el).querySelector('.dot.pulse') as HTMLElement;
+    expect(dot).not.toBeNull();
+    expect(dot.getAttribute('style')).toMatch(/left:\s*100%/);
+    expect(dot.getAttribute('style')).toMatch(/top:\s*\d/);
     const t = text(el);
     expect(t).toContain('Warmth trail');
     expect(t).toContain('24 h');
     expect(t).toContain('Wohnzimmer 21.5°');
     expect(t).toContain('outside -0.7°');
     const svg = root(el).querySelector('svg[role="img"]')!;
-    expect(svg.getAttribute('aria-label')).toBe('Wohnzimmer over the last 24 hours, between -3 and 22.3 °C');
+    expect(svg.getAttribute('aria-label')).toBe('Wohnzimmer over the last 24 hours, between 20 and 22.3 °C');
     expect(svg.getAttribute('preserveAspectRatio')).toBe('none');
     expectClean(el);
   });
@@ -121,6 +129,32 @@ describe('trail card rendering', () => {
   });
 });
 
+describe('trail failures and geometry', () => {
+  it('keeps the previous graph when a later refresh fails', async () => {
+    const h = fakeHass({ states: states(), history: history() });
+    const el = await mount(TAG, cfg, h);
+    await flush(el);
+    h.callWS.mockRejectedValueOnce(new Error('boom'));
+    vi.setSystemTime(NOW + HISTORY_REFRESH_MS);
+    (el as unknown as { hass: unknown }).hass = { ...h, states: { ...h.states } };
+    await flush(el);
+    expect(h.callWS).toHaveBeenCalledTimes(2);
+    expect(root(el).querySelectorAll('polyline')).toHaveLength(2);
+    expect(text(el)).toContain('Wohnzimmer 21.5°');
+  });
+
+  it('pads the y range by 8 percent by default (minimum sits at 101.2)', async () => {
+    const h = fakeHass({
+      states: { 'sensor.living': st('10') },
+      history: { 'sensor.living': [{ s: '0', lu: ls(23.9) }, { s: '10', lu: ls(0.1) }] },
+    });
+    const el = await mount(TAG, { entity: 'sensor.living' }, h);
+    await flush(el);
+    const pts = root(el).querySelector('polyline')!.getAttribute('points')!.split(' ');
+    expect(pts[0].split(',')[1]).toBe('101.2');
+  });
+});
+
 describe('trail refresh', () => {
   it('fetches once for a burst of updates and again after five minutes', async () => {
     const h = fakeHass({ states: states(), history: history() });
@@ -174,6 +208,16 @@ describe('trail refresh', () => {
     expect(root(el).querySelectorAll('polyline')).toHaveLength(1);
     expect(root(el).querySelector('polyline')!.getAttribute('points')).toBe(before);
     expect(root(el).querySelector('svg')!.getAttribute('aria-label')).not.toContain('99');
+  });
+});
+
+describe('trail theme css', () => {
+  it('defines the reveal keyframes and switches them off for reduced motion', async () => {
+    const { arcaneBase } = await import('../../src/arcane/theme');
+    const css = arcaneBase.cssText;
+    expect(css).toMatch(/@keyframes reveal\{from\{transform:scaleX\(0\)\}to\{transform:scaleX\(1\)\}\}/);
+    expect(css).toMatch(/\.reveal\{[^}]*transform-origin:0 50%[^}]*animation:reveal 2\.4s ease-out both[^}]*\}/);
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)\{[^@]*\.reveal[^@]*animation:none/);
   });
 });
 

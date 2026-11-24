@@ -6,7 +6,19 @@ import type { Energy, Player, Quest } from '../domain/types.js';
 import type { LedgerRepo } from '../repos/ledger.js';
 import type { PlayersRepo } from '../repos/players.js';
 import type { QuestsRepo } from '../repos/quests.js';
+import { findItem } from '../shop/catalog.js';
 import type { StreakResult } from './daily.js';
+
+export const QUESTS_PER_CHEST_KEY = 5;
+
+export interface DoneResult {
+  quest: Quest;
+  reward: Reward;
+  player: Player;
+  streak?: StreakResult;
+  loot: { itemId: string; name: string } | null;
+  chestKey: boolean;
+}
 
 export type QuestErrorCode = 'not_found' | 'already_claimed' | 'already_done' | 'unknown_player';
 
@@ -36,6 +48,7 @@ export class QuestService {
   private tx: <T>(fn: () => T) => T;
   private isQuestOfDay: (questId: string, now: Date) => boolean;
   private onDone: ((playerId: string, doneAt: Date) => StreakResult) | undefined;
+  private onLoot: ((playerId: string, guaranteed: boolean) => string | null) | undefined;
 
   constructor(deps: {
     quests: QuestsRepo;
@@ -47,6 +60,8 @@ export class QuestService {
     isQuestOfDay?: (questId: string, now: Date) => boolean;
     /** Runs inside the done transaction so streak, rest tokens and rewards commit together. */
     onDone?: (playerId: string, doneAt: Date) => StreakResult;
+    /** Runs inside the done transaction; returns the id of a granted loot item, or null. */
+    onLoot?: (playerId: string, guaranteed: boolean) => string | null;
   }) {
     this.quests = deps.quests;
     this.players = deps.players;
@@ -56,6 +71,7 @@ export class QuestService {
     this.tx = deps.tx ?? ((fn) => fn());
     this.isQuestOfDay = deps.isQuestOfDay ?? (() => false);
     this.onDone = deps.onDone;
+    this.onLoot = deps.onLoot;
   }
 
   open(input: OpenInput): { quest: Quest; created: boolean } {
@@ -117,13 +133,14 @@ export class QuestService {
     return started;
   }
 
-  done(questId: string, playerId: string): { quest: Quest; reward: Reward; player: Player; streak?: StreakResult } {
+  done(questId: string, playerId: string): DoneResult {
     const quest = this.requireQuest(questId);
     const doer = this.requirePlayer(playerId);
     if (quest.status === 'done') throw new QuestError('already_done');
     if (quest.status === 'active' && quest.claimedBy !== playerId) throw new QuestError('already_claimed');
     const now = this.clock.now();
     const lastDoneAt = doer.lastDoneAt ? new Date(doer.lastDoneAt) : null;
+    const questOfDay = this.isQuestOfDay(questId, now);
     const reward = computeReward({
       quest,
       startedAt: quest.startedAt ? new Date(quest.startedAt) : null,
@@ -131,7 +148,7 @@ export class QuestService {
       boostUntil: doer.boostUntil,
       lastDoneAt,
       comboCount: doer.comboCount,
-      questOfDay: this.isQuestOfDay(questId, now),
+      questOfDay,
     });
     const combo = nextCombo(lastDoneAt, now, doer.comboCount);
     const result = this.tx(() => {
@@ -143,6 +160,11 @@ export class QuestService {
       });
       this.players.addRewards(playerId, reward.xp, reward.gold);
       const streak = this.onDone?.(playerId, now);
+      const lootId = this.onLoot?.(playerId, questOfDay) ?? null;
+      const loot = lootId ? { itemId: lootId, name: findItem(lootId)?.name ?? lootId } : null;
+      const doneCount = this.players.incrementDoneCount(playerId);
+      const chestKey = doneCount % QUESTS_PER_CHEST_KEY === 0;
+      if (chestKey) this.players.addChestKeys(playerId, 1);
       const player = this.players.setCombo(playerId, combo, now.toISOString());
       this.ledger.add({
         playerId,
@@ -153,7 +175,7 @@ export class QuestService {
         at: now.toISOString(),
         meta: { lines: reward.lines },
       });
-      return { quest: doneQuest, reward, player, ...(streak ? { streak } : {}) };
+      return { quest: doneQuest, reward, player, ...(streak ? { streak } : {}), loot, chestKey };
     });
     this.bus.emit('quest:done', result);
     return result;

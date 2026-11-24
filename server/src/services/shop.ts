@@ -14,6 +14,7 @@ export type ShopErrorCode =
   | 'not_enough_gold'
   | 'not_owned'
   | 'unknown_player'
+  | 'no_chest_key'
   | 'bridge_offline';
 
 export class ShopError extends Error {
@@ -37,6 +38,7 @@ export type BuyResult = {
 export interface ShopView {
   gold: number;
   restTokens: number;
+  chestKeys: number;
   boostUntil: string | null;
   owned: Record<string, number>;
   equipped: Partial<Record<Slot, string>>;
@@ -44,6 +46,8 @@ export interface ShopView {
 }
 
 const POTION_MINUTES = 60;
+const LOOT_CHANCE = 0.25;
+const LOOT_MAX_COST = 60;
 
 const domainOf = (entityId: string): string => entityId.split('.')[0] as string;
 
@@ -131,7 +135,7 @@ export class ShopService {
     // treats are asynchronous: use buyTreat()
     if (itemId.startsWith('treat:')) throw new ShopError('unknown_item');
     const item = findItem(itemId);
-    if (!item) throw new ShopError('unknown_item');
+    if (!item || item.lootOnly) throw new ShopError('unknown_item');
     const out = this.tx((): BuyResult => {
       const player = this.players.get(playerId);
       if (!player) throw new ShopError('unknown_player');
@@ -169,31 +173,78 @@ export class ShopService {
         this.players.setBoostUntil(player.id, until);
         return { kind: 'potion', boostUntil: until };
       }
-      case 'mystery_chest': {
-        const unowned = CATALOG.filter((i) => i.kind === 'wardrobe' && !(owned[i.id] ?? 0));
-        const wantItem = this.rng() < 0.5 && unowned.length > 0;
-        if (wantItem) {
-          const pick = unowned[Math.min(unowned.length - 1, Math.floor(this.rng() * unowned.length))] as ShopItem;
-          this.items.grant(player.id, pick.id);
-          return { kind: 'chest', itemId: pick.id };
-        }
-        const gold = 20 + Math.floor(this.rng() * 61);
-        this.players.addRewards(player.id, 0, gold);
-        this.ledger.add({
-          playerId: player.id,
-          questId: null,
-          kind: 'purchase',
-          xp: 0,
-          gold,
-          at: this.clock.now().toISOString(),
-          meta: { itemId: 'mystery_chest', chestReward: true },
-        });
-        return { kind: 'chest', gold };
-      }
+      case 'mystery_chest':
+        return this.drawChest(player.id, owned, false);
       default:
         this.items.grant(player.id, item.id);
         return { kind: 'item', itemId: item.id };
     }
+  }
+
+  /**
+   * Mystery chest draw. Loot-only items are never in the chest, they stay drops.
+   * A free (key) chest writes a ledger row only for gold, always a positive one.
+   */
+  private drawChest(playerId: string, owned: Record<string, number>, viaKey: boolean): BuyResult['result'] {
+    const unowned = CATALOG.filter((i) => i.kind === 'wardrobe' && !i.lootOnly && !(owned[i.id] ?? 0));
+    const wantItem = this.rng() < 0.5 && unowned.length > 0;
+    if (wantItem) {
+      const pick = unowned[Math.min(unowned.length - 1, Math.floor(this.rng() * unowned.length))] as ShopItem;
+      this.items.grant(playerId, pick.id);
+      return { kind: 'chest', itemId: pick.id };
+    }
+    const gold = 20 + Math.floor(this.rng() * 61);
+    this.players.addRewards(playerId, 0, gold);
+    this.ledger.add({
+      playerId,
+      questId: null,
+      kind: 'purchase',
+      xp: 0,
+      gold,
+      at: this.clock.now().toISOString(),
+      meta: { itemId: 'mystery_chest', ...(viaKey ? { chestKey: true } : { chestReward: true }) },
+    });
+    return { kind: 'chest', gold };
+  }
+
+  /** Spends one chest key (earned every 5 quests) on a free mystery chest. */
+  openChest(playerId: string): BuyResult {
+    const out = this.tx((): BuyResult => {
+      if (!this.players.get(playerId)) throw new ShopError('unknown_player');
+      if (!this.players.consumeChestKey(playerId)) throw new ShopError('no_chest_key');
+      const result = this.drawChest(playerId, this.items.owned(playerId), true);
+      return { player: this.players.get(playerId) as Player, result };
+    });
+    this.bus?.emit('shop:changed', { playerId });
+    return out;
+  }
+
+  /**
+   * Loot drop after a quest: 25 % (always when guaranteed) for a random item the player
+   * does not own yet, from wardrobe + decor costing at most 60 (loot-only items cost 0).
+   * Runs inside the quest-done transaction; returns the granted item id or null.
+   */
+  rollLoot(playerId: string, guaranteed: boolean): string | null {
+    if (!guaranteed && this.rng() >= LOOT_CHANCE) return null;
+    const owned = this.items.owned(playerId);
+    const pool = CATALOG.filter((i) => (i.kind === 'wardrobe' || i.kind === 'decor') && i.cost <= LOOT_MAX_COST && !(owned[i.id] ?? 0));
+    if (pool.length === 0) return null;
+    const pick = pool[Math.min(pool.length - 1, Math.floor(this.rng() * pool.length))] as ShopItem;
+    this.items.grant(playerId, pick.id);
+    return pick.id;
+  }
+
+  /** The collection book: every wardrobe and decor item, loot-only included. */
+  collection(playerId: string): { id: string; kind: 'wardrobe' | 'decor'; name: string; owned: boolean; lootOnly: boolean }[] {
+    if (!this.players.get(playerId)) throw new ShopError('unknown_player');
+    const owned = this.items.owned(playerId);
+    return CATALOG.filter((i) => i.kind === 'wardrobe' || i.kind === 'decor').map((i) => ({
+      id: i.id,
+      kind: i.kind as 'wardrobe' | 'decor',
+      name: i.name,
+      owned: (owned[i.id] ?? 0) > 0,
+      lootOnly: i.lootOnly === true,
+    }));
   }
 
   equip(playerId: string, slot: Slot, itemId: string | null): Player {
@@ -216,11 +267,12 @@ export class ShopService {
     return {
       gold: player.gold,
       restTokens: player.restTokens,
+      chestKeys: player.chestKeys,
       boostUntil: player.boostUntil,
       owned,
       equipped: this.items.equipped(playerId),
       catalog: [
-        ...CATALOG.map((i) => ({ ...i, owned: (owned[i.id] ?? 0) > 0 })),
+        ...CATALOG.filter((i) => !i.lootOnly).map((i) => ({ ...i, owned: (owned[i.id] ?? 0) > 0 })),
         ...this.unlocks.list({ enabledOnly: true }).map((u) => ({
           id: `treat:${u.id}`,
           kind: 'treat' as const,

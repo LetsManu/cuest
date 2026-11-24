@@ -93,6 +93,7 @@ export class Publisher {
         },
         decor: Object.keys(owned).filter((id) => (owned[id] ?? 0) > 0 && findItem(id)?.kind === 'decor'),
         restTokens: p.restTokens,
+        chestKeys: p.chestKeys,
         streak: p.streak,
         bestStreak: p.bestStreak,
         boostUntil: p.boostUntil,

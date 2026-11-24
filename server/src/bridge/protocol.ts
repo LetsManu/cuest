@@ -95,6 +95,7 @@ export const snapshotPlayer = z.object({
   }),
   decor: z.array(z.string()),
   restTokens: z.number(),
+  chestKeys: z.number(),
   streak: z.number(),
   bestStreak: z.number(),
   boostUntil: z.string().nullable(),

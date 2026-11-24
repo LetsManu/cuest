@@ -34,6 +34,7 @@ const shopStatus: Record<ShopError['code'], number> = {
   already_owned: 409,
   not_enough_gold: 409,
   not_owned: 409,
+  no_chest_key: 409,
   bridge_offline: 503,
 };
 

@@ -52,6 +52,7 @@ export function registerPlayerRoutes(app: FastifyInstance, players: PlayersRepo,
       streak: player.streak,
       bestStreak: player.bestStreak,
       restTokens: player.restTokens,
+      chestKeys: player.chestKeys,
     };
   });
 }

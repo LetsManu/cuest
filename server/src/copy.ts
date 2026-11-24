@@ -37,6 +37,7 @@ export const copy = {
       already_owned: 'You already have this one.',
       bridge_offline: "Home Assistant isn't connected right now, so this treat can't switch on. Your gold is safe.",
       not_owned: 'Get this one in the shop first.',
+      no_chest_key: 'No chest key yet. Every 5 quests brings one!',
     },
     items: {
       hood_ember: 'Ember hood',
@@ -50,6 +51,9 @@ export const copy = {
       rest_token: 'Rest-day token',
       mystery_chest: 'Mystery chest',
       xp_potion: 'Double XP hour',
+      hood_starry: 'Starry cloak',
+      broom_moss: 'Mossy broom',
+      owl: 'Sleepy owl',
     },
   },
 };

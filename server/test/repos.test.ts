@@ -46,7 +46,7 @@ describe('repos', () => {
     migrate(db);
     migrate(db);
     const rows = db.prepare('SELECT version FROM schema_version').all() as { version: number }[];
-    expect(rows).toEqual([{ version: 5 }]);
+    expect(rows).toEqual([{ version: 6 }]);
   });
 
   it('players round-trip', () => {

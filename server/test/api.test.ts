@@ -19,7 +19,7 @@ describe('REST API', () => {
     expect(created.statusCode).toBe(201);
     const p = created.json();
     const res = await app.inject({ method: 'GET', url: `/api/players/${p.id}/summary` });
-    expect(res.json()).toEqual({ player: p, level: 1, title: 'Apprentice', intoLevel: 0, toNext: 100, streak: 0, bestStreak: 0, restTokens: 0 });
+    expect(res.json()).toEqual({ player: p, level: 1, title: 'Apprentice', intoLevel: 0, toNext: 100, streak: 0, bestStreak: 0, restTokens: 0, chestKeys: 0 });
     const patched = await app.inject({ method: 'PATCH', url: `/api/players/${p.id}`, payload: { haPerson: 'person.ana' } });
     expect(patched.json()).toMatchObject({ name: 'Ana', haPerson: 'person.ana' });
     expect((await app.inject({ method: 'PATCH', url: '/api/players/nope', payload: {} })).statusCode).toBe(404);

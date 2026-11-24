@@ -101,6 +101,10 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE players ADD COLUMN last_streak_day TEXT;
   ALTER TABLE players ADD COLUMN rest_week TEXT;
   `,
+  `
+  ALTER TABLE players ADD COLUMN chest_keys INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE players ADD COLUMN done_count INTEGER NOT NULL DEFAULT 0;
+  `,
 ];
 
 export function migrate(db: DatabaseSync): void {

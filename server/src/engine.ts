@@ -58,6 +58,7 @@ export async function createEngine(deps: {
     tx: (fn) => transaction(db, fn),
     isQuestOfDay: (id, now) => daily.isQuestOfDay(id, now),
     onDone: (playerId, doneAt) => daily.onQuestDone(playerId, doneAt),
+    onLoot: (playerId, guaranteed) => shop.rollLoot(playerId, guaranteed),
   });
   bus.on('quest:opened', (q) => daily.onQuestOpened(q, clock.now()));
   const hub = new BridgeHub({ secret: config.bridgeSecret, log });

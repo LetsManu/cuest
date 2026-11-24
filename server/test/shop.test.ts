@@ -73,6 +73,9 @@ describe('shop', () => {
       ['rest_token', 50],
       ['mystery_chest', 40],
       ['xp_potion', 70],
+      ['hood_starry', 0],
+      ['broom_moss', 0],
+      ['owl', 0],
     ]);
     expect(findItem('hood_ember')?.palette).toEqual({ G: '#B5523B', L: '#D47A5E', g: '#8E3E2C' });
     expect(findItem('nope')).toBeNull();
@@ -91,7 +94,7 @@ describe('shop', () => {
     expect(p).toMatchObject({ xp: 12, gold: 34, restTokens: 0, boostUntil: null });
     expect(new ItemsRepo(old).owned('p1')).toEqual({});
     const v = old.prepare('SELECT version FROM schema_version').all();
-    expect(v).toEqual([{ version: 5 }]);
+    expect(v).toEqual([{ version: 6 }]);
   });
 
   it('buys a wardrobe item', () => {

@@ -37,6 +37,8 @@ export interface Player {
   bestStreak: number;
   lastStreakDay: string | null;
   restWeek: string | null;
+  chestKeys: number;
+  doneCount: number;
   createdAt: string;
 }
 export interface QuestTemplate {
@@ -107,4 +109,6 @@ export interface ShopItem {
   cost: number;
   slot?: Slot;
   palette?: Record<string, string>;
+  /** Only ever won as a loot drop: not buyable, not in the shop, not in chests. */
+  lootOnly?: boolean;
 }

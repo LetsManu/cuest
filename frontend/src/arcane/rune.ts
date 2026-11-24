@@ -16,9 +16,9 @@ const EXPIRY_MS = 8000;
 export type RuneKind = 'fire' | 'water' | 'arcane';
 const RUNES: readonly RuneKind[] = ['fire', 'water', 'arcane'];
 const PRESET: Record<RuneKind, { arc: string; text: string; ring: string; name: string }> = {
-  fire: { arc: A.ember, text: A.lantern, ring: A.rim, name: 'Fire' },
-  water: { arc: A.manaFrom, text: A.waterText, ring: A.waterRing, name: 'Water' },
-  arcane: { arc: A.arcane, text: A.arcaneText, ring: A.rim, name: 'Arcane' },
+  fire: { arc: A.ember, text: A.lantern, ring: A.rim, name: C.runeNames.fire },
+  water: { arc: A.manaFrom, text: A.waterText, ring: A.waterRing, name: C.runeNames.water },
+  arcane: { arc: A.arcane, text: A.arcaneText, ring: A.rim, name: C.runeNames.arcane },
 };
 
 interface RuneConfig {
@@ -242,7 +242,7 @@ export class CuestRuneGauge extends ArcaneCard<RuneConfig> {
     const view = runeView(s, id, this.config, this.shown(s));
     const pr = PRESET[view.rune];
     const compact = !view.adjust && (this.config.controls === false || !id.startsWith('climate.'));
-    const aria = view.sub ? `${pr.name} rune: ${view.centre}, ${view.sub}` : `${pr.name} rune: ${view.centre}`;
+    const aria = fill(view.sub ? C.runeAriaSub : C.runeAria, { Rune: pr.name, centre: view.centre, sub: view.sub });
     const dash = `${Number((CIRCUMFERENCE * view.p).toFixed(1))} ${CIRCUMFERENCE}`;
     const y = view.sub ? 58 : 66;
     return html`<div class="panel"><div class="rune ${compact ? 'compact' : ''}">
@@ -258,8 +258,8 @@ export class CuestRuneGauge extends ArcaneCard<RuneConfig> {
         <span class="label">${view.label}</span>
         ${view.adjust
           ? html`<div class="btns">
-              <button type="button" class="btn cool" aria-label="Cooler" @click=${() => this.tap(-1, view)}>−</button>
-              <button type="button" class="btn warm" aria-label="Warmer" @click=${() => this.tap(1, view)}>+</button>
+              <button type="button" class="btn cool" aria-label="${C.runeCooler}" @click=${() => this.tap(-1, view)}>−</button>
+              <button type="button" class="btn warm" aria-label="${C.runeWarmer}" @click=${() => this.tap(1, view)}>+</button>
             </div>`
           : nothing}
       </div>

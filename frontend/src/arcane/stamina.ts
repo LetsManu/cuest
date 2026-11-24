@@ -1,7 +1,8 @@
 import { html, nothing, css, unsafeCSS, type TemplateResult } from 'lit';
 import type { HomeAssistant } from '../hass-types';
 import { ArcaneCard, registerCard, v } from './base';
-import { ARCANE_COPY } from './copy';
+import { ARCANE_COPY, fill } from './copy';
+import { withNums } from './format';
 import { batteries, type Battery } from './house';
 import { ARCANE } from './theme';
 
@@ -82,10 +83,10 @@ export class CuestStaminaCard extends ArcaneCard<StaminaConfig> {
     const segs = Array.from({ length: SEGMENTS }, (_, i) =>
       html`<i class="seg ${low && i === 0 ? 'pulse' : ''}" style="background:${i < filled || (low && i === 0) ? color : A.staminaEmpty}"></i>`,
     );
-    return html`<div class="stamina-row" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="${b.name} battery ${pct} percent">
+    return html`<div class="stamina-row" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="${fill(C.staminaAria, { name: b.name, n: pct })}">
       <span class="name">${b.name}</span>
       <span class="segs" aria-hidden="true">${segs}</span>
-      <span class="pct"><span class="num">${pct}</span> %</span>
+      <span class="pct">${withNums(fill(C.staminaPct, { n: pct }))}</span>
     </div>`;
   }
 }

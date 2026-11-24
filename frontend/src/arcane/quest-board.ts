@@ -199,7 +199,7 @@ export class CuestQuestBoard extends ArcaneCard<BoardConfig> {
   private summary(h: HomeAssistant, m: ReturnType<CuestQuestBoard['model']>): TemplateResult {
     const n = m.faults.length;
     const gentle = m.health < 50;
-    const val = { p: m.health / 100, text: `${m.health}%`, label: C.orb.health.label, sublabel: '', aria: `${C.orb.health.label}: ${m.health} percent` };
+    const val = { p: m.health / 100, text: `${m.health}%`, label: C.orb.health.label, sublabel: '', aria: fill(C.orbAria.percent, { name: C.orb.health.label, n: m.health }) };
     return html`<div class="panel rim summary">
       ${renderOrb(val, 'health', 0, 80, { ring: false })}
       <div class="info">
@@ -241,7 +241,7 @@ export class CuestQuestBoard extends ArcaneCard<BoardConfig> {
       <div class="top">
         <span class="badge ${isUpdate ? 'up' : ''} ${first ? 'pulse' : ''}" aria-hidden="true">${isUpdate ? '↑' : '!'}</span>
         <div class="body"><span class="title">${f.title}</span><span class="detail">${f.detail}</span></div>
-        ${showXp ? html`<span class="xp">${withNums(`+${f.xp} XP`)}</span>` : nothing}
+        ${showXp ? html`<span class="xp">${withNums(fill(C.xp, { n: f.xp }))}</span>` : nothing}
       </div>
       ${action}${note}
     </div>`;
@@ -269,7 +269,7 @@ export class CuestQuestBoard extends ArcaneCard<BoardConfig> {
     const isUpdate = f.kind === 'update';
     const inner = html`<span class="badge ${isUpdate ? 'up' : ''}" aria-hidden="true">${isUpdate ? '↑' : '!'}</span>
       <span class="body"><span class="title">${f.title}</span><span class="detail">${f.detail}</span></span>
-      <span class="xp">${withNums(`+${f.xp} XP`)}</span>`;
+      <span class="xp">${withNums(fill(C.xp, { n: f.xp }))}</span>`;
     return go ? html`<button type="button" class="row" @click=${go}>${inner}</button>` : html`<div class="row">${inner}</div>`;
   }
 }

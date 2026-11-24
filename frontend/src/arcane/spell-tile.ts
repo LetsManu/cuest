@@ -45,6 +45,11 @@ interface Parts {
   post: string;
 }
 const plain = (p: Parts): string => `${p.pre}${p.n ?? ''}${p.post}`;
+/** Splits a copy template around its `{n}` so the number can sit in its own span. */
+const withN = (template: string, n: number): Parts => {
+  const [pre, post = ''] = template.split('{n}');
+  return { pre, n: String(n), post };
+};
 
 export class CuestSpellTile extends ArcaneCard<TileConfig> {
   readonly tag = TAG;
@@ -242,10 +247,10 @@ export class CuestSpellTile extends ArcaneCard<TileConfig> {
     if (d === 'light') {
       if (s.state !== 'on') return { pre: s.state === 'off' ? C.spellOff : '—', post: '' };
       const n = this.groupOn(h, s);
-      if (n !== null) return { pre: '', n: String(n), post: ' on' };
+      if (n !== null) return withN(C.spellGroupOn, n);
       const b = num(s.attributes.brightness);
       if (b === null) return { pre: C.spellOn, post: '' };
-      return { pre: `${C.spellOn} · `, n: String(Math.round((Math.min(255, Math.max(0, b)) / 255) * 100)), post: ' %' };
+      return withN(C.spellBrightness, Math.round((Math.min(255, Math.max(0, b)) / 255) * 100));
     }
     if (s.state === 'on') return { pre: C.spellOn, post: '' };
     if (s.state === 'off') return { pre: C.spellOff, post: '' };

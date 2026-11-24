@@ -2,6 +2,7 @@ import { html, nothing, css, unsafeCSS, type TemplateResult } from 'lit';
 import type { HomeAssistant } from '../hass-types';
 import { ArcaneCard, ConfigError, registerCard, v } from './base';
 import { ARCANE_COPY, fill } from './copy';
+import { withNums } from './format';
 import { restingAllies, type Ally } from './house';
 import { ARCANE, FONT_BODY } from './theme';
 
@@ -101,8 +102,8 @@ export class CuestAlliesCard extends ArcaneCard<AlliesConfig> {
     const color = a.awake === 0 ? A.emberText : A.manaFrom;
     return html`<div class="ally">
       <span class="name">${a.name}</span>
-      <span class="track" role="img" aria-label="${a.name}: ${a.awake} of ${a.total} awake"><span class="fill" style="width:${pct}%;background:${color}"></span></span>
-      <span class="count"><span class="num">${a.awake}</span> of <span class="num">${a.total}</span></span>
+      <span class="track" role="img" aria-label="${fill(C.alliesAria, { name: a.name, awake: a.awake, total: a.total })}"><span class="fill" style="width:${pct}%;background:${color}"></span></span>
+      <span class="count">${withNums(fill(C.alliesAwake, { awake: a.awake, total: a.total }))}</span>
     </div>`;
   }
 }

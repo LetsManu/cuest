@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import { html, render } from 'lit';
 import { ARCANE_COPY, fill } from '../../src/arcane/copy';
@@ -78,6 +80,18 @@ describe('copy', () => {
       }
     };
     walk(ARCANE_COPY, 'copy');
+  });
+  it('is the only place with shown or spoken words', () => {
+    const dir = resolve(__dirname, '../../src/arcane');
+    // Words that once sat in card sources. Card picker metadata and comments are not shown copy.
+    const stray = /\} percent| awake"|"Cooler"|"Warmer"|'Fire'|'Water'|'Arcane'|' on'| XP`|: unknown`|> of <|\} of <|' %'|> %</;
+    for (const f of readdirSync(dir).filter((n) => n.endsWith('.ts') && n !== 'copy.ts')) {
+      const src = readFileSync(join(dir, f), 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/^\s*\/\/.*$/gm, '')
+        .replace(/registerCard\([^;]*;/g, '');
+      expect(src.match(stray)?.[0], f).toBeUndefined();
+    }
   });
 });
 

@@ -96,30 +96,30 @@ export function orbValue(h: HomeAssistant, item: OrbItem): OrbValue {
     text,
     label: name,
     sublabel: item.sublabel ?? sublabel,
-    aria: p === null ? `${name}: unknown` : aria,
+    aria: p === null ? fill(C.orbAria.unknown, { name }) : aria,
   });
   switch (item.preset) {
     case 'percent': {
       const x = stateNum(h, item.entity);
-      return out(x === null ? null : x / 100, fmtPercent(x), '', `${name}: ${Math.round(x ?? 0)} percent`);
+      return out(x === null ? null : x / 100, fmtPercent(x), '', fill(C.orbAria.percent, { name, n: Math.round(x ?? 0) }));
     }
     case 'ratio': {
       const x = stateNum(h, item.entity);
       const max = typeof item.max === 'number' ? item.max : stateNum(h, item.max);
       const p = x === null || max === null || max <= 0 ? null : x / max;
-      return out(p, fmtPercent(p === null ? null : 100 * p), '', `${name}: ${pctOf(p)} percent`);
+      return out(p, fmtPercent(p === null ? null : 100 * p), '', fill(C.orbAria.percent, { name, n: pctOf(p) }));
     }
     case 'online': {
       const s = onlineShare(h, { domains: item.domains, integrations: item.integrations, exclude: item.exclude });
       const p = s.pct === null ? null : s.pct / 100;
-      return out(p, fmtPercent(s.pct), C.orb.online.unit, `${name}: ${s.pct} percent of devices online`);
+      return out(p, fmtPercent(s.pct), C.orb.online.unit, fill(C.orbAria.online, { name, n: s.pct ?? 0 }));
     }
     case 'lights': {
       const ex = item.exclude ?? [];
       const s = lightStats(h, (id) => !matches(id, ex));
       const p = s.total === 0 ? null : s.on / s.total;
       const unit = s.on === 1 ? C.orb.lights.unitOne : C.orb.lights.unit;
-      const aria = s.on === 1 ? `${name}: ${unit}` : `${name}: ${s.on} ${unit}`;
+      const aria = fill(s.on === 1 ? C.orbAria.lightsOne : C.orbAria.lights, { name, n: s.on, unit });
       const o = out(p, String(s.on), unit, aria);
       if (p === null) o.aria = aria;
       return o;
@@ -128,7 +128,7 @@ export function orbValue(h: HomeAssistant, item: OrbItem): OrbValue {
       const f = collectFaults(h, { batteryThreshold: item.battery_threshold ?? 20, exclude: item.exclude ?? [] });
       const n = f.faults.length;
       const sub = n === 1 ? C.orb.health.unitOne : fill(C.orb.health.unit, { n });
-      return out(f.health / 100, `${f.health}%`, sub, `${name}: ${f.health} percent`);
+      return out(f.health / 100, `${f.health}%`, sub, fill(C.orbAria.percent, { name, n: f.health }));
     }
   }
 }

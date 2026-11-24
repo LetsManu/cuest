@@ -163,13 +163,15 @@ export class CuestTrailCard extends ArcaneCard<TrailConfig> {
     const cur = (id: string): string => (geo ? fmtTemp(liveNum(h, id), lang) : '—');
     const unit = String(h.states[cfg.entity].attributes.unit_of_measurement ?? '');
     const own = geo ? series[0].filter((x): x is number => x !== null) : [];
-    const aria = fill(C.trailAria, {
-      name: name1,
-      hours: cfg.hours,
-      min: fmtNumber(Math.min(...own), lang),
-      max: fmtNumber(Math.max(...own), lang),
-      unit,
-    }).replace(/\s+\.?$/, '');
+    const aria = own.length
+      ? fill(C.trailAria, {
+          name: name1,
+          hours: cfg.hours,
+          min: fmtNumber(Math.min(...own), lang),
+          max: fmtNumber(Math.max(...own), lang),
+          unit,
+        }).replace(/\s+\.?$/, '')
+      : fill(C.trailAriaEmpty, { name: name1, hours: cfg.hours });
 
     return html`<div class="panel trail">
       <div class="head"><h2>${cfg.title}</h2><span class="hours">${fill(C.trailHours, { n: cfg.hours })}</span></div>

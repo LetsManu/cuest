@@ -155,6 +155,21 @@ describe('trail failures and geometry', () => {
   });
 });
 
+describe('trail with a silent main sensor', () => {
+  it('uses a range-free aria label when only the secondary has data', async () => {
+    const h = fakeHass({
+      states: { 'sensor.living': st('unavailable', { friendly_name: 'Wohnzimmer' }), 'sensor.out': st('-0.7') },
+      history: { 'sensor.living': [{ s: 'unavailable', lu: ls(5) }], 'sensor.out': [{ s: '-3', lu: ls(20) }, { s: '1', lu: ls(6) }] },
+    });
+    const el = await mount(TAG, { entity: 'sensor.living', entity2: 'sensor.out' }, h);
+    await flush(el);
+    const label = root(el).querySelector('svg[role="img"]')!.getAttribute('aria-label')!;
+    expect(label).toBe('Wohnzimmer: no history in the last 24 h');
+    expect(label).not.toMatch(/Infinity|NaN/);
+    expectClean(el);
+  });
+});
+
 describe('trail refresh', () => {
   it('fetches once for a burst of updates and again after five minutes', async () => {
     const h = fakeHass({ states: states(), history: history() });

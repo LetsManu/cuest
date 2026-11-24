@@ -77,6 +77,7 @@ export const ARCANE_COPY = {
   trailTitle: 'Warmth trail',
   trailHours: '{n} h',
   trailAria: '{name} over the last {hours} hours, between {min} and {max} {unit}',
+  trailAriaEmpty: '{name}: no history in the last {hours} h',
   missing: 'Entity not found: {id}',
 } as const;
 

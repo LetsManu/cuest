@@ -220,4 +220,12 @@ describe('cuest-panel', () => {
     for (let i = 0; i < 5; i++) { await new Promise((r) => setTimeout(r, 0)); await el.updateComplete; }
     expect(callApi.mock.calls.filter((c) => c[1] === 'cuest/quests').length).toBe(before + 2);
   });
+
+  it('renders level and title in separate elements without a dot', async () => {
+    const { hass } = fakeHass();
+    const el = await mount(hass);
+    expect(el.shadowRoot.querySelector('.lvl').textContent.trim()).toBe('Level 4');
+    expect(el.shadowRoot.querySelector('.ttl').textContent.trim()).toBe('Hearthkeeper');
+    expect(el.shadowRoot.querySelector('.herocard').textContent).not.toContain('·');
+  });
 });

@@ -31,7 +31,7 @@ export const villageStyles = [
   .topright{display:flex;align-items:center;gap:8px}
   .switch{background:transparent;border:2px solid #C9B791;border-radius:12px;min-height:44px;min-width:44px;padding:0 10px;font:inherit;font-weight:800;font-size:13px;color:#4A4033;cursor:pointer}
   .someone{color:${unsafeCSS(COLORS.muted)};font-weight:700;font-size:14px;padding:6px 0}
-  .nb{white-space:nowrap}
+  .ttl{font-family:${unsafeCSS(FONT_PIXEL)};font-size:15px;color:#F7D27A}
   .brand{font-family:${unsafeCSS(FONT_PIXEL)};font-weight:700;font-size:26px;color:${unsafeCSS(COLORS.forest)}}
   .gold{display:flex;align-items:center;gap:6px;background:${unsafeCSS(COLORS.card)};border:2px solid ${unsafeCSS(COLORS.line)};border-radius:999px;padding:5px 12px;font-weight:800;font-variant-numeric:tabular-nums}
   .coin{width:14px;height:14px;background:${unsafeCSS(COLORS.amber)};border:2px solid #B07A1E;border-radius:3px}
@@ -126,7 +126,7 @@ export function villageView(p: VillageProps): TemplateResult {
       <div class="sprite" role="img" aria-label="${STRINGS.heroLabel}${title ? `, ${title}` : ''}" style="width:${SPRITE_W * PX}px;height:${SPRITE_H * PX}px">
         <div class="dot" style="left:${-PX}px;top:${-PX}px;width:${PX}px;height:${PX}px;box-shadow:${spriteShadow(stageForLevel(level), PX, p.palette)}"></div>
       </div>
-      <div class="info"><div class="lvl"><span class="nb">${STRINGS.level} ${level}${title ? ' ·' : ''}</span> ${title}</div>
+      <div class="info"><div class="lvl">${STRINGS.level} ${level}</div>${title ? html`<div class="ttl">${title}</div>` : nothing}
         <div class="sub">${toNext} ${STRINGS.xpToLevel} ${level + 1}</div>
         <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div></div>
     </section>

@@ -22,7 +22,9 @@ interface BoardConfig {
   allow_add: boolean;
 }
 
-type AddState = 'added' | 'already' | 'failed';
+type AddState = 'added' | 'already' | 'failed' | 'installFailed';
+
+const INSTALL_WAIT_MS = 10 * 60_000;
 
 /** Digits in Inter 700 tabular, words stay in the pixel face. */
 const withNums = (s: string): TemplateResult[] =>
@@ -34,6 +36,8 @@ export class CuestQuestBoard extends ArcaneCard<BoardConfig> {
   /** Synchronous guard: a second tap while a request is in flight does nothing. */
   private busy = new Set<string>();
   private results = new Map<string, AddState>();
+  /** Updates being installed: disabled until the entity leaves `on` or the one-shot timer fires. */
+  private installing = new Map<string, ReturnType<typeof setTimeout>>();
 
   static styles = [
     ...ArcaneCard.styles,
@@ -63,7 +67,9 @@ export class CuestQuestBoard extends ArcaneCard<BoardConfig> {
       .note.soft{color:${u(A.inkDetail)}}
       .done{background:${u(A.wellDoneBg)};border:2px solid ${u(A.wellDoneBorder)};border-radius:14px;padding:12px;font-size:13px;color:${u(A.wellDoneText)}}
       .row{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;min-height:44px;text-align:left;background:${u(A.parchment)};border:2px solid ${u(A.parchmentBorder)};border-radius:6px;box-shadow:3px 3px 0 ${u(A.parchmentShadow)};padding:10px 12px;color:${u(A.ink)};font-family:${u(FONT_BODY)}}
+      .moretext{font-size:14px;font-weight:600;color:${u(A.goldText)};padding:2px;text-align:center}
       button.row{cursor:pointer}
+      .row .detail,.body .detail{display:block}
       .row .body{font-size:14px}
       .row .detail{font-size:12px}
     `,
@@ -137,18 +143,44 @@ export class CuestQuestBoard extends ArcaneCard<BoardConfig> {
 
   private async install(f: Fault): Promise<void> {
     const h = this._hass;
-    if (!h || this.busy.has(f.id)) return;
+    if (!h || this.busy.has(f.id) || this.installing.has(f.id)) return;
     this.busy.add(f.id);
     this.results.delete(f.id);
+    this.installing.set(
+      f.id,
+      setTimeout(() => this.stopInstalling(f.id), INSTALL_WAIT_MS),
+    );
     this.requestUpdate();
     try {
       await h.callService('update', 'install', { entity_id: f.entityIds[0] });
     } catch {
-      this.results.set(f.id, 'failed');
+      this.stopInstalling(f.id);
+      this.results.set(f.id, 'installFailed');
     } finally {
       this.busy.delete(f.id);
       this.requestUpdate();
     }
+  }
+
+  private stopInstalling(id: string): void {
+    const t = this.installing.get(id);
+    if (t === undefined) return;
+    clearTimeout(t);
+    this.installing.delete(id);
+    this.requestUpdate();
+  }
+
+  protected willUpdate(): void {
+    const h = this._hass;
+    if (!h || !this.config || this.installing.size === 0) return;
+    const live = new Set(this.model(h).faults.map((f) => f.id));
+    for (const id of [...this.installing.keys()]) if (!live.has(id)) this.stopInstalling(id);
+  }
+
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    for (const t of this.installing.values()) clearTimeout(t);
+    this.installing.clear();
   }
 
   protected render(): TemplateResult | typeof nothing {
@@ -171,12 +203,13 @@ export class CuestQuestBoard extends ArcaneCard<BoardConfig> {
 
   private summary(h: HomeAssistant, m: ReturnType<CuestQuestBoard['model']>): TemplateResult {
     const n = m.faults.length;
+    const gentle = m.health < 50;
     const val = { p: m.health / 100, text: `${m.health}%`, label: C.orb.health.label, sublabel: '', aria: `${C.orb.health.label}: ${m.health} percent` };
     return html`<div class="panel rim summary">
       ${renderOrb(val, 'health', 0, 80, { ring: false })}
       <div class="info">
         <div class="health">${C.orb.health.label} <span class="num">${val.text}</span></div>
-        ${n > 0 ? html`<div class="sum">${withNums(n === 1 ? C.boardSummaryOne : fill(C.boardSummary, { n }))}</div>` : nothing}
+        ${n > 0 ? html`<div class="sum">${withNums(gentle ? (n === 1 ? C.boardSummaryGentleOne : fill(C.boardSummaryGentle, { n })) : n === 1 ? C.boardSummaryOne : fill(C.boardSummary, { n }))}</div>` : nothing}
         <div class="chips">${this.chips(m.faults)}</div>
       </div>
     </div>`;
@@ -185,33 +218,34 @@ export class CuestQuestBoard extends ArcaneCard<BoardConfig> {
   private full(h: HomeAssistant): TemplateResult {
     const m = this.model(h);
     const faults = this.shown(h);
-    const admin = !!h.user?.is_admin && this.config.allow_add;
+    const admin = !!h.user?.is_admin;
     return html`<div class="board">
       ${this.config.title ? html`<h2>${this.config.title}</h2>` : nothing}
       ${this.config.show_summary ? this.summary(h, m) : nothing}
       <h2>${C.quickQuests}</h2>
       ${faults.length === 0
         ? html`<div class="done">${C.boardEmpty}</div>`
-        : html`${faults.map((f, i) => this.questScroll(f, i === 0, admin))}<div class="done">${C.boardFooter}</div>`}
+        : html`${faults.map((f, i) => this.questScroll(f, i === 0, admin, admin && this.config.allow_add))}<div class="done">${C.boardFooter}</div>`}
     </div>`;
   }
 
-  private questScroll(f: Fault, first: boolean, admin: boolean): TemplateResult {
+  private questScroll(f: Fault, first: boolean, admin: boolean, canAdd: boolean): TemplateResult {
     const isUpdate = f.kind === 'update';
     const res = this.results.get(f.id);
     const busy = this.busy.has(f.id);
     let action: TemplateResult | typeof nothing = nothing;
     if (admin && isUpdate) {
-      action = html`<button type="button" class="btn" ?disabled=${busy} @click=${() => this.install(f)}>${C.install}</button>`;
-    } else if (admin && res !== 'added' && res !== 'already') {
+      const going = this.installing.has(f.id);
+      action = html`<button type="button" class="btn" ?disabled=${busy || going} @click=${() => this.install(f)}>${going ? C.installing : C.install}</button>`;
+    } else if (canAdd && !isUpdate && res !== 'added' && res !== 'already') {
       action = html`<button type="button" class="btn" ?disabled=${busy} @click=${() => this.add(f)}>${C.add}</button>`;
     }
-    const note = res === 'added' ? html`<span class="note" role="status">${C.added}</span>` : res === 'already' ? html`<span class="note soft" role="status">${C.already}</span>` : res === 'failed' ? html`<span class="note soft" role="status">${C.addFailed}</span>` : nothing;
+    const note = res === 'added' ? html`<span class="note" role="status">${C.added}</span>` : res === 'already' ? html`<span class="note soft" role="status">${C.already}</span>` : res === 'failed' ? html`<span class="note soft" role="status">${C.addFailed}</span>` : res === 'installFailed' ? html`<span class="note soft" role="status">${C.installFailed}</span>` : nothing;
     const showXp = !(admin && isUpdate);
     return html`<div class="scroll">
       <div class="top">
         <span class="badge ${isUpdate ? 'up' : ''} ${first ? 'pulse' : ''}" aria-hidden="true">${isUpdate ? '↑' : '!'}</span>
-        <div class="body"><span class="title">${f.title}</span><div class="detail">${f.detail}</div></div>
+        <div class="body"><span class="title">${f.title}</span><span class="detail">${f.detail}</span></div>
         ${showXp ? html`<span class="xp">${withNums(`+${f.xp} XP`)}</span>` : nothing}
       </div>
       ${action}${note}
@@ -232,14 +266,14 @@ export class CuestQuestBoard extends ArcaneCard<BoardConfig> {
       ${faults.length === 0
         ? html`<div class="done">${C.boardEmpty}</div>`
         : faults.map((f) => this.row(f, go))}
-      ${rest > 0 && path ? html`<button type="button" class="link" @click=${go}>${withNums(fill(C.more, { n: rest }))}</button>` : nothing}
+      ${rest > 0 ? (path ? html`<button type="button" class="link" @click=${go}>${withNums(fill(C.more, { n: rest }))}</button>` : html`<span class="moretext">${withNums(fill(C.moreText, { n: rest }))}</span>`) : nothing}
     </div>`;
   }
 
   private row(f: Fault, go?: () => void): TemplateResult {
     const isUpdate = f.kind === 'update';
     const inner = html`<span class="badge ${isUpdate ? 'up' : ''}" aria-hidden="true">${isUpdate ? '↑' : '!'}</span>
-      <span class="body"><span class="title">${f.title}</span><div class="detail">${f.detail}</div></span>
+      <span class="body"><span class="title">${f.title}</span><span class="detail">${f.detail}</span></span>
       <span class="xp">${withNums(`+${f.xp} XP`)}</span>`;
     return go ? html`<button type="button" class="row" @click=${go}>${inner}</button>` : html`<div class="row">${inner}</div>`;
   }

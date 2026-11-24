@@ -97,7 +97,7 @@ describe('quest board full', () => {
   });
 
   it('uses the singular summary for one quest', async () => {
-    const states = { 'update.core': st('on', { friendly_name: 'Core' }) };
+    const states = { 'update.core': st('on', { friendly_name: 'Core' }), 'update.a': st('off'), 'update.b': st('off') };
     const el = await mount(TAG, { show_summary: true }, fakeHass({ states }));
     expect(text(el)).toContain('1 small quest. Nothing urgent.');
     expect(text(el)).not.toContain('1 small quests');
@@ -227,7 +227,7 @@ describe('quest board add flow', () => {
     await flush();
     await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
     expect(byText(el, 'Install')!.disabled).toBe(false);
-    expect(text(el)).toContain('Cuest could not take it right now. Try again soon.');
+    expect(text(el)).toContain('The update could not start. Try again soon.');
   });
 
   it('gives every button a 44px min-height rule and the class that carries it', async () => {
@@ -286,5 +286,131 @@ describe('quest board compact', () => {
     const css = (customElements.get(TAG) as unknown as { elementStyles: { cssText: string }[] }).elementStyles.map((s) => s.cssText).join('\n');
     const rule = /(?:^|[}\s,])\.row\s*\{[^}]*min-height:\s*(\d+)px/.exec(css);
     expect(Number(rule![1])).toBeGreaterThanOrEqual(44);
+  });
+});
+
+describe('quest board fix round 1', () => {
+  const upd = (el: HTMLElement) => Array.from(root(el).querySelectorAll('.scroll')).find((s) => s.textContent!.includes('Core Update'))!;
+  const settle = async (el: HTMLElement) => {
+    await vi.advanceTimersByTimeAsync(0);
+    await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+  };
+
+  it('has no div inside a span or button (valid markup)', async () => {
+    const h = fakeHass({ states: { 'update.a': st('on', { friendly_name: 'A' }), 'update.b': st('on', { friendly_name: 'B' }) } });
+    const el = await mount(TAG, { variant: 'compact', more_path: '/x' }, h);
+    expect(root(el).querySelectorAll('button div, span div')).toHaveLength(0);
+    const nopath = await mount(TAG, { variant: 'compact' }, h);
+    expect(root(nopath).querySelectorAll('button div, span div')).toHaveLength(0);
+  });
+
+  it('keeps Install disabled as Installing until the update leaves on', async () => {
+    vi.useFakeTimers();
+    try {
+      const h = house({ admin: true });
+      const el = await mount<{ hass: FakeHass }>(TAG, {}, h);
+      byText(el, 'Install')!.click();
+      await settle(el);
+      const b = Array.from(root(el).querySelectorAll('button')).find((x) => x.textContent!.trim() === 'Installing…')!;
+      expect(b.disabled).toBe(true);
+      expect(byText(el, 'Install')).toBeUndefined();
+      b.click();
+      expect(h.callService).toHaveBeenCalledTimes(1);
+      const h2 = house({ admin: true });
+      h2.states['update.home_assistant_core_update'] = st('off', { friendly_name: 'Home Assistant Core Update' });
+      el.hass = h2;
+      await settle(el);
+      expect(text(el)).not.toContain('Installing');
+      expectClean(el);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('re-enables Install after 10 minutes with a one-shot timer', async () => {
+    vi.useFakeTimers();
+    try {
+      const el = await mount(TAG, {}, house({ admin: true }));
+      byText(el, 'Install')!.click();
+      await settle(el);
+      await vi.advanceTimersByTimeAsync(9 * 60_000);
+      expect(text(el)).toContain('Installing…');
+      await vi.advanceTimersByTimeAsync(60_000);
+      await settle(el);
+      expect(byText(el, 'Install')!.disabled).toBe(false);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('clears the install timer on disconnect', async () => {
+    vi.useFakeTimers();
+    try {
+      const el = await mount(TAG, {}, house({ admin: true }));
+      byText(el, 'Install')!.click();
+      await settle(el);
+      expect(vi.getTimerCount()).toBeGreaterThan(0);
+      el.remove();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('shows installFailed and re-enables when Install rejects', async () => {
+    vi.useFakeTimers();
+    try {
+      const h = house({ admin: true });
+      h.callService.mockRejectedValueOnce(new Error('x'));
+      const el = await mount(TAG, {}, h);
+      byText(el, 'Install')!.click();
+      await settle(el);
+      expect(text(el)).toContain('The update could not start. Try again soon.');
+      expect(text(el)).not.toContain('Cuest could not take it');
+      expect(byText(el, 'Install')!.disabled).toBe(false);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('shows the more line as plain text without more_path', async () => {
+    const states: Record<string, ReturnType<typeof st>> = {};
+    for (let i = 1; i <= 3; i++) states[`update.u${i}`] = st('on', { friendly_name: `U${i}` });
+    const el = await mount(TAG, { variant: 'compact' }, fakeHass({ states }));
+    expect(text(el)).toContain('+ 1 more on the board');
+    expect(text(el)).not.toContain('→');
+    expect(buttons(el)).toHaveLength(0);
+  });
+
+  it('gives the compact link button a 44px min-height rule and class', async () => {
+    const el = await mount(TAG, { variant: 'compact', more_path: '/x' }, fakeHass({ states: { 'update.a': st('on'), 'update.b': st('on'), 'update.c': st('on') } }));
+    const css = (customElements.get(TAG) as unknown as { elementStyles: { cssText: string }[] }).elementStyles.map((s) => s.cssText).join('\n');
+    const rule = /(?:^|[}\s,])\.link\s*\{[^}]*min-height:\s*(\d+)px/.exec(css);
+    expect(Number(rule![1])).toBeGreaterThanOrEqual(44);
+    const links = buttons(el).filter((b) => b.classList.contains('link'));
+    expect(links).toHaveLength(2);
+  });
+
+  it('allow_add false hides Add but keeps Install and the update XP logic', async () => {
+    const el = await mount(TAG, { allow_add: false }, house({ admin: true }));
+    expect(byText(el, 'Add to my Cuest quests')).toBeUndefined();
+    expect(byText(el, 'Install')).toBeTruthy();
+    expect(upd(el).textContent).not.toContain('XP');
+    const non = await mount(TAG, { allow_add: false }, house({ admin: false }));
+    expect(byText(non, 'Install')).toBeUndefined();
+    expect(upd(non).textContent).toContain('+10 XP');
+  });
+
+  it('uses the gentle summary below 50 percent health', async () => {
+    const two = fakeHass({ states: { 'update.a': st('on', { friendly_name: 'A' }), 'update.b': st('on', { friendly_name: 'B' }) } });
+    const el = await mount(TAG, { show_summary: true }, two);
+    expect(text(el)).toContain('2 small quests. One step at a time.');
+    expect(text(el)).not.toContain('Nothing urgent');
+    const one = await mount(TAG, { show_summary: true }, fakeHass({ states: { 'update.a': st('on', { friendly_name: 'A' }) } }));
+    expect(text(one)).toContain('1 small quest. One step at a time.');
+    const fine = await mount(TAG, { show_summary: true }, fakeHass({ states: { 'update.a': st('on'), 'update.b': st('off'), 'update.c': st('off') } }));
+    expect(text(fine)).toContain('Nothing urgent.');
   });
 });

@@ -102,7 +102,9 @@ describe('shop', () => {
     expect(callApi).toHaveBeenCalledWith('POST', 'cuest/shop/equip', { playerId: 'p1', slot: 'hood', itemId: 'hood_night' });
     expect(q(el, '[data-item="hood_night"]').textContent!.trim()).toBe('Wearing');
     q(el, '[data-item="hood_night"]').click(); await settle(el);
-    expect(callApi).toHaveBeenLastCalledWith('GET', 'cuest/shop?playerId=p1', undefined);
+    const paths = callApi.mock.calls.map((c) => c[1]);
+    expect(paths.slice(-2)).toContain('cuest/shop?playerId=p1');
+    expect(paths.lastIndexOf('cuest/shop?playerId=p1')).toBeGreaterThan(paths.lastIndexOf('cuest/shop/equip'));
     expect(callApi).toHaveBeenCalledWith('POST', 'cuest/shop/equip', { playerId: 'p1', slot: 'hood', itemId: null });
     expect(q(el, '[data-item="hood_night"]').textContent!.trim()).toBe('Wear');
   });

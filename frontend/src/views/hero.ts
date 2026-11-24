@@ -3,6 +3,8 @@ import type { Summary } from '../api';
 import { COLORS, FONT_PIXEL } from '../palette';
 import { SPRITE_H, SPRITE_W, spriteShadow, stageForLevel, type Palette } from '../sprite';
 import { STRINGS } from '../strings';
+import type { CollectionItem } from '../api';
+import { collectionView } from './collection';
 import { decorTemplate } from './decor';
 
 export interface HeroProps {
@@ -12,6 +14,7 @@ export interface HeroProps {
   onSwitch(): void;
   palette: Palette;
   decor: string[];
+  collection?: CollectionItem[] | null;
 }
 
 export const heroStyles = css`
@@ -68,5 +71,6 @@ export function heroView(p: HeroProps): TemplateResult {
       <div class="stat"><b>${s?.player.xp ?? 0}</b><span>${STRINGS.statXp}</span></div>
       <div class="stat"><b>${s?.player.gold ?? 0}</b><span>${STRINGS.statGold}</span></div>
       <div class="stat"><b>${s?.player.restTokens ?? 0}</b><span>${STRINGS.statRest}</span></div>
-    </div>`;
+    </div>
+    ${collectionView(p.collection ?? null, level)}`;
 }

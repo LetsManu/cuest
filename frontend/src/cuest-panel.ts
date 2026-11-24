@@ -1,5 +1,5 @@
 import { LitElement, css, html, nothing, unsafeCSS } from 'lit';
-import { CuestApi, toApiError, type BuyResult, type DiceResult, type Energy, type QuestLists, type Quest, type Sprint, type ShopItem, type ShopView, type Summary, type WhoAmI } from './api';
+import { CuestApi, toApiError, type BuyResult, type CollectionItem, type DiceResult, type Energy, type QuestLists, type Quest, type Sprint, type ShopItem, type ShopView, type Summary, type WhoAmI } from './api';
 import type { HomeAssistant } from './hass-types';
 import { COLORS, FONT_BODY, FONT_PIXEL } from './palette';
 import { cuestSignature, playersFromSensors } from './sensors';
@@ -8,6 +8,7 @@ import { STRINGS } from './strings';
 import { isSoundOn, playFanfare, setSoundOn, unlock } from './sound';
 import { levelForXp, titleForLevel } from './levels';
 import { diceStyles, diceView } from './views/dice';
+import { collectionStyles } from './views/collection';
 import { heroStyles, heroView } from './views/hero';
 import { questStyles, questView, rewardToast, toastStyles, type Reward } from './views/quest';
 import { clock24, noticeToast, shopStyles, shopView, type ShopTab } from './views/shop';
@@ -49,6 +50,7 @@ export class CuestPanel extends LitElement {
     _reward: { state: true },
     _tick: { state: true },
     _shop: { state: true },
+    _collection: { state: true },
     _shopTab: { state: true },
     _notice: { state: true },
     _sound: { state: true },
@@ -63,6 +65,7 @@ export class CuestPanel extends LitElement {
   static styles = [
     villageStyles,
     heroStyles,
+    collectionStyles,
     questStyles,
     toastStyles,
     shopStyles,
@@ -106,6 +109,7 @@ export class CuestPanel extends LitElement {
   declare _reward: Reward | null;
   declare _tick: number;
   declare _shop: ShopView | null;
+  declare _collection: CollectionItem[] | null;
   declare _shopTab: ShopTab;
   declare _notice: string;
   declare _sound: boolean;
@@ -137,6 +141,7 @@ export class CuestPanel extends LitElement {
     this._summary = null;
     this._quests = null;
     this._shop = null;
+    this._collection = null;
     this._view = 'village';
     this._questId = null;
     this._offline = false;
@@ -249,13 +254,14 @@ export class CuestPanel extends LitElement {
       this._offline = false;
       if (this._playerId) {
         const pid = this._playerId;
-        const [summary, quests, shop] = await Promise.all([this._api.summary(pid), this._api.quests(), this._api.shop(pid).catch(() => null)]);
+        const [summary, quests, shop, col] = await Promise.all([this._api.summary(pid), this._api.quests(), this._api.shop(pid).catch(() => null), this._api.collection(pid).catch(() => null)]);
         // A different player was picked while this load ran: drop the stale data but
         // still fall through so a queued re-run (below) happens.
         if (pid === this._playerId) {
           this._summary = summary;
           this._quests = quests;
           this._shop = Array.isArray(shop?.catalog) ? shop : null;
+          this._collection = Array.isArray(col?.items) ? col.items : null;
         }
       }
       this._error = '';
@@ -289,6 +295,7 @@ export class CuestPanel extends LitElement {
     this._summary = null;
     this._quests = null;
     this._shop = null;
+    this._collection = null;
     void this._refresh();
   }
 
@@ -358,7 +365,12 @@ export class CuestPanel extends LitElement {
   }
 
   private _decor(): string[] {
-    if (this._shop) return this._shop.catalog.filter((c) => c.kind === 'decor' && c.owned).map((c) => c.id);
+    if (this._shop) {
+      const ids = this._shop.catalog.filter((c) => c.kind === 'decor' && c.owned).map((c) => c.id);
+      // Loot-only decor (e.g. the owl) is not in the shop catalog; the collection knows it.
+      for (const c of this._collection ?? []) if (c.kind === 'decor' && c.owned && !ids.includes(c.id)) ids.push(c.id);
+      return ids;
+    }
     const a = this._sensorAttrs();
     return Array.isArray(a.decor) ? (a.decor as string[]) : [];
   }
@@ -708,6 +720,7 @@ export class CuestPanel extends LitElement {
         onSwitch: this._switch,
         palette: this._palette(),
         decor: this._decor(),
+        collection: this._collection,
       });
     }
     return shopView({

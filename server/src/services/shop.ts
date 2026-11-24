@@ -235,7 +235,7 @@ export class ShopService {
   }
 
   /** The collection book: every wardrobe and decor item, loot-only included. */
-  collection(playerId: string): { id: string; kind: 'wardrobe' | 'decor'; name: string; owned: boolean; lootOnly: boolean }[] {
+  collection(playerId: string): { id: string; kind: 'wardrobe' | 'decor'; name: string; owned: boolean; lootOnly: boolean; slot?: string; palette?: Record<string, string> }[] {
     if (!this.players.get(playerId)) throw new ShopError('unknown_player');
     const owned = this.items.owned(playerId);
     return CATALOG.filter((i) => i.kind === 'wardrobe' || i.kind === 'decor').map((i) => ({
@@ -244,6 +244,7 @@ export class ShopService {
       name: i.name,
       owned: (owned[i.id] ?? 0) > 0,
       lootOnly: i.lootOnly === true,
+      ...(i.kind === 'wardrobe' ? { slot: i.slot, palette: i.palette } : {}),
     }));
   }
 

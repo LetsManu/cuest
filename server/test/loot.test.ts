@@ -227,6 +227,7 @@ describe('api', () => {
       'lantern', 'flowers', 'cat', 'fountain', 'owl',
     ].sort((a, b) => CATALOG.findIndex((i) => i.id === a) - CATALOG.findIndex((i) => i.id === b)));
     expect(list.find((i) => i.id === 'owl')).toEqual({ id: 'owl', kind: 'decor', name: 'Sleepy owl', owned: true, lootOnly: true });
+    expect(list.find((i) => i.id === 'hood_starry')).toMatchObject({ slot: 'hood', palette: { G: '#1F2A4A', L: '#F7D27A', g: '#141C33' } });
     expect(list.find((i) => i.id === 'cat')).toMatchObject({ owned: false, lootOnly: false });
     expect(list.some((i) => i.kind === 'helper')).toBe(false);
     expect((await app.inject({ url: '/api/collection?playerId=zzz' })).statusCode).toBe(404);

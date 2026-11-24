@@ -46,6 +46,7 @@ export interface DoneResult {
   chestKey?: boolean;
 }
 export interface ShopItem { id: string; kind: string; name: string; cost: number; slot?: string; palette?: Record<string, string>; owned: boolean }
+export interface CollectionItem { id: string; kind: 'wardrobe' | 'decor'; name: string; owned: boolean; lootOnly: boolean; slot?: string; palette?: Record<string, string> }
 export type BuyResult = {
   player: Record<string, unknown>;
   result:
@@ -120,6 +121,7 @@ export class CuestApi {
   quests() { return this.call<QuestLists>('GET', 'cuest/quests'); }
   summary(playerId: string) { return this.call<Summary>('GET', `cuest/players/${encodeURIComponent(playerId)}/summary`); }
   shop(playerId: string) { return this.call<ShopView>('GET', `cuest/shop?playerId=${encodeURIComponent(playerId)}`); }
+  collection(playerId: string) { return this.call<{ items: CollectionItem[] }>('GET', `cuest/collection?playerId=${encodeURIComponent(playerId)}`); }
   start(questId: string, playerId: string) { return this.call<{ quest: Quest }>('POST', `cuest/quests/${encodeURIComponent(questId)}/start`, { playerId }); }
   done(questId: string, playerId: string) { return this.call<DoneResult>('POST', `cuest/quests/${encodeURIComponent(questId)}/done`, { playerId }); }
   dice(playerId: string, energy: Energy) { return this.call<DiceResult>('GET', `cuest/dice?playerId=${encodeURIComponent(playerId)}&energy=${energy}`); }

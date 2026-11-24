@@ -31,10 +31,23 @@ const CAT = html`<span class="slot" style="width:26px" aria-hidden="true">
   <i style="left:2px;bottom:4px;width:4px;height:3px;background:#2B2A33"></i>
   <i style="left:0;bottom:6px;width:3px;height:6px;background:#2B2A33"></i></span>`;
 
-const SHAPES: Record<string, TemplateResult> = { fountain: FOUNTAIN, lantern: LANTERN, flowers: FLOWERS, cat: CAT };
-const ORDER = ['fountain', 'lantern', 'flowers', 'cat'];
+const OWL = html`<span class="slot" style="width:20px" aria-hidden="true">
+  <i style="left:4px;bottom:0;width:12px;height:14px;background:#8C7A5B"></i>
+  <i style="left:6px;bottom:8px;width:8px;height:4px;background:#C9C1B0"></i>
+  <i style="left:4px;bottom:14px;width:3px;height:3px;background:#8C7A5B"></i>
+  <i style="left:13px;bottom:14px;width:3px;height:3px;background:#8C7A5B"></i>
+  <i style="left:6px;bottom:10px;width:3px;height:3px;background:#F7D27A;box-shadow:5px 0 0 #F7D27A"></i>
+  <i style="left:9px;bottom:8px;width:2px;height:2px;background:#E0A43A"></i></span>`;
+
+const SHAPES: Record<string, TemplateResult> = { fountain: FOUNTAIN, lantern: LANTERN, flowers: FLOWERS, cat: CAT, owl: OWL };
+const ORDER = ['fountain', 'lantern', 'flowers', 'cat', 'owl'];
 
 /** One grass-strip row with the owned decor ids; unknown ids are ignored. */
 export function decorTemplate(owned: string[]): TemplateResult {
   return html`<div class="decorrow">${ORDER.filter((id) => owned.includes(id)).map((id) => SHAPES[id])}</div>`;
+}
+
+/** A single decor shape for the collection book, or null for an unknown id. */
+export function decorPreview(id: string): TemplateResult | null {
+  return SHAPES[id] ?? null;
 }

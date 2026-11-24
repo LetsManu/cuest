@@ -1,5 +1,5 @@
 import { LitElement, css, html, nothing, unsafeCSS } from 'lit';
-import { CuestApi, toApiError, type BuyResult, type QuestLists, type Quest, type ShopItem, type ShopView, type Summary, type WhoAmI } from './api';
+import { CuestApi, toApiError, type BuyResult, type DiceResult, type Energy, type QuestLists, type Quest, type ShopItem, type ShopView, type Summary, type WhoAmI } from './api';
 import type { HomeAssistant } from './hass-types';
 import { COLORS, FONT_BODY, FONT_PIXEL } from './palette';
 import { cuestSignature, playersFromSensors } from './sensors';
@@ -7,12 +7,13 @@ import type { Palette } from './sprite';
 import { STRINGS } from './strings';
 import { isSoundOn, playFanfare, setSoundOn, unlock } from './sound';
 import { levelForXp, titleForLevel } from './levels';
+import { diceStyles, diceView } from './views/dice';
 import { heroStyles, heroView } from './views/hero';
 import { questStyles, questView, rewardToast, toastStyles, type Reward } from './views/quest';
 import { clock24, noticeToast, shopStyles, shopView, type ShopTab } from './views/shop';
 import { villageStyles, villageView } from './views/village';
 
-type View = 'village' | 'shop' | 'hero' | 'quest';
+type View = 'village' | 'shop' | 'hero' | 'quest' | 'dice' | 'sprint';
 const STORE_KEY = 'cuest.player';
 const REFRESH_MS = 30_000;
 
@@ -50,6 +51,9 @@ export class CuestPanel extends LitElement {
     _shopTab: { state: true },
     _notice: { state: true },
     _sound: { state: true },
+    _energy: { state: true },
+    _dice: { state: true },
+    _rolling: { state: true },
   };
 
   static styles = [
@@ -58,6 +62,7 @@ export class CuestPanel extends LitElement {
     questStyles,
     toastStyles,
     shopStyles,
+    diceStyles,
     css`
     :host{display:block;min-height:100%;background:${unsafeCSS(COLORS.parchment)};color:${unsafeCSS(COLORS.ink)};font-family:${unsafeCSS(FONT_BODY)};font-size:15px;box-sizing:border-box}
     *{box-sizing:border-box}
@@ -99,9 +104,14 @@ export class CuestPanel extends LitElement {
   declare _shopTab: ShopTab;
   declare _notice: string;
   declare _sound: boolean;
+  declare _energy: Energy;
+  declare _dice: DiceResult | null;
+  declare _rolling: boolean;
 
   /** Injectable clock (ms) so tests can drive the quest timer. */
   now: () => number = () => Date.now();
+  /** Minimum time the die keeps rolling, so the animation is seen even on a fast reply. */
+  diceDelayMs = 600;
 
   private _api: CuestApi | null = null;
   private _sig: string | null = null;
@@ -132,6 +142,9 @@ export class CuestPanel extends LitElement {
     this._shopTab = 'treat';
     this._notice = '';
     this._sound = isSoundOn();
+    this._energy = 'medium';
+    this._dice = null;
+    this._rolling = false;
   }
 
   connectedCallback() {
@@ -397,6 +410,49 @@ export class CuestPanel extends LitElement {
     });
   };
 
+  private _openDice = () => {
+    this._dice = null;
+    this._rolling = false;
+    this._view = 'dice';
+  };
+
+  private _roll = () => {
+    const pid = this._playerId;
+    const api = this._api;
+    if (!pid || !api || this._rolling) return;
+    if (this._sound) unlock();
+    this._rolling = true;
+    const energy = this._energy;
+    void (async () => {
+      try {
+        const [res] = await Promise.all([api.dice(pid, energy), new Promise((ok) => setTimeout(ok, this.diceDelayMs))]);
+        if (this._view === 'dice' && pid === this._playerId) { this._dice = res; this._error = ''; this._offline = false; }
+      } catch (e) {
+        const err = toApiError(e);
+        if (err.offline) this._offline = true;
+        else this._error = err.message || STRINGS.diceFailed;
+      }
+      this._rolling = false;
+    })();
+  };
+
+  private _diceStart = () => {
+    const pid = this._playerId;
+    const api = this._api;
+    const r = this._dice;
+    if (!pid || !api || !r) return;
+    if (this._sound) unlock();
+    if ('quest' in r) {
+      this._start(r.quest);
+      return;
+    }
+    const key = 'dice';
+    void this._act({ id: key } as Quest, async () => {
+      const q = await api.acceptDice(pid, r.suggestion);
+      this._questId = q.id;
+    }, () => { this._view = 'quest'; });
+  };
+
   private _toggleSound = () => {
     this._sound = !this._sound;
     setSoundOn(this._sound);
@@ -450,6 +506,8 @@ export class CuestPanel extends LitElement {
         soundOn: this._sound,
         onSound: this._toggleSound,
         onOpenChest: this._openChest,
+        onDice: this._openDice,
+        onSprint: () => { this._view = 'sprint'; },
       });
     }
     if (this._view === 'quest') {
@@ -468,6 +526,22 @@ export class CuestPanel extends LitElement {
         onDone: () => this._finish(q),
         onBack: () => { this._view = 'village'; },
       });
+    }
+    if (this._view === 'dice') {
+      return diceView({
+        energy: this._energy,
+        result: this._dice,
+        rolling: this._rolling,
+        busy: !!this._busy['dice'] || !!(this._dice && 'quest' in this._dice && this._busy[this._dice.quest.id]),
+        onEnergy: (e) => { this._energy = e; this._dice = null; },
+        onRoll: this._roll,
+        onStart: this._diceStart,
+        onBack: () => { this._view = 'village'; },
+      });
+    }
+    if (this._view === 'sprint') {
+      // Placeholder: the sprint screen itself arrives with the next task.
+      return html`<div class="centerbox"><h1>${STRINGS.sprintBtn}</h1><p data-role="sprint-soon">${STRINGS.sprintSoon}</p><button type="button" class="btn" data-go="village" @click=${() => { this._view = 'village'; }}>${STRINGS.back}</button></div>`;
     }
     if (this._view === 'hero') {
       return heroView({

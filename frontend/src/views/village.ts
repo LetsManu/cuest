@@ -28,6 +28,8 @@ export interface VillageProps {
   soundOn: boolean;
   onSound(): void;
   onOpenChest(): void;
+  onDice(): void;
+  onSprint(): void;
 }
 
 export const villageStyles = [
@@ -72,6 +74,8 @@ export const villageStyles = [
   .streak svg{flex:none}
   .qotd{align-self:flex-start;background:#F6E2B8;color:${unsafeCSS(COLORS.ink)};border:2px solid #B07A1E;border-radius:8px;padding:2px 8px;font-family:${unsafeCSS(FONT_PIXEL)};font-size:13px;font-weight:700}
   .actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .tools{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .tools .btn{background:${unsafeCSS(COLORS.card)};border-color:${unsafeCSS(COLORS.line)};color:${unsafeCSS(COLORS.ink)}}
   .btn.amber{background:${unsafeCSS(COLORS.amber)};color:${unsafeCSS(COLORS.ink)};font-family:${unsafeCSS(FONT_PIXEL)}}
   .boost{background:#F6E2B8;color:${unsafeCSS(COLORS.ink)};border-radius:12px;padding:8px 12px;font-weight:800;font-size:13px;text-align:center}
   .empty{background:${unsafeCSS(COLORS.card)};border:2px dashed #C9B791;border-radius:16px;padding:18px;text-align:center;color:${unsafeCSS(COLORS.muted)};line-height:1.45}
@@ -155,6 +159,8 @@ export function villageView(p: VillageProps): TemplateResult {
     </section>
     <div class="actions">${(s?.chestKeys ?? 0) > 0 ? html`<button type="button" class="btn amber" data-act="open-chest" ?disabled=${!!p.busy['chest']} @click=${p.onOpenChest}>${STRINGS.openChest} (${s?.chestKeys})</button>` : nothing}
       <button type="button" class="btn ghost" data-act="sound" aria-pressed="${p.soundOn}" @click=${p.onSound}>${STRINGS.sound}</button></div>
+    <div class="tools"><button type="button" class="btn" data-act="dice" @click=${p.onDice}>${STRINGS.diceBtn}</button>
+      <button type="button" class="btn" data-act="sprint" @click=${p.onSprint}>${STRINGS.sprintBtn}</button></div>
     <div class="h2row"><h2>${STRINGS.houseNeedsYou}</h2><span>${open.length} ${open.length === 1 ? STRINGS.questOne : STRINGS.questMany}</span></div>
     ${q && !open.length ? html`<div class="empty"><strong>${STRINGS.allQuiet}</strong>${STRINGS.allQuietBody}</div>` : nothing}
     ${open.map((x) => (claimedByOther(p, x) ? otherCard(x) : questCard(p, x)))}

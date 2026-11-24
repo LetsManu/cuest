@@ -6,6 +6,9 @@ export interface WhoAmI {
   isAdmin: boolean;
   players: { id: string; name: string }[];
 }
+export type Energy = 'low' | 'medium' | 'high';
+export interface Suggestion { title: string; minutes: number; xp: number; energy: Energy }
+export type DiceResult = { quest: Quest } | { suggestion: Suggestion };
 export interface Quest {
   id: string;
   title: string;
@@ -18,6 +21,7 @@ export interface Quest {
   claimedBy: string | null;
   templateId: string | null;
   snoozedUntil: string | null;
+  energy?: Energy;
 }
 export interface QuestLists { active: Quest[]; open: Quest[]; whenever: Quest[]; questOfDay?: string | null }
 export interface Summary {
@@ -117,6 +121,8 @@ export class CuestApi {
   shop(playerId: string) { return this.call<ShopView>('GET', `cuest/shop?playerId=${encodeURIComponent(playerId)}`); }
   start(questId: string, playerId: string) { return this.call<{ quest: Quest }>('POST', `cuest/quests/${encodeURIComponent(questId)}/start`, { playerId }); }
   done(questId: string, playerId: string) { return this.call<DoneResult>('POST', `cuest/quests/${encodeURIComponent(questId)}/done`, { playerId }); }
+  dice(playerId: string, energy: Energy) { return this.call<DiceResult>('GET', `cuest/dice?playerId=${encodeURIComponent(playerId)}&energy=${energy}`); }
+  acceptDice(playerId: string, suggestion: Suggestion) { return this.call<Quest>('POST', 'cuest/dice/accept', { playerId, suggestion }); }
   later(questId: string) { return this.call<{ quest: Quest }>('POST', `cuest/quests/${encodeURIComponent(questId)}/later`, {}); }
   buy(playerId: string, itemId: string) { return this.call<BuyResult>('POST', 'cuest/shop/buy', { playerId, itemId }); }
   openChest(playerId: string) { return this.call<BuyResult>('POST', 'cuest/shop/open-chest', { playerId }); }

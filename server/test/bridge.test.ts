@@ -271,3 +271,73 @@ describe('bridge hub auth timeout', () => {
     }
   });
 });
+
+const ent = (entityId: string): Record<string, unknown> => ({
+  entityId, domain: 'sensor', deviceId: null, deviceClass: null, platform: null, translationKey: null,
+  options: null, unit: null, name: null, deviceName: null, manufacturer: null, model: null, state: null,
+});
+
+describe('bridge protocol extensions', () => {
+  it('entities chunks are joined and delivered once', async () => {
+    await setup();
+    const got: unknown[][] = [];
+    hub.onEntities((e) => got.push(e));
+    const c = await connect(SECRET);
+    c.ws.send(JSON.stringify({ type: 'entities', chunk: 0, last: false, entities: [ent('sensor.a')] }));
+    c.ws.send(JSON.stringify({ type: 'entities', chunk: 1, last: true, entities: [ent('sensor.b')] }));
+    await until(() => got.length >= 1);
+    expect(got).toHaveLength(1);
+    expect(got[0]!.map((e) => (e as { entityId: string }).entityId)).toEqual(['sensor.a', 'sensor.b']);
+  });
+
+  it('api request is answered via the handler', async () => {
+    await setup();
+    hub.setApiHandler(async (req) => ({ status: 200, body: { path: req.path, method: req.method } }));
+    const c = await connect(SECRET);
+    c.ws.send(JSON.stringify({ type: 'api', id: 'r1', method: 'GET', path: '/api/players' }));
+    await until(() => c.messages.some((m) => m.type === 'api_result'));
+    expect(c.messages.find((m) => m.type === 'api_result')).toEqual({
+      type: 'api_result', id: 'r1', status: 200, body: { path: '/api/players', method: 'GET' },
+    });
+  });
+
+  it('api path outside /api is refused with 400', async () => {
+    await setup();
+    const handler = vi.fn(async () => ({ status: 200, body: null }));
+    hub.setApiHandler(handler);
+    const c = await connect(SECRET);
+    c.ws.send(JSON.stringify({ type: 'api', id: 'r2', method: 'GET', path: '/bridge' }));
+    await until(() => c.messages.some((m) => m.type === 'api_result'));
+    expect(c.messages.find((m) => m.type === 'api_result')).toMatchObject({ id: 'r2', status: 400 });
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('handler throwing gives 500 and keeps the socket open', async () => {
+    await setup();
+    hub.setApiHandler(async () => {
+      throw new Error('boom');
+    });
+    const c = await connect(SECRET);
+    c.ws.send(JSON.stringify({ type: 'api', id: 'r3', method: 'POST', path: '/api/x', body: {} }));
+    await until(() => c.messages.some((m) => m.type === 'api_result'));
+    expect(c.messages.find((m) => m.type === 'api_result')).toMatchObject({ id: 'r3', status: 500 });
+    expect(c.ws.readyState).toBe(WebSocket.OPEN);
+    expect(hub.isConnected()).toBe(true);
+  });
+
+  it('send returns false when no bridge', async () => {
+    await setup();
+    expect(hub.send({ type: 'snapshot', players: [], quests: [] })).toBe(false);
+  });
+
+  it('send delivers to the active bridge and onAuthenticated fires', async () => {
+    await setup();
+    const auth = vi.fn();
+    hub.onAuthenticated(auth);
+    const c = await connect(SECRET);
+    await until(() => c.messages.length >= 2);
+    expect(auth).toHaveBeenCalledTimes(1);
+    expect(hub.send({ type: 'fire_event', event: 'cuest_level_up', data: { a: 1 } })).toBe(true);
+    await until(() => c.messages.some((m) => m.type === 'fire_event'));
+  });
+});

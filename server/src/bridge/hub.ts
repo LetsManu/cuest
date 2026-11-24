@@ -1,6 +1,6 @@
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import type { StateEvent } from '../domain/types.js';
-import { bridgeMessage, type ServerMessage } from './protocol.js';
+import { bridgeMessage, type EntityInfo, type ServerMessage } from './protocol.js';
 
 export interface WebSocketLike {
   send(data: string): void;
@@ -24,11 +24,23 @@ function secretMatches(expected: string, given: string): boolean {
   return timingSafeEqual(a, b);
 }
 
+export interface ApiRequest {
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  path: string;
+  body?: unknown;
+}
+export type ApiHandler = (req: ApiRequest) => Promise<{ status: number; body: unknown }>;
+
 export class BridgeHub {
   private active: WebSocketLike | null = null;
   private subscriptions: string[] = [];
   private stateHandlers: Array<(ev: StateEvent) => void> = [];
   private actionHandlers: Array<(action: string) => void> = [];
+  private entityHandlers: Array<(entities: EntityInfo[]) => void> = [];
+  private authHandlers: Array<() => void> = [];
+  private apiHandler: ApiHandler | null = null;
+  private chunkSocket: WebSocketLike | null = null;
+  private chunks: EntityInfo[] = [];
 
   constructor(private readonly opts: BridgeHubOptions) {
     if (!opts.secret) throw new Error('BridgeHub requires a non-empty secret');
@@ -104,6 +116,23 @@ export class BridgeHub {
         case 'result':
           if (!msg.ok) this.opts.log(`bridge: service call ${msg.id} failed: ${msg.error ?? 'unknown'}`);
           return;
+        case 'entities': {
+          if (msg.chunk === 0 || this.chunkSocket !== socket) {
+            this.chunkSocket = socket;
+            this.chunks = [];
+          }
+          this.chunks.push(...msg.entities);
+          if (msg.last) {
+            const all = this.chunks;
+            this.chunks = [];
+            this.chunkSocket = null;
+            for (const fn of this.entityHandlers) this.safe(() => fn(all));
+          }
+          return;
+        }
+        case 'api':
+          void this.handleApi(socket, msg);
+          return;
         case 'hello':
           return;
       }
@@ -112,6 +141,10 @@ export class BridgeHub {
     socket.on('close', () => {
       clearTimeout(timer);
       if (this.active === socket) this.active = null;
+      if (this.chunkSocket === socket) {
+        this.chunkSocket = null;
+        this.chunks = [];
+      }
     });
   }
 
@@ -121,7 +154,7 @@ export class BridgeHub {
 
   setSubscriptions(entities: string[]): void {
     this.subscriptions = [...entities];
-    if (this.active) this.send(this.active, { type: 'subscribe', entities: this.subscriptions });
+    if (this.active) this.sendTo(this.active, { type: 'subscribe', entities: this.subscriptions });
   }
 
   callService(
@@ -136,7 +169,50 @@ export class BridgeHub {
     }
     const msg: ServerMessage = { type: 'call_service', id: randomUUID(), domain, service, data };
     if (target) msg.target = target;
-    return this.send(this.active, msg);
+    return this.sendTo(this.active, msg);
+  }
+
+  onEntities(fn: (entities: EntityInfo[]) => void): void {
+    this.entityHandlers.push(fn);
+  }
+
+  onAuthenticated(fn: () => void): void {
+    this.authHandlers.push(fn);
+  }
+
+  setApiHandler(fn: ApiHandler): void {
+    this.apiHandler = fn;
+  }
+
+  /** Send to the active bridge; false when none is connected or the send failed. */
+  send(msg: ServerMessage): boolean {
+    if (!this.active) return false;
+    return this.sendTo(this.active, msg);
+  }
+
+  private async handleApi(
+    socket: WebSocketLike,
+    msg: { id: string; method: ApiRequest['method']; path: string; body?: unknown },
+  ): Promise<void> {
+    let status = 500;
+    let body: unknown = { error: 'internal error' };
+    if (!msg.path.startsWith('/api/')) {
+      status = 400;
+      body = { error: 'path must start with /api/' };
+    } else if (!this.apiHandler) {
+      status = 503;
+      body = { error: 'api not available' };
+    } else {
+      try {
+        const req: ApiRequest = { method: msg.method, path: msg.path };
+        if (msg.body !== undefined) req.body = msg.body;
+        ({ status, body } = await this.apiHandler(req));
+      } catch (err) {
+        this.opts.log(`bridge: api handler threw: ${String(err)}`);
+      }
+    }
+    if (this.active !== socket) return;
+    this.sendTo(socket, { type: 'api_result', id: msg.id, status, body });
   }
 
   onState(fn: (ev: StateEvent) => void): void {
@@ -165,12 +241,13 @@ export class BridgeHub {
         // already closing
       }
     }
-    this.send(socket, { type: 'welcome' });
-    this.send(socket, { type: 'subscribe', entities: this.subscriptions });
+    this.sendTo(socket, { type: 'welcome' });
+    this.sendTo(socket, { type: 'subscribe', entities: this.subscriptions });
+    for (const fn of this.authHandlers) this.safe(fn);
   }
 
   private reject(socket: WebSocketLike, reason: string): void {
-    this.send(socket, { type: 'error', reason });
+    this.sendTo(socket, { type: 'error', reason });
     try {
       socket.close(4001, reason);
     } catch {
@@ -178,7 +255,7 @@ export class BridgeHub {
     }
   }
 
-  private send(socket: WebSocketLike, msg: ServerMessage): boolean {
+  private sendTo(socket: WebSocketLike, msg: ServerMessage): boolean {
     try {
       socket.send(JSON.stringify(msg));
       return true;

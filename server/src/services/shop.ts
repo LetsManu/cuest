@@ -119,6 +119,15 @@ export class ShopService {
         }
         const gold = 20 + Math.floor(this.rng() * 61);
         this.players.addRewards(player.id, 0, gold);
+        this.ledger.add({
+          playerId: player.id,
+          questId: null,
+          kind: 'purchase',
+          xp: 0,
+          gold,
+          at: this.clock.now().toISOString(),
+          meta: { itemId: 'mystery_chest', chestReward: true },
+        });
         return { kind: 'chest', gold };
       }
       default:

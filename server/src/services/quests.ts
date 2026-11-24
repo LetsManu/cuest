@@ -111,7 +111,7 @@ export class QuestService {
 
   done(questId: string, playerId: string): { quest: Quest; reward: Reward; player: Player } {
     const quest = this.requireQuest(questId);
-    this.requirePlayer(playerId);
+    const doer = this.requirePlayer(playerId);
     if (quest.status === 'done') throw new QuestError('already_done');
     if (quest.status === 'active' && quest.claimedBy !== playerId) throw new QuestError('already_claimed');
     const now = this.clock.now();
@@ -119,6 +119,7 @@ export class QuestService {
       quest,
       startedAt: quest.startedAt ? new Date(quest.startedAt) : null,
       doneAt: now,
+      boostUntil: doer.boostUntil,
     });
     const result = this.tx(() => {
       const doneQuest = this.quests.update(questId, {

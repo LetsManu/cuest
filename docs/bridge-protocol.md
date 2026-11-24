@@ -69,9 +69,9 @@ The first message must be `hello` with the shared secret, within 5 seconds. Othe
 { "type": "api_result", "id": "a1", "status": 200, "body": { "ok": true } }
 ```
 
-`snapshot` (current players and open/active/whenever quests; the bridge renders it into HA entities)
+`snapshot` (current players and open/active/whenever quests; the bridge renders it into HA entities). Each player also carries `outfit` (`items` per slot, `null` if empty; `palette` is the merged colour overrides of the equipped items), `decor` (owned decor item ids), `restTokens` and `boostUntil` (ISO time while a double-XP boost runs, else `null`).
 ```json
-{ "type": "snapshot", "players": [ { "id": "b71d09", "name": "Ada", "haPerson": "person.ada", "level": 3, "title": "Squire", "xp": 120, "gold": 15, "intoLevel": 20, "toNext": 80 } ], "quests": [ { "id": "8f2c1a", "title": "Empty the washer", "status": "open", "claimedBy": null, "xp": 10, "minutes": 5, "templateId": null, "createdAt": "2026-01-01T10:00:00.000Z" } ] }
+{ "type": "snapshot", "players": [ { "id": "b71d09", "name": "Ada", "haPerson": "person.ada", "level": 3, "title": "Squire", "xp": 120, "gold": 15, "intoLevel": 20, "toNext": 80, "outfit": { "items": { "hood": "hood_ember", "scarf": null, "broom": null }, "palette": { "G": "#B5523B", "L": "#D47A5E", "g": "#8E3E2C" } }, "decor": ["lantern"], "restTokens": 1, "boostUntil": null } ], "quests": [ { "id": "8f2c1a", "title": "Empty the washer", "status": "open", "claimedBy": null, "xp": 10, "minutes": 5, "templateId": null, "createdAt": "2026-01-01T10:00:00.000Z" } ] }
 ```
 
 `fire_event` (the bridge fires this HA event on the event bus). `event` is one of `cuest_quest_opened`, `cuest_quest_done`, `cuest_level_up`. The `data` keys are:

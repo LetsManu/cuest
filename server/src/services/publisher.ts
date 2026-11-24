@@ -3,6 +3,8 @@ import type { SnapshotPlayer, SnapshotQuest } from '../bridge/protocol.js';
 import type { Bus } from '../bus.js';
 import type { Clock } from '../clock.js';
 import { levelForXp, titleForLevel } from '../domain/levels.js';
+import type { ItemsRepo } from '../repos/items.js';
+import { findItem } from '../shop/catalog.js';
 import type { PlayersRepo } from '../repos/players.js';
 import type { QuestService } from './quests.js';
 
@@ -11,17 +13,20 @@ export class Publisher {
   private readonly hub: Pick<BridgeHub, 'send'>;
   private readonly players: PlayersRepo;
   private readonly quests: QuestService;
+  private readonly items: ItemsRepo;
 
   constructor(deps: {
     bus: Bus;
     hub: Pick<BridgeHub, 'send'> & Partial<Pick<BridgeHub, 'onAuthenticated'>>;
     players: PlayersRepo;
     quests: QuestService;
+    items: ItemsRepo;
     clock: Clock;
   }) {
     this.hub = deps.hub;
     this.players = deps.players;
     this.quests = deps.quests;
+    this.items = deps.items;
     const snap = (): void => this.publishSnapshot();
 
     deps.bus.on('quest:opened', (q) => {
@@ -35,6 +40,7 @@ export class Publisher {
     deps.bus.on('quest:started', snap);
     deps.bus.on('quest:whenever', snap);
     deps.bus.on('quest:snoozed', snap);
+    deps.bus.on('shop:changed', snap);
     deps.bus.on('quest:done', ({ quest, reward, player }) => {
       snap();
       this.hub.send({
@@ -65,9 +71,23 @@ export class Publisher {
   publishSnapshot(): void {
     const players: SnapshotPlayer[] = this.players.list().map((p) => {
       const { level, intoLevel, toNext } = levelForXp(p.xp);
+      const equipped = this.items.equipped(p.id);
+      const owned = this.items.owned(p.id);
+      const palette: Record<string, string> = {};
+      for (const slot of ['hood', 'scarf', 'broom'] as const) {
+        const id = equipped[slot];
+        if (id) Object.assign(palette, findItem(id)?.palette ?? {});
+      }
       return {
         id: p.id, name: p.name, haPerson: p.haPerson, level, title: titleForLevel(level),
         xp: p.xp, gold: p.gold, intoLevel, toNext,
+        outfit: {
+          items: { hood: equipped.hood ?? null, scarf: equipped.scarf ?? null, broom: equipped.broom ?? null },
+          palette,
+        },
+        decor: Object.keys(owned).filter((id) => (owned[id] ?? 0) > 0 && findItem(id)?.kind === 'decor'),
+        restTokens: p.restTokens,
+        boostUntil: p.boostUntil,
       };
     });
     const v = this.quests.listVisible();

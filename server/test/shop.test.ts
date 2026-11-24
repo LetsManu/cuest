@@ -168,6 +168,16 @@ describe('shop', () => {
     expect(shop.buy(pid, 'mystery_chest').result).toEqual({ kind: 'chest', gold: 20 });
   });
 
+  it('chest gold writes a second ledger row so the ledger reconciles', () => {
+    give(100);
+    rngValues = [0.8, 0.5];
+    const r = shop.buy(pid, 'mystery_chest');
+    const rows = ledger.listForPlayer(pid).filter((e) => e.meta.itemId === 'mystery_chest');
+    expect(rows.map((e) => [e.kind, e.gold, e.xp]).sort((a, b) => (a[1] as number) - (b[1] as number))).toEqual([['purchase', -40, 0], ['purchase', 50, 0]]);
+    expect(rows.find((e) => e.gold > 0)!.meta).toEqual({ itemId: 'mystery_chest', chestReward: true });
+    expect(rows.reduce((s, e) => s + e.gold, 0)).toBe(r.player.gold - 100);
+  });
+
   it('chest gives gold when all wardrobe is owned', () => {
     give(1000);
     for (const id of ['hood_ember', 'hood_night', 'scarf_teal', 'broom_gold']) shop.buy(pid, id);

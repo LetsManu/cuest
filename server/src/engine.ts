@@ -17,6 +17,8 @@ import { Publisher } from './services/publisher.js';
 import type { EntityInfo } from './bridge/protocol.js';
 import { NudgeService } from './services/nudges.js';
 import { DailyService } from './services/daily.js';
+import { DiceService } from './services/dice.js';
+import { SprintService } from './services/sprint.js';
 import { QuestService } from './services/quests.js';
 import { RecurringScheduler } from './services/recurring.js';
 import { RuleEngine } from './services/rules.js';
@@ -60,6 +62,8 @@ export async function createEngine(deps: {
     onDone: (playerId, doneAt) => daily.onQuestDone(playerId, doneAt),
     onLoot: (playerId, guaranteed) => shop.rollLoot(playerId, guaranteed),
   });
+  const dice = new DiceService({ quests });
+  const sprints = new SprintService({ db, players, ledger, bus, clock, tx: (fn) => transaction(db, fn) });
   bus.on('quest:opened', (q) => daily.onQuestOpened(q, clock.now()));
   const hub = new BridgeHub({ secret: config.bridgeSecret, log });
   const shop = new ShopService({ players, items, ledger, unlocks, hub, bus, clock, tx: (fn) => transaction(db, fn) });
@@ -92,6 +96,7 @@ export async function createEngine(deps: {
     guard('recurring', () => recurring.tick(now));
     guard('daily', () => daily.tick(now));
     guard('sweep', () => quests.sweep(now));
+    guard('sprints', () => sprints.tick(now));
     guard('nudges', () => nudges.tick(now));
   };
 
@@ -101,6 +106,8 @@ export async function createEngine(deps: {
     templates,
     quests,
     shop,
+    dice,
+    sprints,
     unlocks,
     onTemplatesChanged: refreshSubscriptions,
     onPlayersChanged: () => publisher.publishSnapshot(),

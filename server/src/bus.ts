@@ -1,5 +1,6 @@
 import type { Player, Quest } from './domain/types.js';
 import type { StreakResult } from './services/daily.js';
+import type { Sprint } from './services/sprint.js';
 import type { Reward } from './domain/rewards.js';
 
 export type BusEvents = {
@@ -9,6 +10,8 @@ export type BusEvents = {
   'quest:whenever': Quest;
   'quest:snoozed': Quest;
   'daily:picked': { questId: string | null };
+  'sprint:started': { playerId: string; sprint: Sprint };
+  'sprint:finished': { playerId: string; sprint: Sprint; xp: number; auto: boolean };
   'shop:changed': { playerId: string };
 };
 

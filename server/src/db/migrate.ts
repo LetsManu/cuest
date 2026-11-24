@@ -105,6 +105,18 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE players ADD COLUMN chest_keys INTEGER NOT NULL DEFAULT 0;
   ALTER TABLE players ADD COLUMN done_count INTEGER NOT NULL DEFAULT 0;
   `,
+  `
+  CREATE TABLE sprints (
+    id TEXT PRIMARY KEY,
+    player_id TEXT NOT NULL REFERENCES players(id),
+    minutes INTEGER NOT NULL,
+    started_at TEXT NOT NULL,
+    ended_at TEXT,
+    logs INTEGER NOT NULL DEFAULT 0,
+    xp INTEGER
+  );
+  CREATE INDEX idx_sprints_player ON sprints(player_id, ended_at);
+  `,
 ];
 
 export function migrate(db: DatabaseSync): void {

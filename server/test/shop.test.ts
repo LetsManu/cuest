@@ -94,7 +94,7 @@ describe('shop', () => {
     expect(p).toMatchObject({ xp: 12, gold: 34, restTokens: 0, boostUntil: null });
     expect(new ItemsRepo(old).owned('p1')).toEqual({});
     const v = old.prepare('SELECT version FROM schema_version').all();
-    expect(v).toEqual([{ version: 6 }]);
+    expect(v).toEqual([{ version: 7 }]);
   });
 
   it('buys a wardrobe item', () => {

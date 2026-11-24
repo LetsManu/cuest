@@ -28,6 +28,19 @@ export const copy = {
   alreadyClaimed: 'Someone else is already on this one. Thanks for checking!',
   notFound: 'Not found',
   alreadyDone: 'This quest is already done. Nice!',
+  dice: {
+    suggestion: { title: 'Quick tidy: put 5 things back where they belong', minutes: 2, xp: 10, energy: 'low' as const },
+  },
+  sprint: {
+    logLabel: 'Sprint note',
+    finishLabel: 'Power sprint',
+    errors: {
+      sprint_running: 'A sprint is already going. Finish it first, then start a fresh one!',
+      no_sprint: 'No sprint is running right now.',
+      log_limit: "That's 10 notes for this sprint. Great focus, keep going!",
+      unknown_player: 'Not found',
+    },
+  },
   actions: { start: 'Start 2 min', done: 'Already done', later: 'Later' },
   shop: {
     errors: {

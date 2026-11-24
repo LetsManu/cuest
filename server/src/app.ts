@@ -9,6 +9,9 @@ import type { ShopService } from './services/shop.js';
 import type { QuestService } from './services/quests.js';
 import { registerBridgeRoute } from './routes/bridge.js';
 import { registerPlayerRoutes } from './routes/players.js';
+import type { DiceService } from './services/dice.js';
+import type { SprintService } from './services/sprint.js';
+import { registerPlayRoutes } from './routes/play.js';
 import { registerQuestRoutes } from './routes/quests.js';
 import { registerShopRoutes } from './routes/shop.js';
 import { registerUnlockRoutes } from './routes/unlocks.js';
@@ -21,6 +24,8 @@ export interface AppDeps {
   templates: TemplatesRepo;
   quests: QuestService;
   shop: ShopService;
+  dice?: DiceService;
+  sprints?: SprintService;
   unlocks: UnlocksRepo;
   onTemplatesChanged: () => void;
   onPlayersChanged?: () => void;
@@ -39,6 +44,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   app.get('/api/health', async () => ({ ok: true, bridge: deps.bridgeConnected() }));
   registerPlayerRoutes(app, deps.players, clock, deps.onPlayersChanged ?? (() => {}));
   registerQuestRoutes(app, deps.quests, () => deps.questOfDay?.(clock.now()) ?? null);
+  if (deps.dice && deps.sprints) registerPlayRoutes(app, deps.dice, deps.sprints, (id) => deps.players.get(id) !== null);
   registerShopRoutes(app, deps.shop);
   registerUnlockRoutes(app, deps.unlocks, clock);
   registerTemplateRoutes(app, deps.templates, deps.onTemplatesChanged, clock);

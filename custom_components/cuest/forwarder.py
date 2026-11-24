@@ -122,7 +122,9 @@ class Forwarder:
             return True
         if service != "turn_on" or domain not in TREAT_DOMAINS:
             return False
-        entity_id = target.get("entity_id") if isinstance(target, dict) else None
+        if not isinstance(target, dict) or set(target) != {"entity_id"}:
+            return False
+        entity_id = target["entity_id"]
         treats = self._entry.options.get(CONF_TREATS, [])
         return (
             isinstance(entity_id, str)
@@ -134,17 +136,23 @@ class Forwarder:
         call_id = msg.get("id")
         domain = msg.get("domain")
         service = msg.get("service")
-        if not self._is_allowed(domain, service, msg.get("target")):
+        data: Any = msg.get("data") or {}
+        target: Any = msg.get("target")
+        if not self._is_allowed(domain, service, target):
             await self._send(
                 {"type": "result", "id": call_id, "ok": False, "error": "not_allowed"}
             )
             return
+        if domain not in ALLOWED_DOMAINS:
+            # Treat call: rebuild so only the one listed entity can be hit.
+            data = {}
+            target = {"entity_id": target["entity_id"]}
         try:
             await self._hass.services.async_call(
                 domain,
                 service,
-                msg.get("data") or {},
-                target=msg.get("target"),
+                data,
+                target=target,
                 blocking=True,
             )
         except Exception as err:  # noqa: BLE001 - report any failure to the server

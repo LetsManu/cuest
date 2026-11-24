@@ -203,7 +203,7 @@ class CuestOptionsFlow(OptionsFlow):
             errors=errors,
         )
 
-    def _person_name(self, entity_id: str) -> str:
+    def _friendly_name(self, entity_id: str) -> str:
         state = self.hass.states.get(entity_id)
         return state.attributes.get("friendly_name", entity_id) if state else entity_id
 
@@ -254,7 +254,7 @@ class CuestOptionsFlow(OptionsFlow):
                     )
                 }
             ),
-            description_placeholders={"person": self._person_name(person)},
+            description_placeholders={"person": self._friendly_name(person)},
             errors=errors,
         )
 
@@ -270,7 +270,7 @@ class CuestOptionsFlow(OptionsFlow):
                     "POST",
                     "/api/players",
                     {
-                        "name": self._person_name(person),
+                        "name": self._friendly_name(person),
                         "haPerson": person,
                         "notifyService": service,
                     },
@@ -380,7 +380,7 @@ class CuestOptionsFlow(OptionsFlow):
         if user_input is not None:
             entity = self._treats[len(self._treat_values)]
             self._treat_values[entity] = {
-                "name": user_input[CONF_NAME].strip() or self._person_name(entity),
+                "name": user_input[CONF_NAME].strip() or self._friendly_name(entity),
                 "cost": int(user_input[CONF_COST]),
             }
             if len(self._treat_values) == len(self._treats):
@@ -404,7 +404,7 @@ class CuestOptionsFlow(OptionsFlow):
                 {
                     vol.Required(
                         CONF_NAME,
-                        default=existing.get("name") or self._person_name(entity),
+                        default=existing.get("name") or self._friendly_name(entity),
                     ): str,
                     vol.Required(
                         CONF_COST, default=existing.get("cost", DEFAULT_TREAT_COST)
@@ -415,7 +415,7 @@ class CuestOptionsFlow(OptionsFlow):
                     ),
                 }
             ),
-            description_placeholders={"entity": self._person_name(entity)},
+            description_placeholders={"entity": self._friendly_name(entity)},
             errors=errors,
         )
 
@@ -426,6 +426,9 @@ class CuestOptionsFlow(OptionsFlow):
 
     async def _save_treats(self) -> None:
         """Create or re-enable chosen unlocks; disable the ones removed."""
+        # Refresh so a retry after a partial failure PATCHes instead of re-POSTing.
+        unlocks = await self._api("GET", "/api/unlocks")
+        self._unlocks = {u.get("entityId"): u for u in unlocks if isinstance(u, dict)}
         for entity, values in self._treat_values.items():
             existing = self._unlocks.get(entity)
             if existing is not None:

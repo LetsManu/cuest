@@ -287,6 +287,9 @@ async def test_treat_allowlist_read_at_call_time(hass: HomeAssistant) -> None:
         ("script", "turn_on", {"area_id": "kitchen"}),
         ("script", "turn_on", {"entity_id": 5}),
         ("lock", "turn_on", {"entity_id": "lock.gaming_pc"}),
+        ("script", "turn_on", {"entity_id": "script.gaming_pc", "area_id": "kitchen"}),
+        ("script", "turn_on", {"entity_id": "script.gaming_pc", "device_id": "d"}),
+        ("script", "turn_on", {"entity_id": "script.gaming_pc", "label_id": "l"}),
         ("script", "turn_on", "script.gaming_pc"),  # target not a dict
     ],
 )
@@ -300,4 +303,24 @@ async def test_treat_refusals(hass: HomeAssistant, domain, service, target) -> N
     await hass.async_block_till_done()
     assert all(c == [] for c in calls)
     assert client.sent == [{"type": "result", "id": "r", "ok": False, "error": "not_allowed"}]
+    await forwarder.async_stop()
+
+
+async def test_treat_call_drops_selector_data(hass: HomeAssistant) -> None:
+    client, entry, forwarder = await _treat_setup(hass, ["script.gaming_pc"])
+    calls = async_mock_service(hass, "script", "turn_on")
+    client.callbacks["call_service"](
+        {
+            "type": "call_service",
+            "id": "d",
+            "domain": "script",
+            "service": "turn_on",
+            "data": {"area_id": "kitchen", "entity_id": "script.other", "device_id": "x"},
+            "target": {"entity_id": "script.gaming_pc"},
+        }
+    )
+    await hass.async_block_till_done()
+    assert len(calls) == 1
+    assert calls[0].data == {"entity_id": "script.gaming_pc"}
+    assert client.sent == [{"type": "result", "id": "d", "ok": True}]
     await forwarder.async_stop()

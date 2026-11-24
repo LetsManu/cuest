@@ -436,3 +436,62 @@ async def test_options_treats_server_down(hass: HomeAssistant, entry_and_client)
     )
     assert result["errors"] == {"base": "server_rejected"}
     assert "treats" not in entry.options
+
+
+async def test_options_treats_retry_after_partial_failure_no_duplicates(
+    hass: HomeAssistant, entry_and_client
+) -> None:
+    entry, client = entry_and_client
+    hass.states.async_set("script.a", "off")
+    hass.states.async_set("script.b", "off")
+    server: list[dict] = []
+    posts: list[str] = []
+    fail_next = {"b": True}
+
+    async def api(method, path, body=None):
+        if method == "GET":
+            return 200, [dict(u) for u in server]
+        if method == "POST":
+            if body["entityId"] == "script.b" and fail_next["b"]:
+                fail_next["b"] = False
+                return 500, {}
+            posts.append(body["entityId"])
+            server.append({"id": f"id-{body['entityId']}", "enabled": True, **body})
+            return 201, {}
+        return 200, {}
+
+    client.api.side_effect = api
+    result = await _menu(hass, entry, "treats")
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"entities": ["script.a", "script.b"]}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"name": "A", "cost": 50}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"name": "B", "cost": 50}
+    )
+    assert result["step_id"] == "treats_item"
+    assert result["errors"] == {"base": "server_rejected"}
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"name": "B", "cost": 50}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert sorted(posts) == ["script.a", "script.b"]
+    assert len(server) == 2
+
+
+async def test_options_treats_empty_selection_disables_all(
+    hass: HomeAssistant, entry_and_client
+) -> None:
+    entry, client = entry_and_client
+    hass.config_entries.async_update_entry(entry, options={"keep": 1, "treats": ["script.a"]})
+    client.api.side_effect = None
+    client.api.return_value = (200, [_unlock("u1", "script.a")])
+    result = await _menu(hass, entry, "treats")
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"entities": []}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert dict(entry.options) == {"keep": 1, "treats": []}
+    assert ("DELETE", "/api/unlocks/u1") in [c.args for c in client.api.await_args_list]

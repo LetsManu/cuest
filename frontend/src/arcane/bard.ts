@@ -72,7 +72,7 @@ export class CuestBardCard extends ArcaneCard<BardConfig> {
       .ctl{width:48px;height:48px;min-width:48px;min-height:48px;border-radius:999px;border:2px solid ${u(A.controlBorder)};background:transparent;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;color:${u(A.text)}}
       .main{width:62px;height:62px;min-width:62px;min-height:62px;border-radius:999px;border:3px solid ${u(A.gold)};background:${u(A.goldText)};display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;flex:none}
       .compact .main{width:48px;height:48px;min-width:48px;min-height:48px;border-width:2px}
-      button:disabled,input:disabled{opacity:.45;cursor:default}
+      button:disabled,input:disabled,button[aria-disabled="true"]{opacity:.45;cursor:default}
       label.vol{display:flex;align-items:center;gap:10px;font-size:13px}
       input[type="range"]{flex:1;min-height:44px;margin:0;accent-color:${u(A.goldText)}}
       .srcs{display:flex;gap:8px}
@@ -88,6 +88,7 @@ export class CuestBardCard extends ArcaneCard<BardConfig> {
   private _volSent: number | null = null;
   private _volQueued: number | null = null;
   private _volInflight = false;
+  private _volGen = 0;
   private _expiry?: ReturnType<typeof setTimeout>;
 
   static getStubConfig(h?: HomeAssistant): object {
@@ -146,6 +147,8 @@ export class CuestBardCard extends ArcaneCard<BardConfig> {
     this._volPending = null;
     this._volSent = null;
     this._volQueued = null;
+    this._volInflight = false;
+    this._volGen++;
   }
 
   private nameFor(h: HomeAssistant): string {
@@ -205,16 +208,28 @@ export class CuestBardCard extends ArcaneCard<BardConfig> {
     } catch (e) {
       p = Promise.reject(e);
     }
+    const gen = this._volGen;
     p.then(
       () => {
+        if (gen !== this._volGen) return;
         this._volInflight = false;
         const q = this._volQueued;
         this._volQueued = null;
-        if (q !== null) this.sendVolume(q);
+        const same = q === this._volSent;
+        this._volSent = null;
+        if (q !== null && !same) this.sendVolume(q);
         else this.armExpiry();
       },
       () => {
+        if (gen !== this._volGen) return;
         this._volInflight = false;
+        this._volSent = null;
+        const q = this._volQueued;
+        this._volQueued = null;
+        if (q !== null) {
+          this.sendVolume(q);
+          return;
+        }
         this._note = true;
         this.resetVolume();
         this.requestUpdate();
@@ -269,8 +284,8 @@ export class CuestBardCard extends ArcaneCard<BardConfig> {
     const resting = RESTING.includes(s.state);
     const playing = s.state === 'playing';
     const busy = (k: string): boolean => this._busy.has(k);
-    const pp = playing ? 'Pause' : 'Play';
-    const main = html`<button type="button" class="main" aria-label="${pp}" ?disabled=${resting || busy('pp')} @click=${() => this.service('media_player', 'media_play_pause', 'pp', { entity_id: id })}>${transportIcon(playing ? 'pause' : 'play', compact ? 20 : 22, A.bardPanel)}</button>`;
+    const pp = playing ? C.bardPause : C.bardPlay;
+    const main = html`<button type="button" class="main" aria-label="${pp}" ?disabled=${resting} aria-disabled="${busy('pp') ? 'true' : nothing}" @click=${() => this.service('media_player', 'media_play_pause', 'pp', { entity_id: id })}>${transportIcon(playing ? 'pause' : 'play', compact ? 20 : 22, A.bardPanel)}</button>`;
     const head = html`<div class="head">
       ${this.bars(playing && !resting, compact)}
       <button type="button" class="title" @click=${() => fireMoreInfo(this, id)}>
@@ -286,13 +301,13 @@ export class CuestBardCard extends ArcaneCard<BardConfig> {
       ${head}
       ${pct === null ? nothing : html`<div class="track" role="progressbar" aria-label="${C.bardProgress}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(pct)}"><div class="fill" style="width:${pct}%"></div></div>`}
       <div class="ctls">
-        <button type="button" class="ctl" aria-label="Previous" ?disabled=${resting || busy('prev')} @click=${() => this.service('media_player', 'media_previous_track', 'prev', { entity_id: id })}>${transportIcon('prev', 18, A.text)}</button>
+        <button type="button" class="ctl" aria-label="${C.bardPrev}" ?disabled=${resting} aria-disabled="${busy('prev') ? 'true' : nothing}" @click=${() => this.service('media_player', 'media_previous_track', 'prev', { entity_id: id })}>${transportIcon('prev', 18, A.text)}</button>
         ${main}
-        <button type="button" class="ctl" aria-label="Next" ?disabled=${resting || busy('next')} @click=${() => this.service('media_player', 'media_next_track', 'next', { entity_id: id })}>${transportIcon('next', 18, A.text)}</button>
+        <button type="button" class="ctl" aria-label="${C.bardNext}" ?disabled=${resting} aria-disabled="${busy('next') ? 'true' : nothing}" @click=${() => this.service('media_player', 'media_next_track', 'next', { entity_id: id })}>${transportIcon('next', 18, A.text)}</button>
       </div>
       <label class="vol">${C.bardVolume}<input type="range" min="0" max="100" step="1" aria-label="${C.bardVolume}" .value=${live(String(vol))} ?disabled=${resting} @change=${(e: Event) => this.changeVolume(Number((e.target as HTMLInputElement).value))} /></label>
       ${this.config.sources.length
-        ? html`<div class="srcs">${this.config.sources.map((src, i) => html`<button type="button" class="src" ?disabled=${resting || busy(`src${i}`)} @click=${() => this.callSource(src, i)}>${src.name}</button>`)}</div>`
+        ? html`<div class="srcs">${this.config.sources.map((src, i) => html`<button type="button" class="src" ?disabled=${resting} aria-disabled="${busy(`src${i}`) ? 'true' : nothing}" @click=${() => this.callSource(src, i)}>${src.name}</button>`)}</div>`
         : nothing}
       ${note}
     </div>`;

@@ -140,11 +140,12 @@ describe('full bard', () => {
     btn(el, 'Next').click();
     expect(h.callService).toHaveBeenCalledTimes(1);
     await done(el);
-    expect(btn(el, 'Next').disabled).toBe(true);
+    expect(btn(el, 'Next').getAttribute('aria-disabled')).toBe('true');
+    expect(btn(el, 'Next').disabled).toBe(false);
     d.reject(new Error('boom'));
     await flush();
     await done(el);
-    expect(btn(el, 'Next').disabled).toBe(false);
+    expect(btn(el, 'Next').hasAttribute('aria-disabled')).toBe(false);
     expect(text(el)).toContain('could not do that right now');
     expect(text(el)).not.toMatch(/error|failed|broken/i);
     btn(el, 'Next').click();
@@ -216,6 +217,86 @@ describe('full bard', () => {
     expect(h.callService).toHaveBeenCalledTimes(2);
   });
 
+  it('a rejected in-flight volume call still sends the newer queued value; only the final failure reverts', async () => {
+    const d1 = deferred();
+    const d2 = deferred();
+    const h = world(player({ volume_level: 0.5 }));
+    h.callService.mockImplementationOnce(() => d1.promise).mockImplementationOnce(() => d2.promise);
+    const el = await mount(TAG, { entity: ID }, h);
+    setVol(el, 40);
+    setVol(el, 60);
+    d1.reject(new Error('x'));
+    await flush();
+    await done(el);
+    expect(h.callService).toHaveBeenCalledTimes(2);
+    expect(h.callService).toHaveBeenLastCalledWith('media_player', 'volume_set', { entity_id: ID, volume_level: 0.6 });
+    expect(slider(el).value).toBe('60');
+    expect(text(el)).not.toContain('could not do that');
+    d2.reject(new Error('y'));
+    await flush();
+    await done(el);
+    expect(slider(el).value).toBe('50');
+    expect(text(el)).toContain('could not do that right now');
+  });
+
+  it('after a call resolves an external change shows and the same value can be set again', async () => {
+    const h = world(player({ volume_level: 0.5 }));
+    const el = await mount<CuestBardCard>(TAG, { entity: ID }, h);
+    setVol(el, 40);
+    await flush();
+    setVol(el, 40);
+    expect(h.callService).toHaveBeenCalledTimes(2);
+    await flush();
+    h.states[ID] = player({ volume_level: 0.9 });
+    el.hass = { ...h };
+    await done(el);
+    vi.advanceTimersByTime(3000);
+    await done(el);
+    expect(slider(el).value).toBe('90');
+    setVol(el, 40);
+    expect(h.callService).toHaveBeenCalledTimes(3);
+  });
+
+  it('a late resolve after removal arms no timer and a reconnect starts clean', async () => {
+    const d = deferred();
+    const h = world();
+    h.callService.mockImplementationOnce(() => d.promise);
+    const el = await mount(TAG, { entity: ID }, h);
+    setVol(el, 40);
+    el.remove();
+    d.resolve();
+    await flush();
+    expect(vi.getTimerCount()).toBe(0);
+    document.body.appendChild(el);
+    await done(el);
+    setVol(el, 70);
+    expect(h.callService).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps keyboard focus on a busy control', async () => {
+    const d = deferred();
+    const h = world();
+    h.callService.mockImplementationOnce(() => d.promise);
+    const el = await mount(TAG, { entity: ID }, h);
+    btn(el, 'Next').focus();
+    btn(el, 'Next').click();
+    await done(el);
+    expect(root(el).activeElement).toBe(btn(el, 'Next'));
+    expect(btn(el, 'Next').getAttribute('aria-disabled')).toBe('true');
+    d.resolve();
+    await flush();
+  });
+
+  it('labels come from the copy table', async () => {
+    const { ARCANE_COPY: C } = await import('../../src/arcane/copy');
+    const el = await mount(TAG, { entity: ID }, world());
+    expect(C.bardPause).toBe('Pause');
+    expect(C.bardPlay).toBe('Play');
+    expect(C.bardPrev).toBe('Previous');
+    expect(C.bardNext).toBe('Next');
+    expect(btn(el, C.bardPrev)).toBeTruthy();
+  });
+
   it('volume without a level shows 0 and stays clean', async () => {
     const el = await mount(TAG, { entity: ID }, world(player({ volume_level: undefined })));
     expect(slider(el).value).toBe('0');
@@ -259,7 +340,7 @@ describe('full bard', () => {
     d.reject(new Error('x'));
     await flush();
     await done(el);
-    expect(b().disabled).toBe(false);
+    expect(b().hasAttribute('aria-disabled')).toBe(false);
     expect(text(el)).toContain('could not do that right now');
   });
 

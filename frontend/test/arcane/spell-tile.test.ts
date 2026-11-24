@@ -208,7 +208,7 @@ describe('busy guard and failures', () => {
     d.reject(new Error('x'));
     await flush();
     await done(el);
-    expect(tile(el).disabled).toBe(false);
+    expect(tile(el).hasAttribute('aria-disabled')).toBe(false);
     expect(text(el)).toContain('could not be cast right now');
     expect(text(el)).not.toMatch(/error|failed|broken/i);
     tile(el).click();
@@ -290,6 +290,33 @@ describe('hold', () => {
     const el = await mount(TAG, { name: 'Go', tap_action: { action: 'call-service', service: 'script.go' } }, h);
     press(tile(el));
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('a hold that ends without a click does not swallow the next keyboard activation', async () => {
+    const h = one('light.a');
+    const el = await mount(TAG, { entity: 'light.a' }, h);
+    press(tile(el));
+    vi.advanceTimersByTime(600);
+    release(tile(el));
+    tile(el).dispatchEvent(new Event('keydown', { bubbles: true }));
+    tile(el).click();
+    expect(h.callService).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps keyboard focus on a busy tile', async () => {
+    const d = deferred();
+    const h = one('light.a');
+    h.callService.mockImplementationOnce(() => d.promise);
+    const el = await mount(TAG, { entity: 'light.a' }, h);
+    tile(el).focus();
+    tile(el).click();
+    await done(el);
+    expect(root(el).activeElement).toBe(tile(el));
+    expect(tile(el).getAttribute('aria-disabled')).toBe('true');
+    tile(el).click();
+    expect(h.callService).toHaveBeenCalledTimes(1);
+    d.resolve();
+    await flush();
   });
 });
 

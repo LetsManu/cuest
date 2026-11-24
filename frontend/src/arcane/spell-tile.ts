@@ -59,7 +59,7 @@ export class CuestSpellTile extends ArcaneCard<TileConfig> {
       .tile.icon{min-height:80px;flex-direction:column;text-align:center}
       .tile.wide{min-height:64px;flex-direction:row;justify-content:flex-start;gap:12px;padding:8px 14px;text-align:left}
       .tile.scene{min-height:56px;flex-direction:row;gap:8px;padding:0 14px;border-radius:999px}
-      .tile:disabled{opacity:.6;cursor:default}
+      .tile[aria-disabled="true"]{opacity:.6;cursor:default}
       .tile.lit{border-color:${u(A.gold)};color:${u(A.litText)}}
       .tile.lit.icon,.tile.lit.scene{background:${u(A.litIconBg)}}
       .tile.lit.wide{background:${u(A.litWideBg)}}
@@ -289,7 +289,7 @@ export class CuestSpellTile extends ArcaneCard<TileConfig> {
     const id = cfg.entity;
     const s = id ? h.states[id] : undefined;
     if (id && !s) return html`${this.missing(id)}`;
-    const name = cfg.name ?? (s ? str(s.attributes.friendly_name) : '') ?? '';
+    const name = cfg.name ?? (s ? str(s.attributes.friendly_name) : '');
     const label = name || (id ? id.slice(id.indexOf('.') + 1) : cfg.tap_action?.service?.split('.')[1] ?? '');
     const lit = !!s && ON_STATES.includes(s.state);
     const parts = cfg.variant === 'wide' && (s || cfg.state_text) ? this.stateParts(h, s ?? ({ state: '', attributes: {}, last_changed: '' } as HassState)) : null;
@@ -297,8 +297,8 @@ export class CuestSpellTile extends ArcaneCard<TileConfig> {
     const aria = parts ? `${label}, ${plain(parts)}` : label;
     const size = cfg.variant === 'scene' ? 20 : 24;
     const cls = ['tile', cfg.variant, lit ? 'lit' : '', cfg.tone === 'green' ? 'green' : ''].filter(Boolean).join(' ');
-    return html`<button type="button" class="${cls}" aria-label="${aria}" aria-pressed="${pressed ?? nothing}" ?disabled=${this._busy}
-        @click=${() => this.tap()} @pointerdown=${() => this.down()} @pointerup=${() => this.up()} @pointerleave=${() => this.cancel()} @pointercancel=${() => this.cancel()} @contextmenu=${(e: Event) => e.preventDefault()}>
+    return html`<button type="button" class="${cls}" aria-label="${aria}" aria-pressed="${pressed ?? nothing}" aria-disabled="${this._busy ? 'true' : nothing}"
+        @click=${() => this.tap()} @pointerdown=${() => this.down()} @pointerup=${() => this.up()} @keydown=${() => (this._held = false)} @pointerleave=${() => this.cancel()} @pointercancel=${() => this.cancel()} @contextmenu=${(e: Event) => e.preventDefault()}>
         ${this.glyph(size)}
         <span class="text"><span class="name">${label}</span>${parts ? html`<span class="state">${parts.pre}${parts.n === undefined ? nothing : html`<span class="num">${parts.n}</span>`}${parts.post}</span>` : nothing}</span>
       </button>${this._note ? html`<p class="note" role="status">${C.spellFailed}</p>` : nothing}`;

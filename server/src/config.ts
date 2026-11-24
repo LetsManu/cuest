@@ -58,6 +58,10 @@ export function loadConfig(
     }
   }
 
+  if (bridgeSecret.length < 16) {
+    log('Warning: CUEST_BRIDGE_SECRET is shorter than 16 characters. Use a longer secret.');
+  }
+
   return {
     port: intFrom('CUEST_PORT', env.CUEST_PORT, 8787),
     dataDir,

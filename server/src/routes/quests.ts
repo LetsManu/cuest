@@ -11,7 +11,7 @@ const createBody = z.object({
   gold: nonNegInt.optional(),
 });
 const playerBody = z.object({ playerId: z.string().min(1) });
-const laterBody = z.object({ minutes: nonNegInt.optional() });
+const laterBody = z.object({ minutes: nonNegInt.max(7 * 24 * 60).optional() });
 
 export function registerQuestRoutes(app: FastifyInstance, quests: QuestService): void {
   app.get('/api/quests', async () => quests.listVisible());

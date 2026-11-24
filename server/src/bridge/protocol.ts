@@ -6,12 +6,12 @@ export const stateMsg = z.object({
   entityId: z.string(),
   oldState: z.string().nullable(),
   newState: z.string(),
-  at: z.string(),
+  at: z.iso.datetime({ offset: true }),
 });
 export const notificationActionMsg = z.object({
   type: z.literal('notification_action'),
   action: z.string(),
-  at: z.string(),
+  at: z.iso.datetime({ offset: true }),
 });
 export const resultMsg = z.object({
   type: z.literal('result'),

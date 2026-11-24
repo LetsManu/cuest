@@ -17,10 +17,12 @@ export interface AppDeps {
   onTemplatesChanged: () => void;
   hub?: BridgeHub;
   clock?: Clock;
+  /** false silences the request/error logger (tests). Default: warn level. */
+  logger?: boolean;
 }
 
 export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
-  const app = Fastify();
+  const app = Fastify({ logger: deps.logger === false ? false : { level: 'warn' } });
   const clock = deps.clock ?? systemClock;
   if (deps.hub) await registerBridgeRoute(app, deps.hub);
   app.get('/api/health', async () => ({ ok: true, bridge: deps.bridgeConnected() }));

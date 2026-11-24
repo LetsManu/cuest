@@ -48,4 +48,15 @@ describe('loadConfig', () => {
   it('rejects an invalid timezone', () => {
     expect(() => loadConfig({ CUEST_BRIDGE_SECRET: 's', CUEST_TZ: 'Mars/Base' }, fakeFs(), () => {})).toThrow(/CUEST_TZ/);
   });
+
+  it('warns, but does not fail, on a short bridge secret', () => {
+    const logs: string[] = [];
+    const c = loadConfig({ CUEST_BRIDGE_SECRET: 'short' }, fakeFs(), (m) => logs.push(m));
+    expect(c.bridgeSecret).toBe('short');
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toMatch(/CUEST_BRIDGE_SECRET.*16/);
+    const quiet: string[] = [];
+    loadConfig({ CUEST_BRIDGE_SECRET: 'x'.repeat(16) }, fakeFs(), (m) => quiet.push(m));
+    expect(quiet).toEqual([]);
+  });
 });

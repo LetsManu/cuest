@@ -100,12 +100,50 @@ describe('RuleEngine state rules', () => {
     expect(live().map((q) => q.title).sort()).toEqual(['Empty the vacuum bin', 'Rescue the robot vacuum']);
   });
 
-  it('ignores unavailable and unknown', () => {
+  it('does not fire on unavailable, or on unavailable with no known good state', () => {
     addPreset('vacuum_bin_sensor', 'binary_sensor.bin');
-    engine.onState({ entityId: 'binary_sensor.bin', oldState: 'off', newState: 'unavailable', at: at(0) });
+    const ev = (o: string | null, n: string) =>
+      engine.onState({ entityId: 'binary_sensor.bin', oldState: o, newState: n, at: at(0) });
+    ev('off', 'unavailable');
+    ev('unknown', 'unavailable');
     expect(live()).toHaveLength(0);
-    engine.onState({ entityId: 'binary_sensor.bin', oldState: 'unavailable', newState: 'on', at: at(1) });
+    ev('unavailable', 'on');
+    expect(live()).toHaveLength(0);
+    ev(null, 'on');
+    expect(live()).toHaveLength(0);
+  });
+
+  it('off -> unavailable -> on still fires', () => {
+    addPreset('vacuum_bin_sensor', 'binary_sensor.bin');
+    const ev = (o: string | null, n: string) =>
+      engine.onState({ entityId: 'binary_sensor.bin', oldState: o, newState: n, at: at(0) });
+    ev(null, 'off');
+    ev('off', 'unavailable');
+    ev('unavailable', 'on');
     expect(live()).toHaveLength(1);
+  });
+
+  it('on -> unavailable -> on does not fire again', () => {
+    addPreset('vacuum_bin_sensor', 'binary_sensor.bin');
+    const ev = (o: string | null, n: string) =>
+      engine.onState({ entityId: 'binary_sensor.bin', oldState: o, newState: n, at: at(0) });
+    ev('off', 'on');
+    expect(live()).toHaveLength(1);
+    quests.listByStatus(['open']).forEach((q) => quests.update(q.id, { status: 'done' }));
+    ev('on', 'unavailable');
+    ev('unavailable', 'on');
+    ev('on', 'unknown');
+    ev('unknown', 'on');
+    expect(live()).toHaveLength(0);
+  });
+
+  it('blip uses the last known good state as the effective old state for from', () => {
+    addPreset('vacuum', 'vacuum.robo');
+    const ev = (o: string | null, n: string) => engine.onState({ entityId: 'vacuum.robo', oldState: o, newState: n, at: at(0) });
+    ev('idle', 'cleaning');
+    ev('cleaning', 'unavailable');
+    ev('unavailable', 'docked');
+    expect(live().map((q) => q.title)).toEqual(['Empty the vacuum bin']);
   });
 });
 

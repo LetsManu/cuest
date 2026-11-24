@@ -92,11 +92,8 @@ export class BridgeHub {
       const msg = parsed.data;
       switch (msg.type) {
         case 'state': {
-          const at = new Date(msg.at);
-          if (Number.isNaN(at.getTime())) {
-            this.opts.log('bridge: state with invalid timestamp ignored');
-            return;
-          }
+          // A slow HA clock must not be able to shorten timers: never trust a time in the future.
+          const at = new Date(Math.min(new Date(msg.at).getTime(), Date.now()));
           const ev: StateEvent = { entityId: msg.entityId, oldState: msg.oldState, newState: msg.newState, at };
           for (const fn of this.stateHandlers) this.safe(() => fn(ev));
           return;

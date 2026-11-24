@@ -8,10 +8,12 @@ import { LedgerRepo } from '../src/repos/ledger.js';
 import { FakeClock } from '../src/clock.js';
 import { Bus } from '../src/bus.js';
 import { QuestService } from '../src/services/quests.js';
+import { transaction } from '../src/db/db.js';
 import { computeReward } from '../src/domain/rewards.js';
 import { DEFAULT_NUDGE, type Player } from '../src/domain/types.js';
 
 let clock: FakeClock;
+let db: ReturnType<typeof openDb>;
 let service: QuestService;
 let quests: QuestsRepo;
 let players: PlayersRepo;
@@ -25,14 +27,14 @@ let mkTemplate: () => string;
 const baseInput = { templateId: 't1', title: 'Dishes', energy: 'low' as const, minutes: 10, xp: 30 };
 
 beforeEach(() => {
-  const db = openDb(':memory:');
+  db = openDb(':memory:');
   migrate(db);
   clock = new FakeClock(new Date('2026-11-24T10:00:00.000Z'));
   players = new PlayersRepo(db);
   quests = new QuestsRepo(db);
   ledger = new LedgerRepo(db);
   bus = new Bus();
-  service = new QuestService({ quests, players, ledger, bus, clock });
+  service = new QuestService({ quests, players, ledger, bus, clock, tx: (fn) => transaction(db, fn) });
   A = players.create({ name: 'A' }, clock.now());
   B = players.create({ name: 'B' }, clock.now());
   const templates = new TemplatesRepo(db);
@@ -113,12 +115,42 @@ describe('QuestService', () => {
     expect(players.get(B.id)?.xp).toBe(30);
   });
 
-  it('sweep never moves active quests', () => {
+  it('sweep moves a stuck active quest to whenever, releases the claim, and a trigger revives it', () => {
+    const wheneverEvents: string[] = [];
+    bus.on('quest:whenever', (q) => wheneverEvents.push(q.id));
     const { quest } = service.open(input);
     service.start(quest.id, A.id);
-    clock.advance(48 * 60);
+    clock.advance(11 * 60);
     service.sweep(clock.now());
     expect(quests.get(quest.id)?.status).toBe('active');
+    clock.advance(2 * 60);
+    service.sweep(clock.now());
+    expect(quests.get(quest.id)).toMatchObject({ status: 'whenever', claimedBy: null, startedAt: null });
+    expect(wheneverEvents).toEqual([quest.id]);
+    const again = service.open(input);
+    expect(again.quest).toMatchObject({ id: quest.id, status: 'open' });
+    expect(service.start(quest.id, B.id).claimedBy).toBe(B.id);
+  });
+
+  it('done is atomic: a failing ledger write rolls everything back and a retry succeeds', () => {
+    const { quest } = service.open(input);
+    const done: string[] = [];
+    bus.on('quest:done', (r) => done.push(r.quest.id));
+    const add = ledger.add.bind(ledger);
+    const spy = vi.spyOn(ledger, 'add').mockImplementationOnce(() => {
+      throw new Error('disk full');
+    });
+    expect(() => service.done(quest.id, A.id)).toThrow('disk full');
+    expect(quests.get(quest.id)?.status).toBe('open');
+    expect(players.get(A.id)).toMatchObject({ xp: 0, gold: 0 });
+    expect(ledger.listForPlayer(A.id)).toHaveLength(0);
+    expect(done).toEqual([]);
+    spy.mockImplementation(add);
+    const res = service.done(quest.id, A.id);
+    expect(res.quest.status).toBe('done');
+    expect(players.get(A.id)?.xp).toBe(30);
+    expect(ledger.listForPlayer(A.id)).toHaveLength(1);
+    expect(done).toEqual([quest.id]);
   });
 
   it('unknown player', () => {

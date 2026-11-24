@@ -64,6 +64,26 @@ describe('REST API', () => {
     expect((await post(`/api/quests/${id}/later`, { minutes: 30 })).statusCode).toBe(200);
   });
 
+  it('later is capped at 7 days', async () => {
+    const id = (await post('/api/quests', { title: 'T', energy: 'low', minutes: 5 })).json().id;
+    expect((await post(`/api/quests/${id}/later`, { minutes: 10080 })).statusCode).toBe(200);
+    expect((await post(`/api/quests/${id}/later`, { minutes: 10081 })).statusCode).toBe(400);
+  });
+
+  it('notifyService strips a notify. prefix and validates the format', async () => {
+    const a = await post('/api/players', { name: 'Ana', notifyService: 'notify.mobile_app_ana' });
+    expect(a.statusCode).toBe(201);
+    expect(a.json().notifyService).toBe('mobile_app_ana');
+    const p = a.json();
+    const patched = await app.inject({ method: 'PATCH', url: `/api/players/${p.id}`, payload: { notifyService: 'notify.mobile_app_b' } });
+    expect(patched.json().notifyService).toBe('mobile_app_b');
+    expect((await post('/api/players', { name: 'B', notifyService: 'mobile_app_x' })).json().notifyService).toBe('mobile_app_x');
+    expect((await post('/api/players', { name: 'C', notifyService: null })).statusCode).toBe(201);
+    for (const bad of ['Mobile App', 'notify.', 'a.b', 'x y', '']) {
+      expect((await post('/api/players', { name: 'D', notifyService: bad })).statusCode).toBe(400);
+    }
+  });
+
   it('invalid body gives 400', async () => {
     const res = await post('/api/quests', { title: 'x', energy: 'extreme', minutes: 5 });
     expect(res.statusCode).toBe(400);

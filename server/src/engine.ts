@@ -5,6 +5,7 @@ import { BridgeHub } from './bridge/hub.js';
 import { Bus } from './bus.js';
 import type { Clock } from './clock.js';
 import type { Config } from './config.js';
+import { transaction } from './db/db.js';
 import { LedgerRepo } from './repos/ledger.js';
 import { PlayersRepo } from './repos/players.js';
 import { QuestsRepo } from './repos/quests.js';
@@ -26,6 +27,7 @@ export async function createEngine(deps: {
   clock: Clock;
   config: Config;
   log?: (m: string) => void;
+  logger?: boolean;
 }): Promise<Engine> {
   const { db, clock, config } = deps;
   const log = deps.log ?? ((m: string) => console.log(m));
@@ -35,7 +37,7 @@ export async function createEngine(deps: {
   const questsRepo = new QuestsRepo(db);
   const ledger = new LedgerRepo(db);
   const bus = new Bus();
-  const quests = new QuestService({ quests: questsRepo, players, ledger, bus, clock });
+  const quests = new QuestService({ quests: questsRepo, players, ledger, bus, clock, tx: (fn) => transaction(db, fn) });
   const rules = new RuleEngine({ templates, quests });
   const recurring = new RecurringScheduler({ templates, quests, tz: config.tz });
   const hub = new BridgeHub({ secret: config.bridgeSecret, log });
@@ -70,6 +72,7 @@ export async function createEngine(deps: {
     onTemplatesChanged: refreshSubscriptions,
     hub,
     clock,
+    ...(deps.logger !== undefined ? { logger: deps.logger } : {}),
   });
   refreshSubscriptions();
 

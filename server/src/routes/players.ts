@@ -6,10 +6,16 @@ import { levelForXp, titleForLevel } from '../domain/levels.js';
 import type { PlayersRepo } from '../repos/players.js';
 import { defined, parseBody } from './util.js';
 
+// Owners copy `notify.mobile_app_x` from Home Assistant; we store the bare service name.
+const notifyService = z
+  .string()
+  .transform((s) => s.replace(/^notify\./, ''))
+  .pipe(z.string().regex(/^[a-z0-9_]+$/, 'use the notify service name, like mobile_app_my_phone'));
+
 const createBody = z.object({
   name: z.string().min(1),
   haPerson: z.string().nullable().optional(),
-  notifyService: z.string().nullable().optional(),
+  notifyService: notifyService.nullable().optional(),
 });
 const patchBody = createBody.partial();
 

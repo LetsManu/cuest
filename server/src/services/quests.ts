@@ -32,13 +32,22 @@ export class QuestService {
   private ledger: LedgerRepo;
   private bus: Bus;
   private clock: Clock;
+  private tx: <T>(fn: () => T) => T;
 
-  constructor(deps: { quests: QuestsRepo; players: PlayersRepo; ledger: LedgerRepo; bus: Bus; clock: Clock }) {
+  constructor(deps: {
+    quests: QuestsRepo;
+    players: PlayersRepo;
+    ledger: LedgerRepo;
+    bus: Bus;
+    clock: Clock;
+    tx?: <T>(fn: () => T) => T;
+  }) {
     this.quests = deps.quests;
     this.players = deps.players;
     this.ledger = deps.ledger;
     this.bus = deps.bus;
     this.clock = deps.clock;
+    this.tx = deps.tx ?? ((fn) => fn());
   }
 
   open(input: OpenInput): { quest: Quest; created: boolean } {
@@ -111,23 +120,25 @@ export class QuestService {
       startedAt: quest.startedAt ? new Date(quest.startedAt) : null,
       doneAt: now,
     });
-    const doneQuest = this.quests.update(questId, {
-      status: 'done',
-      claimedBy: quest.claimedBy ?? playerId,
-      doneAt: now.toISOString(),
-      doneBy: playerId,
+    const result = this.tx(() => {
+      const doneQuest = this.quests.update(questId, {
+        status: 'done',
+        claimedBy: quest.claimedBy ?? playerId,
+        doneAt: now.toISOString(),
+        doneBy: playerId,
+      });
+      const player = this.players.addRewards(playerId, reward.xp, reward.gold);
+      this.ledger.add({
+        playerId,
+        questId,
+        kind: 'quest_done',
+        xp: reward.xp,
+        gold: reward.gold,
+        at: now.toISOString(),
+        meta: { lines: reward.lines },
+      });
+      return { quest: doneQuest, reward, player };
     });
-    const player = this.players.addRewards(playerId, reward.xp, reward.gold);
-    this.ledger.add({
-      playerId,
-      questId,
-      kind: 'quest_done',
-      xp: reward.xp,
-      gold: reward.gold,
-      at: now.toISOString(),
-      meta: { lines: reward.lines },
-    });
-    const result = { quest: doneQuest, reward, player };
     this.bus.emit('quest:done', result);
     return result;
   }
@@ -154,6 +165,20 @@ export class QuestService {
       const due = new Date(q.createdAt).getTime() + q.wheneverAfterHours * 3_600_000;
       if (due <= now.getTime()) {
         const quest = this.quests.update(q.id, { status: 'whenever', wheneverAt: now.toISOString() });
+        this.bus.emit('quest:whenever', quest);
+      }
+    }
+    // A started quest nobody finishes goes back to the pool, claim released.
+    for (const q of this.quests.listByStatus(['active'])) {
+      if (!q.startedAt) continue;
+      const due = new Date(q.startedAt).getTime() + q.wheneverAfterHours * 3_600_000;
+      if (due <= now.getTime()) {
+        const quest = this.quests.update(q.id, {
+          status: 'whenever',
+          wheneverAt: now.toISOString(),
+          claimedBy: null,
+          startedAt: null,
+        });
         this.bus.emit('quest:whenever', quest);
       }
     }

@@ -13,6 +13,7 @@ export class RuleEngine {
   private templates: TemplatesRepo;
   private quests: QuestService;
   private power = new Map<string, PowerState>();
+  private lastGood = new Map<string, string>();
 
   constructor(deps: { templates: TemplatesRepo; quests: QuestService }) {
     this.templates = deps.templates;
@@ -29,14 +30,19 @@ export class RuleEngine {
 
   onState(ev: StateEvent): void {
     if (IGNORED.has(ev.newState)) return;
+    // A blip through unavailable/unknown must not look like a transition: compare with the last known good state.
+    const reported = ev.oldState !== null && !IGNORED.has(ev.oldState) ? ev.oldState : null;
+    const oldGood = reported ?? this.lastGood.get(ev.entityId) ?? null;
+    this.lastGood.set(ev.entityId, ev.newState);
     for (const t of this.ruled()) {
       const rule = t.rule!;
       if (rule.entityId !== ev.entityId) continue;
       if (rule.type === 'state') {
         if (
+          oldGood !== null &&
           rule.to.includes(ev.newState) &&
-          ev.newState !== ev.oldState &&
-          (!rule.from || (ev.oldState !== null && rule.from.includes(ev.oldState)))
+          ev.newState !== oldGood &&
+          (!rule.from || rule.from.includes(oldGood))
         ) {
           this.fire(t);
         }

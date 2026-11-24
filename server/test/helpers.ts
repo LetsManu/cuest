@@ -21,5 +21,5 @@ export function makeDeps(over: Partial<AppDeps> = {}): AppDeps {
     bus: new Bus(),
     clock: systemClock,
   });
-  return { bridgeConnected: () => false, players, templates, quests, onTemplatesChanged: () => {}, ...over };
+  return { bridgeConnected: () => false, players, templates, quests, onTemplatesChanged: () => {}, logger: false, ...over };
 }

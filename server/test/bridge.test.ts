@@ -119,6 +119,31 @@ describe('bridge hub', () => {
     expect(events[0]!.newState).toBe('on');
   });
 
+  it('clamps a future event time to the receive time', async () => {
+    await setup();
+    const events: StateEvent[] = [];
+    hub.onState((e) => events.push(e));
+    const c = await connect(SECRET);
+    await until(() => c.messages.length >= 1);
+    const before = Date.now();
+    c.ws.send(JSON.stringify({ type: 'state', entityId: 'a', oldState: null, newState: 'on', at: '2999-01-01T00:00:00.000Z' }));
+    await until(() => events.length === 1);
+    expect(events[0]!.at.getTime()).toBeGreaterThanOrEqual(before);
+    expect(events[0]!.at.getTime()).toBeLessThanOrEqual(Date.now());
+  });
+
+  it('rejects a state with a non-ISO timestamp', async () => {
+    await setup();
+    const events: StateEvent[] = [];
+    hub.onState((e) => events.push(e));
+    const c = await connect(SECRET);
+    await until(() => c.messages.length >= 1);
+    c.ws.send(JSON.stringify({ type: 'state', entityId: 'a', oldState: null, newState: 'on', at: 'yesterday' }));
+    c.ws.send(JSON.stringify({ type: 'state', entityId: 'a', oldState: null, newState: 'on', at: '2026-01-01T10:00:00.000Z' }));
+    await until(() => events.length === 1);
+    expect(events[0]!.at.toISOString()).toBe('2026-01-01T10:00:00.000Z');
+  });
+
   it('notification actions reach onNotificationAction', async () => {
     await setup();
     const actions: string[] = [];

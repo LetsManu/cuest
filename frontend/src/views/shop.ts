@@ -97,7 +97,7 @@ export function shopView(p: ShopProps): TemplateResult {
     <div class="shophead"><span class="hint">${STRINGS.shopHint}</span></div>
     <div class="tabs" role="group" aria-label="${STRINGS.shopTabsLabel}">${SHOP_TABS.map((t) => html`<button type="button" data-tab="${t}" aria-pressed="${p.tab === t}" @click=${() => p.onTab(t)}>${STRINGS.shopTabs[t]}</button>`)}</div>
     ${!s ? html`<div class="empty">${STRINGS.shopLoading}</div>` : nothing}
-    ${s && !items.length ? html`<div class="empty">${p.tab === 'treat' ? STRINGS.noTreats : STRINGS.allQuietBody}</div>` : nothing}
+    ${s && !items.length ? html`<div class="empty">${p.tab === 'treat' ? STRINGS.noTreats : STRINGS.nothingHere}</div>` : nothing}
     ${items.map((it) => html`<div class="shopitem">${swatch(it, p.level)}
       <div class="text"><div class="name">${it.name}</div><div class="desc">${describe(it)}</div></div>${button(p, it, gold)}</div>`)}
     <p class="shopfoot">${STRINGS.shopFooter}</p>`;

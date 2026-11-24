@@ -126,7 +126,6 @@ export class CuestPanel extends LitElement {
     this._switching = false;
     this._reward = null;
     this._tick = 0;
-    this._shop = null;
     this._shopTab = 'treat';
     this._notice = '';
   }
@@ -212,7 +211,7 @@ export class CuestPanel extends LitElement {
       this._offline = false;
       if (this._playerId) {
         const pid = this._playerId;
-        const [summary, quests, shop] = await Promise.all([this._api.summary(pid), this._api.quests(), this._api.shop(pid)]);
+        const [summary, quests, shop] = await Promise.all([this._api.summary(pid), this._api.quests(), this._api.shop(pid).catch(() => null)]);
         if (pid !== this._playerId) return;
         this._summary = summary;
         this._quests = quests;
@@ -341,9 +340,9 @@ export class CuestPanel extends LitElement {
       if (err.offline && !err.serverMessage) this._offline = true;
       else msg = err.serverMessage || err.message || STRINGS.shopFailed;
     }
+    await this._refresh();
     const { [key]: _gone, ...rest } = this._busy;
     this._busy = rest;
-    await this._refresh();
     if (msg) this._setNotice(msg);
   }
 
@@ -454,7 +453,7 @@ export class CuestPanel extends LitElement {
     const item = (v: View, label: string) => html`<button type="button" data-go="${v}" aria-current=${this._view === v ? 'page' : nothing} @click=${() => { this._view = v; }}>${label}</button>`;
     return html`<div class="shell">
       <main>
-        ${this.narrow && !(this._who && this._playerId && this._view === 'village') ? html`<div class="menu">${this._menu()}</div>` : nothing}
+        ${this.narrow && !(this._who && this._playerId && this._view !== 'quest') ? html`<div class="menu">${this._menu()}</div>` : nothing}
         ${this._offline ? html`<div class="banner" role="status">${STRINGS.offlineBanner}</div>` : nothing}
         ${this._reward ? rewardToast(this._reward, () => this._setReward(null)) : nothing}
         ${this._notice ? noticeToast(this._notice, () => this._setNotice('')) : nothing}

@@ -171,3 +171,63 @@ describe('shop', () => {
     expect(el.shadowRoot.querySelectorAll('.decorrow .slot').length).toBe(1); // cat
   });
 });
+
+describe('shop fix round 1', () => {
+  beforeEach(() => { document.body.innerHTML = ''; localStorage.clear(); });
+  async function mountNarrow(hass: HomeAssistant) {
+    const el = document.createElement('cuest-panel') as any;
+    el.now = () => T0; el.narrow = true;
+    document.body.appendChild(el); el.hass = hass; await settle(el);
+    return el;
+  }
+  it('narrow shop and hero show exactly one menu button; quest shows the row', async () => {
+    const el = await mountNarrow(fakeHass().hass);
+    for (const v of ['shop', 'hero']) {
+      q(el, `nav [data-go="${v}"]`).click(); await settle(el);
+      expect(el.shadowRoot.querySelectorAll('ha-menu-button').length).toBe(1);
+    }
+    el['_view'] = 'quest'; await settle(el);
+    expect(el.shadowRoot.querySelectorAll('.menu ha-menu-button').length).toBe(1);
+  });
+  it('narrow player picker shows the menu row', async () => {
+    const f = fakeHass();
+    (f.callApi as any).mockImplementation(async (_m: string, path: string) => path === 'cuest_whoami'
+      ? { playerId: null, isAdmin: false, players: [{ id: 'p1', name: 'Ada' }, { id: 'p2', name: 'Bo' }] } : {});
+    const el = await mountNarrow(f.hass);
+    expect(el.shadowRoot.querySelectorAll('.menu ha-menu-button').length).toBe(1);
+  });
+  it('a failing shop GET does not break summary or show an error', async () => {
+    const f = fakeHass();
+    const orig = (f.callApi as any).getMockImplementation();
+    (f.callApi as any).mockImplementation(async (m: string, path: string, b: any) => {
+      if (path.startsWith('cuest/shop?')) throw { status_code: 500, body: '{}' };
+      return orig(m, path, b);
+    });
+    const el = await mount(f.hass);
+    expect(text(el)).toContain('Hearthkeeper');
+    expect(q(el, '[role="alert"]')).toBeNull();
+  });
+  it('empty tab uses shop copy', async () => {
+    const f = fakeHass();
+    const el = await mount(f.hass);
+    f.state.catalog = f.state.catalog.filter((c) => c.kind !== 'treat');
+    await el['_refresh'](); await openShop(el, 'treat');
+    expect(text(el)).toContain('Ask whoever set up Cuest');
+    q(el, '[data-tab="wardrobe"]').click(); await settle(el);
+    f.state.catalog = [];
+    await el['_refresh'](); await settle(el);
+    expect(text(el)).toContain('Nothing here yet.');
+  });
+  it('double-tap on equip fires one equip; only that item is disabled while pending', async () => {
+    const f = fakeHass({ gold: 100 });
+    const el = await mount(f.hass);
+    await openShop(el, 'wardrobe');
+    const b = q(el, '[data-item="hood_night"]') as HTMLButtonElement;
+    b.click(); b.click();
+    await el.updateComplete;
+    expect((q(el, '[data-item="hood_night"]') as HTMLButtonElement).disabled).toBe(true);
+    expect((q(el, '[data-item="hood_ember"]') as HTMLButtonElement).disabled).toBe(false);
+    await settle(el);
+    expect(f.callApi.mock.calls.filter((c) => c[1] === 'cuest/shop/equip')).toHaveLength(1);
+  });
+});

@@ -23,6 +23,9 @@ CARD_URL = "/cuest/cuest-card.js"
 CARD_PATH = Path(__file__).parent / "frontend" / "cuest-card.js"
 _CARD_REGISTERED = f"{DOMAIN}_card_registered"
 
+ARCANE_URL = "/cuest/cuest-arcane.js"
+ARCANE_PATH = Path(__file__).parent / "frontend" / "cuest-arcane.js"
+
 PANEL_URL = "/cuest/cuest-panel.js"
 PANEL_PATH = Path(__file__).parent / "frontend" / "cuest-panel.js"
 PANEL_URL_PATH = "cuest"
@@ -30,13 +33,17 @@ _PANEL_STATIC = f"{DOMAIN}_panel_static"
 
 
 async def _async_register_card(hass: HomeAssistant) -> None:
-    """Serve the dashboard card and load it in the frontend, once per HA run."""
+    """Serve the dashboard cards and load them in the frontend, once per HA run."""
     if hass.data.get(_CARD_REGISTERED):
         return
     await hass.http.async_register_static_paths(
-        [StaticPathConfig(CARD_URL, str(CARD_PATH), cache_headers=False)]
+        [
+            StaticPathConfig(CARD_URL, str(CARD_PATH), cache_headers=False),
+            StaticPathConfig(ARCANE_URL, str(ARCANE_PATH), cache_headers=False),
+        ]
     )
     frontend.add_extra_js_url(hass, CARD_URL)
+    frontend.add_extra_js_url(hass, ARCANE_URL)
     hass.data[_CARD_REGISTERED] = True
 
 

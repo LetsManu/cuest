@@ -8,9 +8,12 @@ until you are ready.
 
 **Set up with Home Assistant:** [docs/install-home-assistant.md](docs/install-home-assistant.md)
 
-**Status: Plans 1–4 implemented.** The server, the Home Assistant integration,
+**Status: Plans 1–5 implemented.** The server, the Home Assistant integration,
 the sidebar app with the shop, and the game layer (bonuses, streaks, energy
-dice, power sprints, loot and the collection book) are in place.
+dice, power sprints, loot and the collection book) are in place, plus the
+Arcane Hearth dashboard cards.
+
+Arcane Hearth dashboard cards: [docs/arcane-dashboards.md](docs/arcane-dashboards.md)
 
 Once installed, open **Cuest** in the Home Assistant sidebar to play and shop.
 
@@ -43,5 +46,6 @@ bridge settings in Home Assistant. If you prefer your own, set
 ## More
 
 - Home Assistant setup, step by step: [docs/install-home-assistant.md](docs/install-home-assistant.md)
+- Arcane Hearth dashboard cards: [docs/arcane-dashboards.md](docs/arcane-dashboards.md)
 - Design: [docs/superpowers/specs/2026-11-24-cuest-design.md](docs/superpowers/specs/2026-11-24-cuest-design.md)
 - Bridge protocol: [docs/bridge-protocol.md](docs/bridge-protocol.md)

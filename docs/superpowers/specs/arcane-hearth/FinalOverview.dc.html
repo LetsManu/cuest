@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Arcane Hearth overview</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&amp;family=Inter:wght@400;600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#F7D27A}a:hover{color:#FFE7A8}
+@keyframes wave{from{transform:translateX(0)}to{transform:translateX(-60px)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes draw{from{stroke-dashoffset:700}to{stroke-dashoffset:0}}
+@keyframes rise{0%{transform:translateY(0);opacity:0}20%{opacity:1}100%{transform:translateY(-60px);opacity:0}}
+@keyframes pulse{0%,100%{opacity:.55}50%{opacity:1}}
+@keyframes twinkle{0%,100%{opacity:.25}50%{opacity:1}}
+@keyframes flicker{0%,100%{opacity:1}45%{opacity:.8}55%{opacity:.95}}
+@keyframes shimmer{from{transform:translateX(-80px)}to{transform:translateX(380px)}}
+.wave{animation:wave 3.2s linear infinite}
+.wave2{animation:wave 5s linear infinite reverse}
+.spin{transform-origin:50% 50%;transform-box:fill-box;animation:spin 18s linear infinite}
+.draw{stroke-dasharray:700;animation:draw 2.4s ease-out both}
+.spark{position:absolute;width:4px;height:4px;background:#BFE6FF;animation:rise 3.6s ease-in infinite}
+.pulse{animation:pulse 2.4s ease-in-out infinite}
+.star{position:absolute;width:3px;height:3px;background:#FFF3D0;animation:twinkle 3s ease-in-out infinite}
+.win{animation:flicker 4s ease-in-out infinite}
+.shimmer{animation:shimmer 3s ease-in-out infinite}
+@media (prefers-reduced-motion: reduce){.wave,.wave2,.spin,.draw,.spark,.pulse,.star,.win,.shimmer{animation:none}.spark,.shimmer{display:none}}
+</style>
+</helmet>
+<div style="width: 390px; height: 1640px; box-sizing: border-box; background: #14172A; font-family: Inter, sans-serif; color: #ECE4D2; display: flex; flex-direction: column; gap: 16px; padding-bottom: 24px">
+
+  <div style="position: relative; height: 210px; background: linear-gradient(#0F1226, #232A52); overflow: hidden; border-bottom: 3px solid #6B5A2E">
+    <span class="star" style="left: 30px; top: 20px"></span>
+    <span class="star" style="left: 96px; top: 46px; animation-delay: .8s"></span>
+    <span class="star" style="left: 170px; top: 18px; animation-delay: 1.6s"></span>
+    <span class="star" style="left: 250px; top: 40px; animation-delay: .4s"></span>
+    <span class="star" style="left: 330px; top: 24px; animation-delay: 2.2s"></span>
+    <span style="position: absolute; right: 40px; top: 30px; width: 34px; height: 34px; border-radius: 99px; background: #F3E6C0; box-shadow: 0 0 24px #F3E6C0"></span>
+    <span style="position: absolute; right: 30px; top: 26px; width: 30px; height: 30px; border-radius: 99px; background: #1A1F3E"></span>
+    <div style="position: absolute; left: 16px; top: 18px; display: flex; flex-direction: column; gap: 4px">
+      <h1 style="margin: 0; font-family: 'Pixelify Sans', monospace; font-size: 28px; color: #F7D27A">Cuest Home</h1>
+      <span style="font-size: 13px; color: #CFC8DB">Tuesday 16:40 · the house is happy</span>
+    </div>
+    <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 34px; background: #1F3A2C"></div>
+    <div style="position: absolute; left: 28px; bottom: 34px; width: 96px; height: 62px; background: #3B3226"></div>
+    <div style="position: absolute; left: 20px; bottom: 96px; width: 0; height: 0; border-left: 56px solid transparent; border-right: 56px solid transparent; border-bottom: 36px solid #6B3A2E"></div>
+    <div class="win" style="position: absolute; left: 42px; bottom: 66px; width: 16px; height: 16px; background: #F7D27A; box-shadow: 0 0 10px #F7D27A"></div>
+    <div class="win" style="position: absolute; left: 68px; bottom: 66px; width: 16px; height: 16px; background: #F7D27A; box-shadow: 0 0 10px #F7D27A; animation-delay: 1s"></div>
+    <div style="position: absolute; left: 94px; bottom: 66px; width: 16px; height: 16px; background: #4A5070"></div>
+    <div style="position: absolute; left: 64px; bottom: 34px; width: 18px; height: 26px; background: #2A2018"></div>
+    <div style="position: absolute; left: 150px; bottom: 34px; width: 64px; height: 44px; background: #34302A"></div>
+    <div style="position: absolute; left: 144px; bottom: 78px; width: 0; height: 0; border-left: 38px solid transparent; border-right: 38px solid transparent; border-bottom: 26px solid #5A3328"></div>
+    <div class="win" style="position: absolute; left: 172px; bottom: 50px; width: 12px; height: 12px; background: #F7D27A; box-shadow: 0 0 8px #F7D27A; animation-delay: 2s"></div>
+    <div style="position: absolute; left: 250px; bottom: 34px; width: 6px; height: 40px; background: #3B3226"></div>
+    <div class="win" style="position: absolute; left: 245px; bottom: 74px; width: 16px; height: 12px; background: #F7D27A; box-shadow: 0 0 14px #F7D27A"></div>
+    <div style="position: absolute; right: 16px; bottom: 44px; font-size: 12px; color: #CFC8DB; text-align: right">-0.7° outside<br>21.5° inside</div>
+  </div>
+
+  <div style="margin: 0 16px; position: relative; background: #1D2140; border: 2px solid #6B5A2E; border-radius: 18px; padding: 16px 8px 12px; display: flex; justify-content: space-around; overflow: hidden">
+    <span class="spark" style="left: 60px; bottom: 30px"></span>
+    <span class="spark" style="left: 190px; bottom: 24px; animation-delay: 1.2s; background: #FFD1C4"></span>
+    <span class="spark" style="left: 310px; bottom: 34px; animation-delay: 2.1s; background: #FFE7A8"></span>
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 4px">
+      <svg width="96" height="96" viewBox="0 0 120 120" role="img" aria-label="Mana: 88 percent of devices online">
+        <defs><clipPath id="foMana"><circle cx="60" cy="60" r="52"/></clipPath><linearGradient id="foManaG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8FDCFF"/><stop offset="1" stop-color="#3550D6"/></linearGradient></defs>
+        <circle cx="60" cy="60" r="52" fill="#0E1124"/>
+        <g clip-path="url(#foMana)"><g transform="translate(0,-6)"><g class="wave2"><path d="M0 26 Q15 20 30 26 T60 26 T90 26 T120 26 T150 26 T180 26 T210 26 V140 H0 Z" fill="#2B45B8" opacity="0.7"/></g></g><g transform="translate(0,-4)"><g class="wave"><path d="M0 26 Q15 18 30 26 T60 26 T90 26 T120 26 T150 26 T180 26 T210 26 V140 H0 Z" fill="url(#foManaG)"/></g></g><ellipse cx="42" cy="38" rx="14" ry="8" fill="#FFFFFF" opacity="0.18"/></g>
+        <circle cx="60" cy="60" r="54" fill="none" stroke="#C9A14A" stroke-width="4"/>
+        <circle class="spin" cx="60" cy="60" r="58" fill="none" stroke="#C9A14A" stroke-width="1.5" stroke-dasharray="3 9" opacity="0.7"/>
+      </svg>
+      <span style="font-family: 'Pixelify Sans', monospace; font-size: 14px; color: #8FDCFF">Mana 88%</span>
+      <span style="font-size: 11px; color: #A9A3BE">online</span>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 4px">
+      <svg width="96" height="96" viewBox="0 0 120 120" role="img" aria-label="Health: 84 percent">
+        <defs><clipPath id="foHp"><circle cx="60" cy="60" r="52"/></clipPath><linearGradient id="foHpG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FF9A8A"/><stop offset="1" stop-color="#B8323A"/></linearGradient></defs>
+        <circle cx="60" cy="60" r="52" fill="#0E1124"/>
+        <g clip-path="url(#foHp)"><g transform="translate(0,2)"><g class="wave"><path d="M0 26 Q15 18 30 26 T60 26 T90 26 T120 26 T150 26 T180 26 T210 26 V140 H0 Z" fill="url(#foHpG)"/></g></g><ellipse cx="42" cy="38" rx="14" ry="8" fill="#FFFFFF" opacity="0.18"/></g>
+        <circle cx="60" cy="60" r="54" fill="none" stroke="#C9A14A" stroke-width="4"/>
+      </svg>
+      <span style="font-family: 'Pixelify Sans', monospace; font-size: 14px; color: #FF9A8A">Health 84%</span>
+      <span style="font-size: 11px; color: #A9A3BE">19 quests</span>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 4px">
+      <svg width="96" height="96" viewBox="0 0 120 120" role="img" aria-label="Glow: 13 lights on">
+        <defs><clipPath id="foGlow"><circle cx="60" cy="60" r="52"/></clipPath><linearGradient id="foGlowG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFE7A8"/><stop offset="1" stop-color="#D9862B"/></linearGradient></defs>
+        <circle cx="60" cy="60" r="52" fill="#0E1124"/>
+        <g clip-path="url(#foGlow)"><g transform="translate(0,34)"><g class="wave"><path d="M0 26 Q15 18 30 26 T60 26 T90 26 T120 26 T150 26 T180 26 T210 26 V140 H0 Z" fill="url(#foGlowG)"/></g></g><ellipse cx="42" cy="38" rx="14" ry="8" fill="#FFFFFF" opacity="0.18"/></g>
+        <circle cx="60" cy="60" r="54" fill="none" stroke="#C9A14A" stroke-width="4"/>
+      </svg>
+      <span style="font-family: 'Pixelify Sans', monospace; font-size: 14px; color: #FFE7A8">Glow 13</span>
+      <span style="font-size: 11px; color: #A9A3BE">lights on</span>
+    </div>
+  </div>
+
+  <div style="margin: 0 16px; background: #1D2140; border: 2px solid #6B5A2E; border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 8px">
+    <div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-family: 'Pixelify Sans', monospace; font-size: 17px; color: #F7D27A">Lv 4 Hearthkeeper</span><span style="font-size: 12px; color: #FFB27A">6-day streak</span></div>
+    <div style="position: relative; height: 14px; background: #0E1124; border: 2px solid #C9A14A; border-radius: 8px; overflow: hidden"><div style="width: 30%; height: 100%; background: linear-gradient(90deg, #D9862B, #FFE7A8)"></div><div class="shimmer" style="position: absolute; top: 0; left: 0; width: 50px; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent)"></div></div>
+    <span style="font-size: 12px; color: #A9A3BE">70 XP to level 5 · 2 chest keys</span>
+  </div>
+
+  <div style="margin: 0 16px; display: flex; flex-direction: column; gap: 8px">
+    <h2 style="margin: 0; font-family: 'Pixelify Sans', monospace; font-size: 18px; color: #F7D27A">Quest board</h2>
+    <a href="FinalFaults.dc.html" style="display: flex; align-items: center; gap: 10px; background: #F4EAD5; border: 2px solid #C9A14A; border-radius: 6px; box-shadow: 3px 3px 0 #6B5A2E; padding: 10px 12px; text-decoration: none; color: #2B2620; min-height: 44px; box-sizing: border-box">
+      <span style="font-family: 'Pixelify Sans', monospace; background: #E0A33A; border-radius: 4px; padding: 2px 6px; font-size: 13px">!</span>
+      <span style="flex: 1; font-size: 14px"><b>Change the Büro battery</b><br><span style="color: #6B5F4E; font-size: 12px">Thermostat at 0 %</span></span>
+      <span style="font-family: 'Pixelify Sans', monospace; font-size: 13px; color: #2E5E4E">+30 XP</span>
+    </a>
+    <a href="FinalFaults.dc.html" style="display: flex; align-items: center; gap: 10px; background: #F4EAD5; border: 2px solid #C9A14A; border-radius: 6px; box-shadow: 3px 3px 0 #6B5A2E; padding: 10px 12px; text-decoration: none; color: #2B2620; min-height: 44px; box-sizing: border-box">
+      <span style="font-family: 'Pixelify Sans', monospace; background: #E0A33A; border-radius: 4px; padding: 2px 6px; font-size: 13px">!</span>
+      <span style="flex: 1; font-size: 14px"><b>Check 3 thermostat valves</b><br><span style="color: #6B5F4E; font-size: 12px">Wohnzimmer ×2 · Küche</span></span>
+      <span style="font-family: 'Pixelify Sans', monospace; font-size: 13px; color: #2E5E4E">+20 XP</span>
+    </a>
+    <a href="FinalFaults.dc.html" style="font-size: 14px; font-weight: 600; padding: 2px">+ 17 more on the board →</a>
+  </div>
+
+  <div style="margin: 0 16px; background: #1D2140; border: 2px solid #33395F; border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 8px">
+    <div style="display: flex; justify-content: space-between; align-items: baseline"><h2 style="margin: 0; font-family: 'Pixelify Sans', monospace; font-size: 18px; color: #F7D27A">Warmth trail</h2><span style="font-size: 12px; color: #A9A3BE">24 h</span></div>
+    <svg width="354" height="110" viewBox="0 0 326 110" role="img" aria-label="Wohnzimmer temperature over the last 24 hours, between 20.5 and 22.3 degrees">
+      <defs><linearGradient id="foTrailFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FF8A5B" stop-opacity="0.45"/><stop offset="1" stop-color="#FF8A5B" stop-opacity="0"/></linearGradient><linearGradient id="foTrailLine" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#FFD27A"/><stop offset="1" stop-color="#FF7A6B"/></linearGradient></defs>
+      <line x1="0" y1="30" x2="326" y2="30" stroke="#2C3256" stroke-dasharray="2 6"/><line x1="0" y1="70" x2="326" y2="70" stroke="#2C3256" stroke-dasharray="2 6"/>
+      <path d="M0,56 L27,62 L54,65 L81,59 L109,44 L136,26 L163,17 L190,20 L217,23 L244,11 L272,26 L299,35 L326,35 L326,110 L0,110 Z" fill="url(#foTrailFill)"/>
+      <polyline class="draw" points="0,56 27,62 54,65 81,59 109,44 136,26 163,17 190,20 217,23 244,11 272,26 299,35 326,35" fill="none" stroke="url(#foTrailLine)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+      <polyline class="draw" points="0,98 27,100 54,102 81,101 109,96 136,90 163,85 190,83 217,84 244,88 272,92 299,93 326,94" fill="none" stroke="#8FDCFF" stroke-width="2" stroke-dasharray="4 4"/>
+      <circle class="pulse" cx="322" cy="35" r="5" fill="#FFE7A8"/>
+    </svg>
+    <div style="display: flex; gap: 14px; font-size: 12px; color: #A9A3BE"><span><b style="color: #FFB27A">—</b> Wohnzimmer 21.5°</span><span><b style="color: #8FDCFF">- -</b> outside -0.7°</span></div>
+  </div>
+
+  <div style="margin: 0 16px; display: flex; flex-direction: column; gap: 8px">
+    <h2 style="margin: 0; font-family: 'Pixelify Sans', monospace; font-size: 18px; color: #F7D27A">Rooms</h2>
+    <div style="background: #1D2140; border: 2px solid #33395F; border-radius: 18px; overflow: hidden">
+      <div style="display: flex; align-items: center; gap: 12px; padding: 13px 16px; border-bottom: 1px solid #2C3256"><span style="flex: 1; font-weight: 600">Wohnzimmer</span><span style="font-family: 'Pixelify Sans', monospace; font-size: 18px">21.5°</span><span style="width: 52px; text-align: right; font-size: 12px; color: #FFE7A8">12 lit</span></div>
+      <div style="display: flex; align-items: center; gap: 12px; padding: 13px 16px; border-bottom: 1px solid #2C3256"><span style="flex: 1; font-weight: 600">Küche</span><span style="font-family: 'Pixelify Sans', monospace; font-size: 18px">22.5°</span><span style="width: 52px; text-align: right; font-size: 12px; color: #A9A3BE">dark</span></div>
+      <div style="display: flex; align-items: center; gap: 12px; padding: 13px 16px; border-bottom: 1px solid #2C3256"><span style="flex: 1; font-weight: 600">Schlafzimmer</span><span style="font-family: 'Pixelify Sans', monospace; font-size: 18px; color: #A9A3BE">—</span><span style="width: 52px; text-align: right; font-size: 12px; color: #FFE7A8">1 lit</span></div>
+      <div style="display: flex; align-items: center; gap: 12px; padding: 13px 16px"><span style="flex: 1; font-weight: 600">Büro</span><span style="font-family: 'Pixelify Sans', monospace; font-size: 18px; color: #FFB27A">?</span><span style="width: 52px; text-align: right; font-size: 12px; color: #FFB27A">battery</span></div>
+    </div>
+  </div>
+
+  <div style="margin: 0 16px; background: #2E3450; border: 2px solid #6B5A2E; border-radius: 18px; padding: 14px; display: flex; align-items: center; gap: 12px">
+    <div style="display: flex; align-items: flex-end; gap: 3px; height: 40px; width: 44px"><i class="pulse" style="flex: 1; height: 40%; background: #F7D27A"></i><i class="pulse" style="flex: 1; height: 90%; background: #F7D27A; animation-delay: .4s"></i><i class="pulse" style="flex: 1; height: 60%; background: #F7D27A; animation-delay: .8s"></i><i class="pulse" style="flex: 1; height: 75%; background: #F7D27A; animation-delay: 1.2s"></i></div>
+    <div style="flex: 1"><div style="font-family: 'Pixelify Sans', monospace; font-size: 16px; color: #F7D27A">Bard · Wohnzimmer</div><div style="font-size: 12px; color: #CFC8DB">Ready to play</div></div>
+    <button type="button" aria-label="Play" style="width: 48px; height: 48px; border-radius: 999px; border: 0; background: #F7D27A; display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="#2E3450" aria-hidden="true"><path d="M7 4l13 8-13 8z"/></svg></button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":1640}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

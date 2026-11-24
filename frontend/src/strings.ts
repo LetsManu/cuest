@@ -96,6 +96,8 @@ export const STRINGS = {
   sprintSummaryMinutes: 'Minutes counted',
   sprintSummaryLogs: 'Quick notes',
   sprintSummaryXp: 'XP earned',
+  sprintEndedElsewhere: 'Sprint finished - nice work!',
+  sprintEndedElsewhereBody: 'Your progress is saved. Ready for another when you are.',
   sprintAgain: 'Start another sprint',
   diceTitle: 'Energy dice',
   diceHint: 'How is your energy right now? The dice find a quest that fits.',

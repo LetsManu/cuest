@@ -10,7 +10,8 @@ export const XP_PER_LOG = 5;
 export const MAX_LOGS = 10;
 export const MAX_NOTE = 80;
 
-export interface SprintSummary { minutes: number; logs: number; xp: number }
+/** xp is null when the sprint ended elsewhere and the exact amount is unknown. */
+export interface SprintSummary { minutes: number; logs: number; xp: number | null }
 
 export interface SprintViewProps {
   sprint: Sprint | null;
@@ -88,6 +89,13 @@ export const sprintStyles = css`
 `;
 
 function summaryView(p: SprintViewProps, s: SprintSummary): TemplateResult {
+  if (s.xp === null) {
+    return html`<article class="spsum" role="status" data-role="sprint-summary">
+      <h2>${STRINGS.sprintEndedElsewhere}</h2>
+      <p class="sphint">${STRINGS.sprintEndedElsewhereBody}</p>
+      <button type="button" class="btn primary wide" data-act="sprint-again" @click=${p.onAgain}>${STRINGS.sprintAgain}</button>
+    </article>`;
+  }
   return html`<article class="spsum" role="status" data-role="sprint-summary">
     <h2>${STRINGS.sprintDoneTitle}</h2>
     <p class="sphint">${STRINGS.sprintDoneBody}</p>

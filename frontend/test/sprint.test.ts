@@ -250,22 +250,21 @@ describe('Power sprint polling and stale loads', () => {
   });
 
   it('never overlaps polls while one is pending', async () => {
-    let release!: () => void;
-    const { hass, callApi } = fakeHass({ sprint: running(5, 5 * 60_000 - 1000) });
+    const { hass } = fakeHass({ sprint: running(5, 5 * 60_000 - 1000) });
     const el = await mount(hass);
     await openSprint(el);
-    const n = gets(callApi);
     const orig = (hass as any).callApi;
+    let release!: () => void;
     const hold = new Promise<void>((r) => { release = r; });
-    (hass as any).callApi = vi.fn(async (m: string, path: string, b?: any) => { if (path.startsWith('cuest/sprint?')) await hold; return orig(m, path, b); });
+    let held = 0;
+    (hass as any).callApi = vi.fn(async (m: string, path: string, b?: any) => { if (path.startsWith('cuest/sprint?')) { held++; await hold; } return orig(m, path, b); });
     el.hass = { ...hass };
     await tickFor(el, 1000);
+    expect(held).toBe(1);
+    // Well past the 3s gap while the first poll is still pending: no second request.
     for (let i = 0; i < 8; i++) await tickFor(el, 1000);
-    const pending = (hass as any).callApi.mock.calls.filter((c: any[]) => String(c[1]).startsWith('cuest/sprint?')).length;
-    expect(pending).toBe(1);
+    expect(held).toBe(1);
     release(); await settle(el);
-    expect(n).toBeGreaterThan(0);
-    expect(callApi).toBeDefined();
   });
 
   it('stops polling once the sprint is gone and on view change', async () => {
@@ -311,13 +310,46 @@ describe('Power sprint polling and stale loads', () => {
     expect((q(el, '[data-role="log-input"]') as HTMLInputElement).value).toBe('');
   });
 
-  it('shows the summary for an auto-finish even if the clock is behind', async () => {
-    const h = fakeHass({ sprint: running(5, 4 * 60_000 + 50_000, 0) });
+  it('a natural end shows the full XP (minutes x2 + logs x5)', async () => {
+    const h = fakeHass({ sprint: running(5, 5 * 60_000 - 2000, 2) });
     const el = await mount(h.hass);
     await openSprint(el);
     h.endSprint();
-    await tickFor(el, 10_000); await settle(el);
-    await tickFor(el, 3000); await settle(el);
-    expect(q(el, '[data-role="sprint-summary"]')).toBeTruthy();
+    await tickFor(el, 2000); await settle(el);
+    expect(q(el, '[data-role="sprint-summary"]').textContent).toContain('20');
+  });
+
+  it('a sprint that ended elsewhere shows a neutral summary with no XP number', async () => {
+    const h = fakeHass({ sprint: running(15, 60_000, 1) });
+    const el = await mount(h.hass);
+    await openSprint(el);
+    h.endSprint();
+    await el._loadSprint(); await settle(el);
+    const sum = q(el, '[data-role="sprint-summary"]');
+    expect(sum).toBeTruthy();
+    expect(sum.textContent).toContain('Sprint finished');
+    expect(sum.textContent).not.toMatch(/\d/);
+    expect(sum.textContent).not.toMatch(/XP/);
+  });
+
+  it('a log reply is not clobbered by an older poll result', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    const { hass } = fakeHass({ sprint: running(15, 60_000, 0) });
+    const el = await mount(hass);
+    await openSprint(el);
+    const orig = (hass as any).callApi;
+    let first = true;
+    (hass as any).callApi = vi.fn(async (m: string, path: string, b?: any) => {
+      if (path.startsWith('cuest/sprint?') && first) { first = false; const snap = await orig(m, path, b); await gate; return snap; }
+      return orig(m, path, b);
+    });
+    el.hass = { ...hass };
+    const slow = el._loadSprint();
+    const input = q(el, '[data-role="log-input"]') as HTMLInputElement;
+    input.value = 'a'; input.dispatchEvent(new Event('input')); await el.updateComplete;
+    q(el, '[data-act="sprint-log"]').click(); await settle(el);
+    release(); await slow; await settle(el);
+    expect(q(el, '[data-role="sprint-xp"]').textContent).toContain('7');
   });
 });

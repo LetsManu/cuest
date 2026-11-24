@@ -508,10 +508,13 @@ export class CuestPanel extends LitElement {
   /** Apply a fresh GET /sprint. If a sprint we were showing is gone, the server auto-finished it: show the result. */
   private _sprintSettle(sprint: Sprint | null) {
     const prev = this._sprint;
-    // Gone from the server: it auto-finished (no client clock check, so skew cannot hide the result).
+    // Gone from the server. Near its natural end it auto-finished (full minutes). Earlier than that it
+    // ended elsewhere and only the elapsed minutes were paid, so show no XP number rather than a wrong one.
     if (!sprint && prev && prev.id !== this._sprintSummaryId) {
-      const minutes = prev.minutes;
-      this._sprintSummary = { minutes, logs: prev.logs, xp: minutes * XP_PER_MINUTE + prev.logs * XP_PER_LOG };
+      const natural = this.now() >= endsAtMs(prev) - 5000;
+      this._sprintSummary = natural
+        ? { minutes: prev.minutes, logs: prev.logs, xp: prev.minutes * XP_PER_MINUTE + prev.logs * XP_PER_LOG }
+        : { minutes: prev.minutes, logs: prev.logs, xp: null };
       this._sprintSummaryId = prev.id;
       void this._refresh();
     }
@@ -578,7 +581,9 @@ export class CuestPanel extends LitElement {
     if (!pid || !api || !note || this._busy['sprint'] || (this._sprint?.logs ?? 0) >= MAX_LOGS) return;
     if (this._sound) unlock();
     void this._sprintAct(async () => {
+      this._sprintReq++;
       const r = await api.sprintLog(pid, note);
+      this._sprintReq++;
       this._sprint = r.sprint;
       this._sprintNote = '';
       void this._refresh();

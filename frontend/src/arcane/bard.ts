@@ -1,7 +1,7 @@
 import { html, nothing, css, unsafeCSS, type TemplateResult } from 'lit';
 import { live } from 'lit/directives/live.js';
 import type { HassState, HomeAssistant } from '../hass-types';
-import { ArcaneCard, ConfigError, callSafely, fireMoreInfo, isObject, parseService, registerCard, v } from './base';
+import { ArcaneCard, ConfigError, callSafely, fireMoreInfo, isObject, parseService, registerCard, stubEntity, v } from './base';
 import { ARCANE_COPY, fill } from './copy';
 import { num } from './format';
 import { areaOf } from './house';
@@ -81,8 +81,7 @@ export class CuestBardCard extends ArcaneCard<BardConfig> {
   private _expiry?: ReturnType<typeof setTimeout>;
 
   static getStubConfig(h?: HomeAssistant): object {
-    const hit = h && Object.keys(h.states).find((id) => id.startsWith('media_player.'));
-    return { entity: hit ?? '' };
+    return { entity: stubEntity(h, [(id) => id.startsWith('media_player.')], 'media_player.living_room') };
   }
 
   protected validate(raw: Record<string, unknown>): BardConfig {

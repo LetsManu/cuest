@@ -1,6 +1,6 @@
 import { html, nothing, css, unsafeCSS, type TemplateResult } from 'lit';
 import type { HassState, HomeAssistant } from '../hass-types';
-import { ArcaneCard, ConfigError, callSafely, fireMoreInfo, isObject, parseService, registerCard, v } from './base';
+import { ArcaneCard, ConfigError, callSafely, fireMoreInfo, isObject, parseService, registerCard, stubEntity, v } from './base';
 import { ARCANE_COPY } from './copy';
 import { domainOf, num } from './format';
 import { isLightGroup } from './house';
@@ -84,8 +84,8 @@ export class CuestSpellTile extends ArcaneCard<TileConfig> {
   private _holdTimer?: ReturnType<typeof setTimeout>;
 
   static getStubConfig(h?: HomeAssistant): object {
-    const hit = h && Object.keys(h.states).find((id) => id.startsWith('light.'));
-    return { entity: hit ?? '' };
+    const domains = [...TOGGLE_DOMAINS, 'scene', 'script', 'button'];
+    return { entity: stubEntity(h, domains.map((d) => (id: string) => domainOf(id) === d), 'light.living_room') };
   }
 
   protected validate(raw: Record<string, unknown>): TileConfig {

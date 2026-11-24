@@ -400,7 +400,7 @@ describe('updates and config', () => {
     expect(g({ entity: 'scene.a', variant: 'scene' })).toEqual({ columns: 4, rows: 1 });
     const h = fakeHass({ states: { 'switch.s': st('on'), 'light.l': st('on') } });
     expect(CuestSpellTile.getStubConfig(h)).toEqual({ entity: 'light.l' });
-    expect(CuestSpellTile.getStubConfig()).toEqual({ entity: '' });
+    expect(CuestSpellTile.getStubConfig()).toEqual({ entity: 'light.living_room' });
   });
 
   it('rejects bad config', () => {

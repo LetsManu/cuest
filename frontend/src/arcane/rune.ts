@@ -1,6 +1,6 @@
 import { html, nothing, svg, css, unsafeCSS, type TemplateResult } from 'lit';
 import type { HassState, HomeAssistant } from '../hass-types';
-import { ArcaneCard, ConfigError, callSafely, registerCard, v } from './base';
+import { ArcaneCard, ConfigError, callSafely, registerCard, stubEntity, v } from './base';
 import { ARCANE_COPY, fill } from './copy';
 import { fmtNumber, fmtTemp, num } from './format';
 import { ARCANE, FONT_BODY } from './theme';
@@ -118,8 +118,9 @@ export class CuestRuneGauge extends ArcaneCard<RuneConfig> {
   private _expiry?: ReturnType<typeof setTimeout>;
 
   static getStubConfig(h?: HomeAssistant): object {
-    const hit = h && Object.keys(h.states).find((id) => id.startsWith('climate.'));
-    return { entity: hit ?? '' };
+    return {
+      entity: stubEntity(h, [(id) => id.startsWith('climate.'), (id, s) => id.startsWith('sensor.') && num(s.state) !== null], 'climate.living_room'),
+    };
   }
 
   protected validate(raw: Record<string, unknown>): RuneConfig {

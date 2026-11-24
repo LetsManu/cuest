@@ -1,6 +1,6 @@
 import { html, nothing, svg, css, unsafeCSS, type TemplateResult } from 'lit';
 import type { HomeAssistant } from '../hass-types';
-import { ArcaneCard, registerCard, v } from './base';
+import { ArcaneCard, registerCard, stubEntity, v } from './base';
 import { ARCANE_COPY, fill } from './copy';
 import { fmtNumber, fmtTemp, num } from './format';
 import { fetchHistory, resample, trailGeometry, type Sample } from './history';
@@ -56,8 +56,14 @@ export class CuestTrailCard extends ArcaneCard<TrailConfig> {
   ];
 
   static getStubConfig(h?: HomeAssistant): object {
-    const hit = h && Object.entries(h.states).find(([id, s]) => id.startsWith('sensor.') && s.attributes.device_class === 'temperature');
-    return { entity: hit ? hit[0] : '' };
+    const sensor = (id: string): boolean => id.startsWith('sensor.');
+    return {
+      entity: stubEntity(
+        h,
+        [(id, s) => sensor(id) && s.attributes.device_class === 'temperature', (id, s) => sensor(id) && num(s.state) !== null],
+        'sensor.outside_temperature',
+      ),
+    };
   }
 
   protected validate(raw: Record<string, unknown>): TrailConfig {

@@ -1,5 +1,5 @@
 import { LitElement, html, type TemplateResult } from 'lit';
-import type { HomeAssistant } from '../hass-types';
+import type { HassState, HomeAssistant } from '../hass-types';
 import { ARCANE_COPY, fill } from './copy';
 import { arcaneBase, ensureFonts } from './theme';
 
@@ -150,6 +150,19 @@ declare global {
   interface Window {
     customCards?: Array<{ type: string; name: string; description: string; preview?: boolean }>;
   }
+}
+
+/**
+ * Entity for a card-picker stub: the first entity that passes the earliest test, else `placeholder`. A placeholder
+ * that does not exist renders the friendly "Entity not found" panel rather than Home Assistant's error card.
+ */
+export function stubEntity(h: HomeAssistant | undefined, tests: Array<(id: string, s: HassState) => boolean>, placeholder: string): string {
+  const states = Object.entries(h?.states ?? {});
+  for (const t of tests) {
+    const hit = states.find(([id, s]) => t(id, s));
+    if (hit) return hit[0];
+  }
+  return placeholder;
 }
 
 export function registerCard(

@@ -445,7 +445,7 @@ describe('full bard', () => {
     expect(compact.getGridOptions()).toEqual({ columns: 12, rows: 2 });
     const h = fakeHass({ states: { 'light.a': st('on'), 'media_player.tv': st('off'), 'media_player.b': st('on') } });
     expect(CuestBardCard.getStubConfig(h)).toEqual({ entity: 'media_player.tv' });
-    expect(CuestBardCard.getStubConfig()).toEqual({ entity: '' });
+    expect(CuestBardCard.getStubConfig()).toEqual({ entity: 'media_player.living_room' });
   });
 });
 

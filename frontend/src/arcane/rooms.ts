@@ -41,7 +41,7 @@ export class CuestRoomsCard extends ArcaneCard<RoomsConfig> {
       button.row:focus-visible{outline:2px solid ${u(A.goldText)};outline-offset:-2px}
       .name{flex:1;font-weight:600;overflow-wrap:anywhere}
       .temp{font-family:var(--arc-font-pixel);font-size:18px}
-      .status{width:52px;flex:none;text-align:right;font-size:12px;color:${u(A.muted)}}
+      .status{min-width:52px;flex:none;white-space:nowrap;text-align:right;font-size:12px;color:${u(A.muted)}}
       .status.lit-on{color:${u(A.lantern)}}
       .muted{color:${u(A.muted)}}
       .warn-text{color:${u(A.emberText)}}

@@ -37,7 +37,7 @@ export class CuestStaminaCard extends ArcaneCard<StaminaConfig> {
       .name{width:120px;flex:none;font-weight:600;overflow-wrap:anywhere}
       .segs{flex:1;display:flex;gap:3px}
       .seg{flex:1;height:12px;border-radius:2px}
-      .pct{width:40px;flex:none;text-align:right;white-space:nowrap;color:${u(A.muted)}}
+      .pct{width:48px;flex:none;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;color:${u(A.muted)}}
       .num{font-family:${u(FONT_BODY)};font-weight:700;font-variant-numeric:tabular-nums}
       .done{background:${u(A.wellDoneBg)};border:2px solid ${u(A.wellDoneBorder)};border-radius:14px;padding:12px;font-size:13px;color:${u(A.wellDoneText)}}
     `,
@@ -88,7 +88,7 @@ export class CuestStaminaCard extends ArcaneCard<StaminaConfig> {
     const low = pct <= this.config.threshold;
     const color = low ? A.staminaLow : A.staminaOk;
     const segs = Array.from({ length: SEGMENTS }, (_, i) =>
-      html`<i class="seg ${low && i === 0 ? 'pulse' : ''}" style="background:${i < filled ? color : A.staminaEmpty}"></i>`,
+      html`<i class="seg ${low && i === 0 ? 'pulse' : ''}" style="background:${i < filled || (low && i === 0) ? color : A.staminaEmpty}"></i>`,
     );
     return html`<div class="stamina-row" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}" aria-label="${b.name} battery ${pct} percent">
       <span class="name">${b.name}</span>

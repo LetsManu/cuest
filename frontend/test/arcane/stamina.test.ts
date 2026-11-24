@@ -43,7 +43,9 @@ describe('stamina card', () => {
     const el = await mount(TAG, {}, house());
     const segs = (i: number) => Array.from(rows(el)[i].querySelectorAll('.seg'));
     expect(segs(0)).toHaveLength(5);
-    expect(segs(0).filter((s) => !isColour(s, '#2C3256'))).toHaveLength(0);
+    expect(isColour(segs(0)[0], '#FF8A7A')).toBe(true);
+    expect(segs(0)[0].classList.contains('pulse')).toBe(true);
+    expect(segs(0).slice(1).every((s) => isColour(s, '#2C3256'))).toBe(true);
     const b = segs(1);
     expect(isColour(b[0], '#FF8A7A')).toBe(true);
     expect(b.slice(1).every((s) => isColour(s, '#2C3256'))).toBe(true);
@@ -120,9 +122,18 @@ describe('stamina card', () => {
     await mount(TAG, {}, house());
     const css = (customElements.get(TAG) as unknown as { elementStyles: { cssText: string }[] }).elementStyles.map((s) => s.cssText).join('\n');
     expect(/\.name\s*\{[^}]*width:\s*120px/.test(css)).toBe(true);
-    expect(/\.pct\s*\{[^}]*width:\s*40px/.test(css)).toBe(true);
+    expect(/\.pct\s*\{[^}]*(?<!-)width:\s*48px/.test(css)).toBe(true);
     expect(/\.pct\s*\{[^}]*white-space:\s*nowrap/.test(css)).toBe(true);
     expect(/\.seg\s*\{[^}]*height:\s*12px/.test(css)).toBe(true);
+  });
+
+  it('filled segments are ceil(pct/20) at the edges', async () => {
+    const mk = (v: string) => fakeHass({ states: { 'sensor.s_battery': B(v, { friendly_name: 's Battery' }) } });
+    const filled = async (v: string) => {
+      const el = await mount(TAG, { threshold: 0 }, mk(v));
+      return Array.from(rows(el)[0].querySelectorAll('.seg')).filter((x) => isColour(x, '#7FD17E')).length;
+    };
+    expect([await filled('1'), await filled('20'), await filled('21'), await filled('100')]).toEqual([1, 1, 2, 5]);
   });
 
   it('rejects bad config, stub and grid', async () => {

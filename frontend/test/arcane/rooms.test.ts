@@ -70,7 +70,10 @@ describe('rooms card', () => {
     expect(rows[3].querySelector('.temp')!.classList.contains('warn-text')).toBe(true);
     expect(rows[3].querySelector('.status')!.classList.contains('warn-text')).toBe(true);
     const css = (customElements.get(TAG) as unknown as { elementStyles: { cssText: string }[] }).elementStyles.map((s) => s.cssText).join('\n');
-    expect(/\.status\s*\{[^}]*width:\s*52px/.test(css)).toBe(true);
+    const status = /\.status\s*\{([^}]*)\}/.exec(css)![1];
+    expect(status).toMatch(/min-width:\s*52px/);
+    expect(status).toMatch(/white-space:\s*nowrap/);
+    expect(/(?<![-\w])width:/.test(status)).toBe(false);
     expect(/\.temp\s*\{[^}]*font-size:\s*18px/.test(css)).toBe(true);
   });
 

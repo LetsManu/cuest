@@ -31,3 +31,12 @@ describe('card picker stubs', () => {
     expect(stubOf('cuest-spell-tile', h)).toEqual({ entity: 'switch.plug' });
   });
 });
+
+describe('card picker names', () => {
+  it('all eleven cards carry the Cuest prefix, once each', () => {
+    const ours = (window.customCards ?? []).filter((c) => c.type.startsWith('cuest-') && c.type !== 'cuest-card');
+    expect(ours).toHaveLength(11);
+    for (const c of ours) expect(c.name, c.type).toMatch(/^Cuest [a-z]/);
+    expect(new Set(ours.map((c) => c.name)).size).toBe(11);
+  });
+});

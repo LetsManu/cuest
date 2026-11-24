@@ -304,4 +304,4 @@ export class CuestSpellTile extends ArcaneCard<TileConfig> {
   }
 }
 
-registerCard(TAG, CuestSpellTile, { name: 'Arcane spell tile', description: 'A gold-glowing tile that toggles or runs a service.' });
+registerCard(TAG, CuestSpellTile, { name: 'Cuest spell tile', description: 'A gold-glowing tile that toggles or runs a service.' });

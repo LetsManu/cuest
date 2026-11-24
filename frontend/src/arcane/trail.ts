@@ -204,4 +204,4 @@ export class CuestTrailCard extends ArcaneCard<TrailConfig> {
   }
 }
 
-registerCard(TAG, CuestTrailCard, { name: 'Arcane warmth trail', description: 'Temperature history drawn as a glowing spell trail.' });
+registerCard(TAG, CuestTrailCard, { name: 'Cuest warmth trail', description: 'Temperature history drawn as a glowing spell trail.' });

@@ -273,4 +273,4 @@ export class CuestRuneGauge extends ArcaneCard<RuneConfig> {
   }
 }
 
-registerCard(TAG, CuestRuneGauge, { name: 'Arcane rune gauge', description: 'A fire, water or arcane rune for a thermostat or sensor.' });
+registerCard(TAG, CuestRuneGauge, { name: 'Cuest rune gauge', description: 'A fire, water or arcane rune for a thermostat or sensor.' });

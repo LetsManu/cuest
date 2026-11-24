@@ -210,4 +210,4 @@ export class CuestArcaneHeader extends ArcaneCard<HeaderConfig> {
   }
 }
 
-registerCard(TAG, CuestArcaneHeader, { name: 'Arcane header', description: 'Night village header with the clock, mood and optional orbs.' });
+registerCard(TAG, CuestArcaneHeader, { name: 'Cuest header', description: 'Night village header with the clock, mood and optional orbs.' });

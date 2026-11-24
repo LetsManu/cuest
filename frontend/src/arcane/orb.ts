@@ -229,4 +229,4 @@ export class CuestOrbCard extends ArcaneCard<OrbCardConfig> {
   }
 }
 
-registerCard(TAG, CuestOrbCard, { name: 'Arcane orb', description: 'Liquid mana, health or glow orbs for your house.' });
+registerCard(TAG, CuestOrbCard, { name: 'Cuest orbs', description: 'Liquid mana, health or glow orbs for your house.' });

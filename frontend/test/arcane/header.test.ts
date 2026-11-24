@@ -213,9 +213,9 @@ describe('header wide', () => {
 });
 
 describe('registration', () => {
-  it('registers once as Arcane header', () => {
+  it('registers once as Cuest header', () => {
     const cards = (window.customCards ?? []).filter((c) => c.type === TAG);
     expect(cards.length).toBe(1);
-    expect(cards[0].name).toBe('Arcane header');
+    expect(cards[0].name).toBe('Cuest header');
   });
 });

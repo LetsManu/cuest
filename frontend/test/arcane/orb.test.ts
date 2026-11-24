@@ -197,10 +197,10 @@ describe('orb row', () => {
     expect(C.getStubConfig()).toEqual({ preset: 'online' });
   });
 
-  it('registers once as Arcane orb', () => {
+  it('registers once as Cuest orbs', () => {
     const cards = (window.customCards ?? []).filter((c) => c.type === TAG);
     expect(cards.length).toBe(1);
-    expect(cards[0].name).toBe('Arcane orb');
+    expect(cards[0].name).toBe('Cuest orbs');
   });
 });
 

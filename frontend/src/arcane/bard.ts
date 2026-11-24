@@ -295,4 +295,4 @@ export class CuestBardCard extends ArcaneCard<BardConfig> {
   }
 }
 
-registerCard(TAG, CuestBardCard, { name: 'Arcane bard', description: 'A media player with an equaliser, controls, volume and source buttons.' });
+registerCard(TAG, CuestBardCard, { name: 'Cuest bard', description: 'A media player with an equaliser, controls, volume and source buttons.' });

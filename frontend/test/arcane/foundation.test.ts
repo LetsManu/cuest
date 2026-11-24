@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { html } from 'lit';
+import { html, render } from 'lit';
 import { ARCANE_COPY, fill } from '../../src/arcane/copy';
-import { clockLine, fmtNumber, fmtPercent, fmtTemp, num, toCelsius } from '../../src/arcane/format';
-import { ArcaneCard, ConfigError, fireMoreInfo, navigate, registerCard, v } from '../../src/arcane/base';
+import { clockLine, domainOf, fmtNumber, fmtPercent, fmtTemp, num, toCelsius, withNums } from '../../src/arcane/format';
+import { ArcaneCard, ConfigError, callSafely, fireMoreInfo, isObject, navigate, parseService, registerCard, v } from '../../src/arcane/base';
 import { ARCANE, arcaneBase, ensureFonts } from '../../src/arcane/theme';
 import { expectClean, fakeHass, mount, st, text } from './fake-hass';
 
@@ -33,6 +33,33 @@ describe('format', () => {
   });
   it('builds the clock line', () => {
     expect(clockLine(new Date(2026, 10, 24, 16, 40), 'en')).toBe('Tuesday 16:40');
+  });
+});
+
+describe('shared helpers', () => {
+  it('domainOf', () => {
+    expect(domainOf('light.kitchen')).toBe('light');
+    expect(domainOf('input_boolean.a.b')).toBe('input_boolean');
+  });
+  it('withNums puts digit runs in .num spans', () => {
+    const host = document.createElement('div');
+    render(html`${withNums('Lv 12 Hearthkeeper 3')}`, host);
+    expect(Array.from(host.querySelectorAll('.num')).map((n) => n.textContent)).toEqual(['12', '3']);
+    expect(host.textContent!.replace(/<!--.*?-->/g, '')).toBe('Lv 12 Hearthkeeper 3');
+  });
+  it('isObject', () => {
+    expect(isObject({})).toBe(true);
+    for (const x of [null, [], 'a', 1, undefined]) expect(isObject(x)).toBe(false);
+  });
+  it('parseService', () => {
+    expect(parseService('script.turn_on', 'cuest-x')).toEqual(['script', 'turn_on']);
+    expect(() => parseService('nope', 'cuest-x')).toThrow('cuest-x: "service" must look like domain.service, for example script.turn_on');
+  });
+  it('callSafely resolves true on success and false on a throw or a rejection', async () => {
+    expect(await callSafely(async () => 1)).toBe(true);
+    expect(await callSafely(() => undefined)).toBe(true);
+    expect(await callSafely(async () => { throw new Error('x'); })).toBe(false);
+    expect(await callSafely(() => { throw new Error('sync'); })).toBe(false);
   });
 });
 
@@ -95,6 +122,10 @@ describe('theme', () => {
   });
   it.each(ANIMS)('.%s has its animation rule', (cls, re) => {
     expect(rule(css, cls)).toMatch(re);
+  });
+  it('shares the number face and the well-done panel', () => {
+    expect(rule(css, 'num')).toMatch(/font-family:Inter[^;]*;font-weight:700;font-variant-numeric:tabular-nums/);
+    expect(rule(css, 'done')).toMatch(/background:#1F3A2C;border:2px solid #3E7A55;border-radius:14px/);
   });
   it('panel rules', () => {
     expect(rule(css, 'panel')).toMatch(/border-radius:\s*18px/);
@@ -251,6 +282,13 @@ describe('validators', () => {
     expect(() => v.entity({ e: 'nope' }, 'e', T)).toThrow(/"e" must be an entity id/);
     expect(v.entity({ e: 'sensor.x' }, 'e', T, ['sensor'])).toBe('sensor.x');
     expect(v.entity({}, 'e', T)).toBeUndefined();
+  });
+  it('strings', () => {
+    expect(v.strings({}, 'l', T)).toEqual([]);
+    expect(v.strings({ l: ['a', 'b*'] }, 'l', T)).toEqual(['a', 'b*']);
+    expect(() => v.strings({ l: ['a', 2] }, 'l', T)).toThrow('cuest-test-card: "l" must be a list of text');
+    expect(() => v.strings({ l: 'a' }, 'l', T)).toThrow(/"l" must be a list/);
+    expect(() => v.strings({ l: ['a', 'b'] }, 'l', T, 1)).toThrow(/"l" must have at most 1 items/);
   });
   it('card validation errors carry the tag', () => {
     const el = document.createElement('cuest-test-card') as TestCard;

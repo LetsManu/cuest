@@ -9,8 +9,6 @@ export interface HassEntity {
   platform?: string;
   device_id?: string | null;
   area_id?: string | null;
-  entity_category?: string | null;
-  hidden?: boolean;
 }
 
 export interface HassDevice {

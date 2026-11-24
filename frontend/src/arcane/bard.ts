@@ -1,7 +1,7 @@
 import { html, nothing, css, unsafeCSS, type TemplateResult } from 'lit';
 import { live } from 'lit/directives/live.js';
 import type { HassState, HomeAssistant } from '../hass-types';
-import { ArcaneCard, ConfigError, fireMoreInfo, registerCard, v } from './base';
+import { ArcaneCard, ConfigError, callSafely, fireMoreInfo, isObject, parseService, registerCard, v } from './base';
 import { ARCANE_COPY, fill } from './copy';
 import { num } from './format';
 import { areaOf } from './house';
@@ -14,15 +14,6 @@ const u = unsafeCSS;
 const TAG = 'cuest-bard-card';
 const EXPIRY_MS = 3000;
 const MAX_SOURCES = 4;
-
-/** "script.turn_on" -> ["script", "turn_on"]; anything else is a config error. Shared with the spell tile. */
-export function parseService(s: string, tag = TAG): [domain: string, service: string] {
-  if (typeof s !== 'string' || !/^[a-z0-9_]+\.[a-z0-9_]+$/.test(s)) {
-    throw new ConfigError(`${tag}: "service" must look like domain.service, for example script.turn_on`);
-  }
-  const i = s.indexOf('.');
-  return [s.slice(0, i), s.slice(i + 1)];
-}
 
 interface Source {
   name: string;
@@ -37,7 +28,6 @@ interface BardConfig {
   sources: Source[];
 }
 
-const isObject = (x: unknown): x is Record<string, unknown> => x !== null && typeof x === 'object' && !Array.isArray(x);
 const text = (x: unknown): string => (typeof x === 'string' ? x.trim() : '');
 const RESTING = ['unavailable', 'unknown', 'off'];
 const DELAYS = ['0s', '.2s', '.5s', '.3s', '.7s'];
@@ -78,7 +68,6 @@ export class CuestBardCard extends ArcaneCard<BardConfig> {
       .srcs{display:flex;gap:8px}
       .src{flex:1;min-height:44px;border:2px solid ${u(A.controlBorder)};background:transparent;color:${u(A.text)};border-radius:12px;font:600 13px ${u(FONT_BODY)};cursor:pointer;padding:0 8px}
       .note{margin:0;font-size:13px;color:${u(A.soft)}}
-      .num{font-family:${u(FONT_BODY)};font-weight:700;font-variant-numeric:tabular-nums}
     `,
   ];
 
@@ -163,18 +152,8 @@ export class CuestBardCard extends ArcaneCard<BardConfig> {
     this._busy.add(key);
     this._note = false;
     this.requestUpdate();
-    let p: Promise<unknown>;
-    try {
-      p = Promise.resolve(call());
-    } catch (e) {
-      p = Promise.reject(e);
-    }
-    p.then(
-      () => undefined,
-      () => {
-        this._note = true;
-      },
-    ).then(() => {
+    void callSafely(call).then((ok) => {
+      if (!ok) this._note = true;
       this._busy.delete(key);
       this.requestUpdate();
     });
@@ -202,39 +181,27 @@ export class CuestBardCard extends ArcaneCard<BardConfig> {
     if (!h || pct === this._volSent) return this.armExpiry();
     this._volSent = pct;
     this._volInflight = true;
-    let p: Promise<unknown>;
-    try {
-      p = Promise.resolve(h.callService('media_player', 'volume_set', { entity_id: this.config.entity, volume_level: pct / 100 }));
-    } catch (e) {
-      p = Promise.reject(e);
-    }
     const gen = this._volGen;
-    p.then(
-      () => {
-        if (gen !== this._volGen) return;
-        this._volInflight = false;
-        const q = this._volQueued;
-        this._volQueued = null;
-        const same = q === this._volSent;
-        this._volSent = null;
+    void callSafely(() => h.callService('media_player', 'volume_set', { entity_id: this.config.entity, volume_level: pct / 100 })).then((ok) => {
+      if (gen !== this._volGen) return;
+      this._volInflight = false;
+      const q = this._volQueued;
+      this._volQueued = null;
+      const same = q === this._volSent;
+      this._volSent = null;
+      if (ok) {
         if (q !== null && !same) this.sendVolume(q);
         else this.armExpiry();
-      },
-      () => {
-        if (gen !== this._volGen) return;
-        this._volInflight = false;
-        this._volSent = null;
-        const q = this._volQueued;
-        this._volQueued = null;
-        if (q !== null) {
-          this.sendVolume(q);
-          return;
-        }
-        this._note = true;
-        this.resetVolume();
-        this.requestUpdate();
-      },
-    );
+        return;
+      }
+      if (q !== null) {
+        this.sendVolume(q);
+        return;
+      }
+      this._note = true;
+      this.resetVolume();
+      this.requestUpdate();
+    });
   }
 
   /** Without a hass echo the slider goes back to the player's own level. */
@@ -318,7 +285,7 @@ export class CuestBardCard extends ArcaneCard<BardConfig> {
   }
 
   private callSource(src: Source, i: number): void {
-    const [d, s] = parseService(src.service);
+    const [d, s] = parseService(src.service, TAG);
     this.service(d, s, `src${i}`, src.data ? { ...src.data } : {});
   }
 }

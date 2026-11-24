@@ -4,7 +4,7 @@ import { ArcaneCard, registerCard, v } from './base';
 import { ARCANE_COPY, fill } from './copy';
 import { fmtNumber, fmtTemp, num } from './format';
 import { fetchHistory, resample, trailGeometry, type Sample } from './history';
-import { ARCANE, FONT_BODY, FONT_PIXEL } from './theme';
+import { ARCANE, FONT_PIXEL } from './theme';
 
 const C = ARCANE_COPY;
 const A = ARCANE;
@@ -52,7 +52,6 @@ export class CuestTrailCard extends ArcaneCard<TrailConfig> {
       .dot{position:absolute;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:${u(A.lantern)}}
       .legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:${u(A.muted)}}
       .legend b{font-weight:700}
-      .num{font-family:${u(FONT_BODY)};font-weight:700;font-variant-numeric:tabular-nums}
     `,
   ];
 

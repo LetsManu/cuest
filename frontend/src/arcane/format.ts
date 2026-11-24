@@ -1,3 +1,12 @@
+import { html, type TemplateResult } from 'lit';
+
+/** "light.kitchen" -> "light". */
+export const domainOf = (id: string): string => id.slice(0, Math.max(0, id.indexOf('.')));
+
+/** Digits in Inter 700 tabular (class `num`), words stay in the surrounding face. */
+export const withNums = (s: string): TemplateResult[] =>
+  s.split(/(\d+)/).map((part, i) => (i % 2 ? html`<span class="num">${part}</span>` : html`${part}`));
+
 /** A finite number from a state or attribute, otherwise null. */
 export function num(state: unknown): number | null {
   if (typeof state === 'number') return Number.isFinite(state) ? state : null;

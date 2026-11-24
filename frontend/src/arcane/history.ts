@@ -66,8 +66,6 @@ export interface TrailGeometry {
   segments: string[][];
   area: string;
   last: { x: number; y: number } | null;
-  min: number;
-  max: number;
 }
 
 const r2 = (n: number): number => Math.round(n * 100) / 100;
@@ -107,5 +105,5 @@ export function trailGeometry(series: (number | null)[][], w = 326, h = 110, pad
   const area = (runs[0] ?? [])
     .map((r) => `M${r.map((p) => `${p.x},${p.y}`).join(' L')} L${r[r.length - 1].x},${h} L${r[0].x},${h} Z`)
     .join(' ');
-  return { segments, area, last, min, max };
+  return { segments, area, last };
 }

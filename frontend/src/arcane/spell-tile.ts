@@ -1,9 +1,8 @@
 import { html, nothing, css, unsafeCSS, type TemplateResult } from 'lit';
 import type { HassState, HomeAssistant } from '../hass-types';
-import { parseService } from './bard';
-import { ArcaneCard, ConfigError, fireMoreInfo, registerCard, v } from './base';
+import { ArcaneCard, ConfigError, callSafely, fireMoreInfo, isObject, parseService, registerCard, v } from './base';
 import { ARCANE_COPY } from './copy';
-import { num } from './format';
+import { domainOf, num } from './format';
 import { isLightGroup } from './house';
 import { ICON_COLOR, TILE_ICONS, isTileIcon, tileIcon, type TileIcon } from './icons';
 import { ARCANE, FONT_BODY } from './theme';
@@ -36,8 +35,6 @@ interface TileConfig {
   tap_action?: TapAction;
 }
 
-const isObject = (x: unknown): x is Record<string, unknown> => x !== null && typeof x === 'object' && !Array.isArray(x);
-const domainOf = (id: string): string => id.slice(0, id.indexOf('.'));
 const str = (x: unknown): string => (typeof x === 'string' ? x.trim() : '');
 
 type Effective = 'toggle' | 'turn_on' | 'press' | 'service' | 'more-info' | 'none';
@@ -72,7 +69,6 @@ export class CuestSpellTile extends ArcaneCard<TileConfig> {
       .lit .state{color:${u(A.litText)}}
       .glyph{flex:none;display:flex;align-items:center;justify-content:center}
       ha-icon.glyph{--mdc-icon-size:24px;width:24px;height:24px}
-      .num{font-family:${u(FONT_BODY)};font-weight:700;font-variant-numeric:tabular-nums}
       .note{margin:6px 0 0;font-size:12px;color:${u(A.soft)}}
     `,
   ];
@@ -208,18 +204,8 @@ export class CuestSpellTile extends ArcaneCard<TileConfig> {
     this._busy = true;
     this._note = false;
     this.requestUpdate();
-    let p: Promise<unknown>;
-    try {
-      p = Promise.resolve(call());
-    } catch (e) {
-      p = Promise.reject(e);
-    }
-    p.then(
-      () => undefined,
-      () => {
-        this._note = true;
-      },
-    ).then(() => {
+    void callSafely(call).then((ok) => {
+      if (!ok) this._note = true;
       this._busy = false;
       this.requestUpdate();
     });

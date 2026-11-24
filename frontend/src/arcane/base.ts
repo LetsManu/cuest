@@ -11,6 +11,27 @@ const fail = (tag: string, key: string, what: string): never => {
 
 type Raw = Record<string, unknown>;
 
+export const isObject = (x: unknown): x is Record<string, unknown> => x !== null && typeof x === 'object' && !Array.isArray(x);
+
+/** "script.turn_on" -> ["script", "turn_on"]; anything else is a config error. */
+export function parseService(s: string, tag: string): [domain: string, service: string] {
+  if (typeof s !== 'string' || !/^[a-z0-9_]+\.[a-z0-9_]+$/.test(s)) {
+    throw new ConfigError(`${tag}: "service" must look like domain.service, for example script.turn_on`);
+  }
+  const i = s.indexOf('.');
+  return [s.slice(0, i), s.slice(i + 1)];
+}
+
+/** Runs a call that may throw or reject. Resolves true when it worked, false otherwise; never rejects. */
+export async function callSafely(call: () => unknown): Promise<boolean> {
+  try {
+    await call();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Config validators. Every failure throws ConfigError("<tag>: \"<key>\" ..."). */
 export const v = {
   str(raw: Raw, key: string, tag: string, required = false): string | undefined {
@@ -49,6 +70,12 @@ export const v = {
     if (!Array.isArray(x)) return fail(tag, key, 'must be a list');
     if (max !== undefined && x.length > max) return fail(tag, key, `must have at most ${max} items`);
     return x;
+  },
+  /** A list of text (empty when not given). */
+  strings(raw: Raw, key: string, tag: string, max?: number): string[] {
+    const l = v.list(raw, key, tag, max);
+    if (!l.every((x) => typeof x === 'string')) return fail(tag, key, 'must be a list of text');
+    return l as string[];
   },
   entity(raw: Raw, key: string, tag: string, domains?: string[], required = false): string | undefined {
     const x = raw[key];

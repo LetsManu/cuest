@@ -2,9 +2,9 @@ import { html, nothing, css, unsafeCSS, type TemplateResult } from 'lit';
 import type { HomeAssistant } from '../hass-types';
 import { ArcaneCard, ConfigError, navigate, registerCard, v } from './base';
 import { ARCANE_COPY, fill } from './copy';
-import { fmtTemp } from './format';
+import { fmtTemp, withNums } from './format';
 import { roomRows, type RoomRow } from './house';
-import { ARCANE, FONT_BODY } from './theme';
+import { ARCANE } from './theme';
 
 const C = ARCANE_COPY;
 const A = ARCANE;
@@ -21,9 +21,6 @@ interface RoomsConfig {
   heading: 'outside' | 'inside';
 }
 
-/** Digits in Inter 700 tabular, words stay in the pixel face. */
-const withNums = (s: string): TemplateResult[] =>
-  s.split(/(\d+)/).map((part, i) => (i % 2 ? html`<span class="num">${part}</span>` : html`${part}`));
 
 export class CuestRoomsCard extends ArcaneCard<RoomsConfig> {
   readonly tag = TAG;
@@ -45,7 +42,6 @@ export class CuestRoomsCard extends ArcaneCard<RoomsConfig> {
       .status.lit-on{color:${u(A.lantern)}}
       .muted{color:${u(A.muted)}}
       .warn-text{color:${u(A.emberText)}}
-      .num{font-family:${u(FONT_BODY)};font-weight:700;font-variant-numeric:tabular-nums}
       .none{padding:14px 16px;font-size:13px;color:${u(A.soft)}}
     `,
   ];

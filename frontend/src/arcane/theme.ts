@@ -88,6 +88,8 @@ export const arcaneBase = css`
   .panel{background:${u(A.panel)};border:2px solid ${u(A.panelBorder)};border-radius:18px;padding:14px 16px;box-sizing:border-box;color:${u(A.text)}}
   .panel.rim{border-color:${u(A.rim)}}
   .warn{background:${u(A.panel)};border:2px solid ${u(A.scrollBang)};border-radius:18px;padding:14px 16px;color:${u(A.soft)};font-size:13px}
+  .num{font-family:${u(FONT_BODY)};font-weight:700;font-variant-numeric:tabular-nums}
+  .done{background:${u(A.wellDoneBg)};border:2px solid ${u(A.wellDoneBorder)};border-radius:14px;padding:12px;font-size:13px;color:${u(A.wellDoneText)}}
   h2{margin:0;font-family:${u(FONT_PIXEL)};font-weight:500;font-size:18px;color:${u(A.goldText)}}
   @keyframes wave{from{transform:translateX(0)}to{transform:translateX(-60px)}}
   @keyframes spin{to{transform:rotate(360deg)}}

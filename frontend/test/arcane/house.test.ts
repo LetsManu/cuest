@@ -189,8 +189,8 @@ describe('collectFaults', () => {
       devices: { p: { id: 'p', area_id: 'kuche', model: 'Pump 1' } },
     });
     const byId = Object.fromEntries(collectFaults(h, opts).faults.map((f) => [f.id, f]));
-    expect(byId['problem:binary_sensor.pump_problem']).toMatchObject({ title: 'Check Pump', detail: 'Küche reports a small problem', area: 'Küche' });
-    expect(byId['problem:binary_sensor.fan_problem']).toMatchObject({ title: 'Check Fan', detail: 'Reports a small problem', area: null });
+    expect(byId['problem:binary_sensor.pump_problem']).toMatchObject({ title: 'Check Pump', detail: 'Küche reports a small problem' });
+    expect(byId['problem:binary_sensor.fan_problem']).toMatchObject({ title: 'Check Fan', detail: 'Reports a small problem' });
   });
 
   it('reports updates and impossible temperatures', () => {

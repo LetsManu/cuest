@@ -34,9 +34,7 @@ describe('resample', () => {
 describe('trailGeometry', () => {
   it('splits runs of values at gaps', () => {
     const g = trailGeometry([[1, 2, null, 4]])!;
-    expect(g.segments[0]).toHaveLength(2);
-    expect(g.min).toBe(1);
-    expect(g.max).toBe(4);
+    expect(g.segments[0]).toEqual(['0,101.2 108.67,70.4', '326,8.8']);
     expect(g.area.startsWith('M')).toBe(true);
     expect(g.area.match(/Z/g)).toHaveLength(2);
   });
@@ -49,8 +47,7 @@ describe('trailGeometry', () => {
   it('keeps a flat series finite', () => {
     const g = trailGeometry([[5, 5, 5]])!;
     expect(g.segments[0].join(' ')).not.toMatch(/NaN|Infinity/);
-    expect(g.min).toBe(5);
-    expect(g.max).toBe(5);
+    expect(g.segments[0][0]).toBe('0,55 163,55 326,55');
   });
 
   it('pads 8 percent by default', () => {

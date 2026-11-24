@@ -1,6 +1,6 @@
 import { html, nothing, svg, css, unsafeCSS, type TemplateResult } from 'lit';
 import type { HassState, HomeAssistant } from '../hass-types';
-import { ArcaneCard, ConfigError, registerCard, v } from './base';
+import { ArcaneCard, ConfigError, callSafely, registerCard, v } from './base';
 import { ARCANE_COPY, fill } from './copy';
 import { fmtNumber, fmtTemp, num } from './format';
 import { ARCANE, FONT_BODY } from './theme';
@@ -106,7 +106,6 @@ export class CuestRuneGauge extends ArcaneCard<RuneConfig> {
       .btn{width:48px;height:48px;min-width:48px;min-height:48px;border-radius:12px;border:2px solid ${u(A.panelBorder)};background:${u(A.bg)};font:700 20px ${u(FONT_BODY)};cursor:pointer;padding:0}
       .btn.cool{color:${u(A.manaFrom)}}
       .btn.warm{color:${u(A.emberText)};border-color:${u(A.rim)}}
-      .num{font-family:${u(FONT_BODY)};font-weight:700;font-variant-numeric:tabular-nums}
       .gauge-sub{font-family:${u(FONT_BODY)};font-variant-numeric:tabular-nums}
     `,
   ];
@@ -196,7 +195,8 @@ export class CuestRuneGauge extends ArcaneCard<RuneConfig> {
     this._lastSent = target;
     this._sent.add(target);
     this.armExpiry();
-    Promise.resolve(h.callService('climate', 'set_temperature', { entity_id: this.config.entity, temperature: target })).catch(() => {
+    void callSafely(() => h.callService('climate', 'set_temperature', { entity_id: this.config.entity, temperature: target })).then((ok) => {
+      if (ok) return;
       // Only the newest call may undo the pending value; an older failure must not wipe a newer tap.
       this._sent.delete(target);
       if (this._lastSent !== target) return;

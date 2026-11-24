@@ -1,9 +1,9 @@
 import { html, nothing, css, unsafeCSS, type TemplateResult } from 'lit';
 import type { HomeAssistant } from '../hass-types';
-import { ArcaneCard, ConfigError, registerCard, v } from './base';
+import { ArcaneCard, registerCard, v } from './base';
 import { ARCANE_COPY } from './copy';
 import { batteries, type Battery } from './house';
-import { ARCANE, FONT_BODY } from './theme';
+import { ARCANE } from './theme';
 
 const C = ARCANE_COPY;
 const A = ARCANE;
@@ -19,12 +19,6 @@ interface StaminaConfig {
   threshold: number;
 }
 
-const strings = (raw: Record<string, unknown>, key: string): string[] => {
-  const l = v.list(raw, key, TAG);
-  if (!l.every((x) => typeof x === 'string')) throw new ConfigError(`${TAG}: "${key}" must be a list of text`);
-  return l as string[];
-};
-
 export class CuestStaminaCard extends ArcaneCard<StaminaConfig> {
   readonly tag = TAG;
 
@@ -38,8 +32,6 @@ export class CuestStaminaCard extends ArcaneCard<StaminaConfig> {
       .segs{flex:1;display:flex;gap:3px}
       .seg{flex:1;height:12px;border-radius:2px}
       .pct{width:48px;flex:none;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;color:${u(A.muted)}}
-      .num{font-family:${u(FONT_BODY)};font-weight:700;font-variant-numeric:tabular-nums}
-      .done{background:${u(A.wellDoneBg)};border:2px solid ${u(A.wellDoneBorder)};border-radius:14px;padding:12px;font-size:13px;color:${u(A.wellDoneText)}}
     `,
   ];
 
@@ -48,11 +40,11 @@ export class CuestStaminaCard extends ArcaneCard<StaminaConfig> {
   }
 
   protected validate(raw: Record<string, unknown>): StaminaConfig {
-    const entities = strings(raw, 'entities');
+    const entities = v.strings(raw, 'entities', TAG);
     return {
       title: v.str(raw, 'title', TAG) ?? C.staminaTitle,
       ...(entities.length ? { entities } : {}),
-      exclude: strings(raw, 'exclude'),
+      exclude: v.strings(raw, 'exclude', TAG),
       limit: v.num(raw, 'limit', TAG, { def: 8, min: 1, max: 100 }),
       threshold: v.num(raw, 'threshold', TAG, { def: 20, min: 0, max: 100 }),
     };

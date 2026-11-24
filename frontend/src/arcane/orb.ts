@@ -4,7 +4,7 @@ import { ArcaneCard, ConfigError, registerCard, v } from './base';
 import { ARCANE_COPY, fill } from './copy';
 import { fmtPercent, num } from './format';
 import { collectFaults, lightStats, matches, onlineShare } from './house';
-import { ARCANE, FONT_BODY, FONT_PIXEL } from './theme';
+import { ARCANE, FONT_PIXEL } from './theme';
 
 const C = ARCANE_COPY;
 const A = ARCANE;
@@ -47,13 +47,6 @@ const GRADIENT: Record<OrbColor, [string, string]> = {
 };
 const BACK_WAVE: Record<OrbColor, string> = { mana: A.manaBack, health: A.healthTo, glow: A.glowTo };
 
-const strings = (raw: Record<string, unknown>, key: string, tag: string, max?: number): string[] | undefined => {
-  const l = v.list(raw, key, tag, max);
-  if (raw[key] === undefined || raw[key] === null) return undefined;
-  if (!l.every((x) => typeof x === 'string')) throw new ConfigError(`${tag}: "${key}" must be a list of text`);
-  return l as string[];
-};
-
 export function validateOrb(raw: unknown, tag: string): OrbItem {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) throw new ConfigError(`${tag}: each orb must be an object`);
   const r = raw as Record<string, unknown>;
@@ -77,8 +70,8 @@ export function validateOrb(raw: unknown, tag: string): OrbItem {
   const sublabel = v.str(r, 'sublabel', tag);
   if (sublabel) item.sublabel = sublabel;
   for (const k of ['domains', 'integrations', 'exclude'] as const) {
-    const l = strings(r, k, tag);
-    if (l) item[k] = l;
+    const l = v.strings(r, k, tag);
+    if (l.length) item[k] = l;
   }
   if (preset === 'health') item.battery_threshold = v.num(r, 'battery_threshold', tag, { def: 20, min: 0, max: 100 });
   return item;
@@ -187,7 +180,6 @@ export class CuestOrbCard extends ArcaneCard<OrbCardConfig> {
       .orbs{position:relative;display:flex;justify-content:space-around;padding:16px 8px 12px;overflow:hidden}
       .cell{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}
       .cell .line{font-family:${u(FONT_PIXEL)};font-size:14px}
-      .num{font-family:${u(FONT_BODY)};font-weight:700;font-variant-numeric:tabular-nums}
       .cell .sub{font-size:11px;color:${u(A.muted)}}
       .cell .warn{max-width:120px}
     `,

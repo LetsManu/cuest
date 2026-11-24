@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { expectClean, fakeHass, mount, st, text } from './fake-hass';
-import { CuestBardCard, parseService } from '../../src/arcane/bard';
+import { CuestBardCard } from '../../src/arcane/bard';
+import { parseService } from '../../src/arcane/base';
 import '../../src/arcane/bard';
 
 const TAG = 'cuest-bard-card';
@@ -59,8 +60,8 @@ afterEach(() => {
 
 describe('parseService', () => {
   it('splits domain.service and rejects anything else', () => {
-    expect(parseService('script.turn_on')).toEqual(['script', 'turn_on']);
-    for (const bad of ['nope', 'a.b.c', 'Script.turn_on', '.x', 'x.', 'a b.c', '']) expect(() => parseService(bad)).toThrow(/service/);
+    expect(parseService('script.turn_on', TAG)).toEqual(['script', 'turn_on']);
+    for (const bad of ['nope', 'a.b.c', 'Script.turn_on', '.x', 'x.', 'a b.c', '']) expect(() => parseService(bad, TAG)).toThrow(/service/);
   });
 });
 

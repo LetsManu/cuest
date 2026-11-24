@@ -2,8 +2,9 @@ import { html, nothing, css, unsafeCSS, type TemplateResult } from 'lit';
 import type { HomeAssistant } from '../hass-types';
 import { ArcaneCard, registerCard, v } from './base';
 import { ARCANE_COPY, fill } from './copy';
+import { withNums } from './format';
 import { heroFor } from './house';
-import { ARCANE, FONT_BODY, FONT_PIXEL } from './theme';
+import { ARCANE, FONT_PIXEL } from './theme';
 
 const C = ARCANE_COPY;
 const A = ARCANE;
@@ -14,9 +15,6 @@ interface HeroConfig {
   player?: string;
 }
 
-/** Digits in Inter 700 tabular, words stay in the pixel face. */
-const withNums = (s: string): TemplateResult[] =>
-  s.split(/(\d+)/).map((part, i) => (i % 2 ? html`<span class="num">${part}</span>` : html`${part}`));
 
 export class CuestHeroCard extends ArcaneCard<HeroConfig> {
   readonly tag = TAG;
@@ -31,7 +29,6 @@ export class CuestHeroCard extends ArcaneCard<HeroConfig> {
       .bar{position:relative;height:14px;background:${u(A.well)};border:2px solid ${u(A.gold)};border-radius:8px;overflow:hidden}
       .fill{height:100%;background:linear-gradient(90deg,${u(A.glowTo)},${u(A.lantern)})}
       .rest{font-size:12px;color:${u(A.muted)};font-variant-numeric:tabular-nums}
-      .num{font-family:${u(FONT_BODY)};font-weight:700;font-variant-numeric:tabular-nums}
     `,
   ];
 

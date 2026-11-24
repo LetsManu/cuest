@@ -31,10 +31,8 @@ export class CuestAlliesCard extends ArcaneCard<AlliesConfig> {
       .track{flex:1;height:10px;background:${u(A.track)};border-radius:3px}
       .fill{display:block;height:100%;border-radius:3px}
       .count{width:74px;flex:none;text-align:right;color:${u(A.muted)}}
-      .num{font-family:${u(FONT_BODY)};font-weight:700;font-variant-numeric:tabular-nums}
       .more{align-self:flex-start;min-height:44px;background:none;border:0;padding:0 2px;color:${u(A.goldText)};font:600 14px ${u(FONT_BODY)};cursor:pointer}
       .more:hover{color:${u(A.lantern)}}
-      .done{background:${u(A.wellDoneBg)};border:2px solid ${u(A.wellDoneBorder)};border-radius:14px;padding:12px;font-size:13px;color:${u(A.wellDoneText)}}
     `,
   ];
 
@@ -43,8 +41,7 @@ export class CuestAlliesCard extends ArcaneCard<AlliesConfig> {
   }
 
   protected validate(raw: Record<string, unknown>): AlliesConfig {
-    const ignore = v.list(raw, 'ignore', TAG);
-    if (!ignore.every((x) => typeof x === 'string')) throw new ConfigError(`${TAG}: "ignore" must be a list of text`);
+    const ignore = v.strings(raw, 'ignore', TAG);
     let names: Record<string, string> | undefined;
     if (raw.names !== undefined && raw.names !== null) {
       const n = raw.names;
@@ -56,7 +53,7 @@ export class CuestAlliesCard extends ArcaneCard<AlliesConfig> {
     const title = v.str(raw, 'title', TAG);
     return {
       ...(title ? { title } : {}),
-      ignore: ignore as string[],
+      ignore,
       limit: v.num(raw, 'limit', TAG, { def: 4, min: 1, max: 50 }),
       min_entities: v.num(raw, 'min_entities', TAG, { def: 1, min: 1 }),
       ...(names ? { names } : {}),

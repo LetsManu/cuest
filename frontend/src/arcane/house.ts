@@ -1,7 +1,7 @@
 import type { HassDevice, HassState, HomeAssistant } from '../hass-types';
 import { playersFromSensors } from '../sensors';
 import { ARCANE_COPY, fill } from './copy';
-import { fmtNumber, num, toCelsius } from './format';
+import { domainOf, fmtNumber, num, toCelsius } from './format';
 
 const C = ARCANE_COPY;
 
@@ -42,8 +42,6 @@ export function displayName(h: HomeAssistant, entityId: string): string {
   return entityId;
 }
 
-const domain = (id: string): string => id.slice(0, id.indexOf('.'));
-
 export function isLightGroup(h: HomeAssistant, id: string): boolean {
   return (
     Array.isArray(attr(h.states[id], 'entity_id')) ||
@@ -74,7 +72,7 @@ export function onlineShare(
   let online = 0;
   let total = 0;
   for (const id of Object.keys(h.states)) {
-    const d = domain(id);
+    const d = domainOf(id);
     if (opts.domains?.length ? !opts.domains.includes(d) : SKIPPED_DOMAINS.includes(d) || d.startsWith('input_')) continue;
     if (opts.integrations?.length && !opts.integrations.includes(h.entities?.[id]?.platform ?? '')) continue;
     if (opts.exclude?.length && matches(id, opts.exclude)) continue;
@@ -94,7 +92,6 @@ export interface Fault {
   xp: number;
   minutes: number;
   entityIds: string[];
-  area: string | null;
 }
 
 const KIND_ORDER: FaultKind[] = ['battery_critical', 'problem', 'temperature', 'battery_low', 'update'];
@@ -135,7 +132,6 @@ export function collectFaults(
         title: fill(kind === 'battery_critical' ? C.batteryCritical : C.batteryLow, { name: displayName(h, id) }),
         detail: fill(C.batteryDetail, { n: fmtNumber(v, l, 0) }),
         entityIds: [id],
-        area: areaName(h, id),
       });
       faults.push(f);
       const did = h.entities?.[id]?.device_id;
@@ -148,7 +144,6 @@ export function collectFaults(
         title: fill(C.batteryLow, { name: displayName(h, id) }),
         detail: C.batteryLowBinary,
         entityIds: [id],
-        area: areaName(h, id),
       });
       faults.push(f);
       const did = h.entities?.[id]?.device_id;
@@ -174,7 +169,6 @@ export function collectFaults(
           title: typeof fn === 'string' && fn ? fn : id,
           detail: inst && latest ? fill(C.updateDetail, { installed: String(inst), latest: String(latest) }) : C.updateDetailUnknown,
           entityIds: [id],
-          area: areaName(h, id),
         }),
       );
     }
@@ -193,7 +187,6 @@ export function collectFaults(
           title: fill(C.tempOwn, { name: displayName(h, id) }),
           detail: fill(C.tempOwnDetail, { v }),
           entityIds: [id],
-          area: areaName(h, id),
         }),
       );
     }
@@ -206,28 +199,28 @@ export function collectFaults(
     if (!model) loose.push(id);
     else byModel.set(model, [...(byModel.get(model) ?? []), id]);
   }
-  const places = (ids: string[]): { text: string; top: string | null } => {
+  const places = (ids: string[]): string => {
     const counts = new Map<string, number>();
     for (const id of ids) {
       const a = areaName(h, id);
       if (a) counts.set(a, (counts.get(a) ?? 0) + 1);
     }
     const sorted = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-    return { text: sorted.map(([n, c]) => (c > 1 ? `${n} ×${c}` : n)).join(' · '), top: sorted[0]?.[0] ?? null };
+    return sorted.map(([n, c]) => (c > 1 ? `${n} ×${c}` : n)).join(' · ');
   };
-  const problemDetail = (p: { text: string }, one: boolean): string =>
-    p.text ? fill(one ? C.problemDetailOne : C.problemDetail, { places: p.text }) : C.problemDetailNoArea;
+  const problemDetail = (p: string, one: boolean): string =>
+    p ? fill(one ? C.problemDetailOne : C.problemDetail, { places: p }) : C.problemDetailNoArea;
   for (const [model, ids] of byModel) {
     if (ids.length < 2) {
       loose.push(...ids);
       continue;
     }
     const p = places(ids);
-    faults.push(fault('problem', { id: `problem:model:${model}`, title: fill(C.problemGroup, { n: ids.length, model }), detail: problemDetail(p, false), entityIds: ids, area: p.top }));
+    faults.push(fault('problem', { id: `problem:model:${model}`, title: fill(C.problemGroup, { n: ids.length, model }), detail: problemDetail(p, false), entityIds: ids }));
   }
   for (const id of loose) {
     const p = places([id]);
-    faults.push(fault('problem', { id: `problem:${id}`, title: fill(C.problemOne, { name: displayName(h, id) }), detail: problemDetail(p, true), entityIds: [id], area: p.top }));
+    faults.push(fault('problem', { id: `problem:${id}`, title: fill(C.problemOne, { name: displayName(h, id) }), detail: problemDetail(p, true), entityIds: [id] }));
   }
 
   faults.sort((a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) || a.title.localeCompare(b.title));

@@ -426,7 +426,7 @@ export class CuestPanel extends LitElement {
     void (async () => {
       try {
         const [res] = await Promise.all([api.dice(pid, energy), new Promise((ok) => setTimeout(ok, this.diceDelayMs))]);
-        if (this._view === 'dice' && pid === this._playerId) { this._dice = res; this._error = ''; this._offline = false; }
+        if (this._view === 'dice' && pid === this._playerId && energy === this._energy) { this._dice = res; this._error = ''; this._offline = false; }
       } catch (e) {
         const err = toApiError(e);
         if (err.offline) this._offline = true;
@@ -441,6 +441,8 @@ export class CuestPanel extends LitElement {
     const api = this._api;
     const r = this._dice;
     if (!pid || !api || !r) return;
+    // Synchronous double-tap guard: _act sets the busy flag before its first await.
+    if (this._busy['dice'] || ('quest' in r && this._busy[r.quest.id])) return;
     if (this._sound) unlock();
     if ('quest' in r) {
       this._start(r.quest);

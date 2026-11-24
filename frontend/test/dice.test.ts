@@ -148,6 +148,49 @@ describe('Energy dice', () => {
     delete (globalThis as any).AudioContext;
   });
 
+  it('double-tapping Start sends one request (quest and suggestion)', async () => {
+    const a = fakeHass();
+    const el = await mount(a.hass);
+    await openDice(el);
+    q(el, '[data-act="roll"]').click(); await settle(el);
+    const b = q(el, '[data-act="dice-start"]');
+    b.click(); b.click(); await settle(el);
+    expect(a.callApi.mock.calls.filter((c) => c[1] === 'cuest/quests/q9/start').length).toBe(1);
+
+    document.body.innerHTML = '';
+    const s = fakeHass({ roll: () => ({ suggestion: SUGGESTION }) });
+    const el2 = await mount(s.hass);
+    await openDice(el2);
+    q(el2, '[data-act="roll"]').click(); await settle(el2);
+    const b2 = q(el2, '[data-act="dice-start"]');
+    b2.click(); b2.click(); await settle(el2);
+    expect(s.callApi.mock.calls.filter((c) => c[1] === 'cuest/dice/accept').length).toBe(1);
+  });
+
+  it('ignores a roll reply whose energy no longer matches the toggle', async () => {
+    let release: (v: unknown) => void = () => {};
+    const gate = new Promise((ok) => { release = ok; });
+    const f = fakeHass({ roll: () => gate });
+    const el = await mount(f.hass);
+    await openDice(el);
+    q(el, '[data-act="roll"]').click(); await settle(el);
+    q(el, '[data-energy="high"]').click(); await settle(el);
+    release({ quest: { ...QUEST, energy: 'medium' } }); await settle(el);
+    expect(q(el, '[data-role="dice-result"]')).toBeNull();
+    expect(q(el, '[data-act="roll"]').hasAttribute('disabled')).toBe(false);
+  });
+
+  it('does not unlock sound on Roll or Start when sound is off', async () => {
+    const resume = vi.fn(async () => {});
+    (globalThis as any).AudioContext = class { state = 'suspended'; resume = resume; };
+    const el = await mount(fakeHass().hass);
+    await openDice(el);
+    q(el, '[data-act="roll"]').click(); await settle(el);
+    q(el, '[data-act="dice-start"]').click(); await settle(el);
+    expect(resume).not.toHaveBeenCalled();
+    delete (globalThis as any).AudioContext;
+  });
+
   it('back returns to the village', async () => {
     const el = await mount(fakeHass().hass);
     await openDice(el);

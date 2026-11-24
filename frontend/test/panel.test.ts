@@ -198,7 +198,7 @@ describe('cuest-panel', () => {
   });
 
   it('switches player: clears the choice and returns to the picker', async () => {
-    const { hass, callApi } = fakeHass({ who: { playerId: 'p1', isAdmin: false, players: [{ id: 'p1', name: 'Ada' }, { id: 'p2', name: 'Bo' }] } });
+    const { hass, callApi } = fakeHass({ who: { playerId: 'p1', isAdmin: true, players: [{ id: 'p1', name: 'Ada' }, { id: 'p2', name: 'Bo' }] } });
     const el = await mount(hass);
     localStorage.setItem('cuest.player', 'p1');
     el.shadowRoot.querySelector('[data-act="switch"]').click();
@@ -227,5 +227,61 @@ describe('cuest-panel', () => {
     expect(el.shadowRoot.querySelector('.lvl').textContent.trim()).toBe('Level 4');
     expect(el.shadowRoot.querySelector('.ttl').textContent.trim()).toBe('Hearthkeeper');
     expect(el.shadowRoot.querySelector('.herocard').textContent).not.toContain('·');
+  });
+
+  const TWO = [{ id: 'p1', name: 'Ada' }, { id: 'p2', name: 'Bo' }];
+
+  it('a linked non-admin always plays as their own player and cannot switch', async () => {
+    localStorage.setItem('cuest.player', 'p2');
+    const { hass, callApi } = fakeHass({ who: { playerId: 'p1', isAdmin: false, players: TWO } });
+    const el = await mount(hass);
+    expect(callApi).toHaveBeenCalledWith('GET', 'cuest/players/p1/summary', undefined);
+    expect(callApi).not.toHaveBeenCalledWith('GET', 'cuest/players/p2/summary', undefined);
+    expect(el.shadowRoot.querySelector('[data-act="switch"]')).toBeNull();
+  });
+
+  it('a linked admin keeps the stored pick and the Switch button', async () => {
+    localStorage.setItem('cuest.player', 'p2');
+    const { hass, callApi } = fakeHass({ who: { playerId: 'p1', isAdmin: true, players: TWO } });
+    const el = await mount(hass);
+    expect(callApi).toHaveBeenCalledWith('GET', 'cuest/players/p2/summary', undefined);
+    expect(el.shadowRoot.querySelector('[data-act="switch"]')).not.toBeNull();
+  });
+
+  it('an unlinked non-admin (shared tablet) can still pick and switch', async () => {
+    const { hass } = fakeHass({ who: { playerId: null, isAdmin: false, players: TWO } });
+    const el = await mount(hass);
+    expect(text(el)).toContain("Who's playing?");
+  });
+
+  it('runs the queued refresh even when the player changed during a load', async () => {
+    const { hass, callApi } = fakeHass({ who: { playerId: null, isAdmin: true, players: TWO } });
+    localStorage.setItem('cuest.player', 'p1');
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    const orig = callApi.getMockImplementation()! as (...a: unknown[]) => unknown;
+    let held = false;
+    (callApi as any).mockImplementation(async (m: string, path: string, b?: unknown) => {
+      if (path === 'cuest/players/p1/summary' && !held) { held = true; await gate; }
+      return orig(m, path, b);
+    });
+    const el = document.createElement('cuest-panel') as any;
+    el.narrow = false;
+    document.body.appendChild(el);
+    el.hass = hass;
+    await new Promise((r) => setTimeout(r, 0));
+    el._pick('p2'); // queues a refresh while the p1 load is still waiting
+    release();
+    for (let i = 0; i < 6; i++) { await new Promise((r) => setTimeout(r, 0)); await el.updateComplete; }
+    expect(callApi).toHaveBeenCalledWith('GET', 'cuest/players/p2/summary', undefined);
+    expect(el._summary).not.toBeNull();
+  });
+
+  it('shows times in 24 h format everywhere', async () => {
+    const at = new Date(2026, 10, 24, 15, 7).toISOString();
+    const { hass } = fakeHass({ quests: { active: [Q('a1', { status: 'active', claimedBy: 'p1', startedAt: at })], open: [], whenever: [] } });
+    const el = await mount(hass);
+    expect(text(el)).toContain('15:07');
+    expect(text(el)).not.toMatch(/\b(AM|PM)\b/i);
   });
 });

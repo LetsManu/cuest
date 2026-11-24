@@ -68,7 +68,7 @@ export class CuestPanel extends LitElement {
     h1,h2{font-family:${unsafeCSS(FONT_PIXEL)};margin:0;color:${unsafeCSS(COLORS.forest)}}
     .pick{display:flex;flex-direction:column;gap:8px}
     .pick button{min-height:44px;border-radius:12px;border:2px solid ${unsafeCSS(COLORS.line)};background:${unsafeCSS(COLORS.parchment)};font:inherit;font-weight:800;color:${unsafeCSS(COLORS.ink)};cursor:pointer}
-    nav{position:sticky;bottom:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));background:${unsafeCSS(COLORS.card)};border-top:2px solid ${unsafeCSS(COLORS.line)}}
+    nav{position:sticky;bottom:0;padding-bottom:env(safe-area-inset-bottom,0px);display:grid;grid-template-columns:repeat(3,minmax(0,1fr));background:${unsafeCSS(COLORS.card)};border-top:2px solid ${unsafeCSS(COLORS.line)}}
     nav button{background:none;border:none;min-height:54px;font:inherit;font-weight:700;color:${unsafeCSS(COLORS.muted)};font-size:14px;cursor:pointer}
     nav button[aria-current="page"]{color:${unsafeCSS(COLORS.forest)};font-weight:800;box-shadow:inset 0 3px 0 ${unsafeCSS(COLORS.forest)}}
     button:focus-visible{outline:3px solid ${unsafeCSS(COLORS.amber)};outline-offset:2px}
@@ -212,10 +212,13 @@ export class CuestPanel extends LitElement {
       if (this._playerId) {
         const pid = this._playerId;
         const [summary, quests, shop] = await Promise.all([this._api.summary(pid), this._api.quests(), this._api.shop(pid).catch(() => null)]);
-        if (pid !== this._playerId) return;
-        this._summary = summary;
-        this._quests = quests;
-        this._shop = Array.isArray(shop?.catalog) ? shop : null;
+        // A different player was picked while this load ran: drop the stale data but
+        // still fall through so a queued re-run (below) happens.
+        if (pid === this._playerId) {
+          this._summary = summary;
+          this._quests = quests;
+          this._shop = Array.isArray(shop?.catalog) ? shop : null;
+        }
       }
       this._error = '';
     } catch (e) {
@@ -229,7 +232,13 @@ export class CuestPanel extends LitElement {
     if (this._pending) { this._pending = false; await this._refresh(); }
   }
 
+  /** A signed-in family member linked to a person always plays as themselves. */
+  private _locked(): boolean {
+    return !!this._who && !this._who.isAdmin && !!this._who.playerId;
+  }
+
   private _choosePlayer(who: WhoAmI): string | null {
+    if (!who.isAdmin && who.playerId) return who.playerId;
     const stored = readStored();
     if (stored && who.players.some((p) => p.id === stored)) return stored;
     return who.playerId;
@@ -394,7 +403,7 @@ export class CuestPanel extends LitElement {
         summary: this._summary,
         playerId: this._playerId,
         leading: this._menu(),
-        canSwitch: this._who.players.length > 1,
+        canSwitch: this._who.players.length > 1 && !this._locked(),
         onSwitch: this._switch,
         quests: this._quests,
         palette: this._palette(),
@@ -428,7 +437,7 @@ export class CuestPanel extends LitElement {
       return heroView({
         summary: this._summary,
         leading: this._menu(),
-        canSwitch: this._who.players.length > 1,
+        canSwitch: this._who.players.length > 1 && !this._locked(),
         onSwitch: this._switch,
         palette: this._palette(),
         decor: this._decor(),
@@ -439,7 +448,7 @@ export class CuestPanel extends LitElement {
       level: this._summary?.level ?? 1,
       tab: this._shopTab,
       leading: this._menu(),
-      canSwitch: this._who.players.length > 1,
+      canSwitch: this._who.players.length > 1 && !this._locked(),
       busy: this._busy,
       onSwitch: this._switch,
       onTab: (t) => { this._shopTab = t; },

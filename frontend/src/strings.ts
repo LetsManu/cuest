@@ -84,7 +84,7 @@ export const STRINGS = {
   inVillage: 'In village',
   treatDesc: 'Switches on in your home',
   boughtItem: 'You got',
-  restTokenGot: 'Rest-day token added. Your streak is safer.',
+  restTokenGot: 'Rest-day token saved. You can use it once streaks arrive.',
   enjoy: 'Enjoy!',
   chestHeld: 'The chest held',
   boostUntil: 'Double XP until',

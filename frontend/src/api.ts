@@ -89,7 +89,7 @@ export class CuestApi {
   summary(playerId: string) { return this.call<Summary>('GET', `cuest/players/${encodeURIComponent(playerId)}/summary`); }
   shop(playerId: string) { return this.call<ShopView>('GET', `cuest/shop?playerId=${encodeURIComponent(playerId)}`); }
   start(questId: string, playerId: string) { return this.call<{ quest: Quest }>('POST', `cuest/quests/${encodeURIComponent(questId)}/start`, { playerId }); }
-  done(questId: string, playerId: string) { return this.call<{ quest: Quest; reward: unknown; player: Summary['player'] }>('POST', `cuest/quests/${encodeURIComponent(questId)}/done`, { playerId }); }
+  done(questId: string, playerId: string) { return this.call<{ quest: Quest; reward: { xp: number; gold: number; lines: string[] }; player: Summary['player'] }>('POST', `cuest/quests/${encodeURIComponent(questId)}/done`, { playerId }); }
   later(questId: string) { return this.call<{ quest: Quest }>('POST', `cuest/quests/${encodeURIComponent(questId)}/later`, {}); }
   buy(playerId: string, itemId: string) { return this.call<unknown>('POST', 'cuest/shop/buy', { playerId, itemId }); }
   equip(playerId: string, slot: string, itemId: string | null) { return this.call<unknown>('POST', 'cuest/shop/equip', { playerId, slot, itemId }); }

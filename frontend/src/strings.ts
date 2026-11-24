@@ -47,6 +47,7 @@ export const STRINGS = {
   someoneOnIt: "Someone's on it",
   switchPlayer: 'Switch player',
   xpToLevel: 'XP to Level',
+  questTakenCare: 'This quest is already taken care of. Nice!',
   questStarted: 'Quest started',
   leftOf: 'left of your 2 minutes',
   minutesDone: 'minutes done. Keep going if you like',

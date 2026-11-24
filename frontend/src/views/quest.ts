@@ -39,7 +39,7 @@ export function questView(p: QuestViewProps): TemplateResult {
   const over = left <= 0;
   const secs = Math.ceil(left);
   const big = over ? '2:00' : `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
-  const off = CIRC * (1 - left / QUEST_SECONDS);
+  const off = over ? 0 : CIRC * (1 - left / QUEST_SECONDS);
   return html`<section class="quest">
     <div class="eyebrow">${STRINGS.questStarted}</div>
     <h1>${p.title}</h1>

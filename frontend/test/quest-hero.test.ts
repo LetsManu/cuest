@@ -8,7 +8,7 @@ const Q = (id: string, over: Record<string, unknown> = {}) => ({
   startedAt: null, claimedBy: null, templateId: null, snoozedUntil: null, ...over,
 });
 
-function fakeHass(opts: { level?: number; levelAfterDone?: number; boostUntil?: string | null; offlineDone?: boolean } = {}) {
+function fakeHass(opts: { level?: number; levelAfterDone?: number; boostUntil?: string | null; offlineDone?: boolean; xpAfter?: number; staleSummary?: boolean } = {}) {
   let level = opts.level ?? 4;
   let down = false;
   const callApi = vi.fn(async (method: string, path: string) => {
@@ -18,8 +18,8 @@ function fakeHass(opts: { level?: number; levelAfterDone?: number; boostUntil?: 
     if (path.endsWith('/summary')) return { player: { id: 'p1', name: 'Ada', xp: 130, gold: 215, restTokens: 2, boostUntil: opts.boostUntil ?? null }, level, title: level >= 8 ? 'Hearth Warden' : level >= 4 ? 'Hearthkeeper' : 'Apprentice', intoLevel: 30, toNext: 70 };
     if (path.endsWith('/done')) {
       if (opts.offlineDone) { down = true; throw { status_code: 503, body: '{"error":"bridge_offline"}' }; }
-      if (opts.levelAfterDone) level = opts.levelAfterDone;
-      return { quest: Q('q1', { status: 'done' }), reward: { xp: 12, gold: 3, lines: [] }, player: {} };
+      if (opts.levelAfterDone && !opts.staleSummary) level = opts.levelAfterDone;
+      return { quest: Q('q1', { status: 'done' }), reward: { xp: 12, gold: 3, lines: [] }, player: { xp: opts.xpAfter ?? 130 } };
     }
     return {};
   });
@@ -104,12 +104,52 @@ describe('quest screen', () => {
   });
 
   it('shows a level-up toast when the level increased', async () => {
-    const { el } = await openQuest({ t: T0 + 5000 }, { level: 3, levelAfterDone: 4 });
+    const { el } = await openQuest({ t: T0 + 5000 }, { level: 3, xpAfter: 605 });
     el.shadowRoot.querySelector('[data-act="done"]').click();
     await settle(el);
     const toast = el.shadowRoot.querySelector('[data-role="toast"]');
     expect(toast.classList.contains('levelup')).toBe(true);
     expect(toast.textContent).toContain('Level 4! Hearthkeeper');
+  });
+
+  it('shows the level-up toast from the done response even when a refresh is in flight', async () => {
+    const { el } = await openQuest({ t: T0 + 5000 }, { level: 3, xpAfter: 605, staleSummary: true });
+    el._loading = true; // a refresh is already running, so _act's own refresh is skipped
+    el.shadowRoot.querySelector('[data-act="done"]').click();
+    await settle(el);
+    const toast = el.shadowRoot.querySelector('[data-role="toast"]');
+    expect(toast.classList.contains('levelup')).toBe(true);
+    expect(toast.textContent).toContain('Level 4! Hearthkeeper');
+    el._loading = false;
+  });
+
+  it('keeps a full ring when the two minutes are over', async () => {
+    const { el } = await openQuest({ t: T0 + 200_000 });
+    expect(el.shadowRoot.querySelector('.arc').getAttribute('stroke-dashoffset')).toBe('0.0');
+    expect(text(el)).toContain('minutes done. Keep going if you like');
+  });
+
+  it('re-arms the tick after a reconnect on the quest view', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    try {
+      const clock = { t: T0 + 30_000 };
+      const { el } = await openQuest(clock);
+      el.remove();
+      expect(vi.getTimerCount()).toBe(0);
+      document.body.appendChild(el);
+      clock.t = T0 + 60_000;
+      vi.advanceTimersByTime(1000);
+      await el.updateComplete;
+      expect(el.shadowRoot.querySelector('[data-role="clock"]').textContent).toBe('1:00');
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('shows a friendly line when the quest is no longer there', async () => {
+    const { el } = await openQuest({ t: T0 + 5000 });
+    el._questId = 'gone';
+    await el.updateComplete;
+    expect(text(el)).toContain('This quest is already taken care of. Nice!');
+    expect(el.shadowRoot.querySelector('[data-go="village"]')).not.toBeNull();
   });
 
   it('stays on the quest and shows the offline banner when done cannot reach Cuest', async () => {

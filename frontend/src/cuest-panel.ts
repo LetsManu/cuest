@@ -5,6 +5,7 @@ import { COLORS, FONT_BODY, FONT_PIXEL } from './palette';
 import { cuestSignature, playersFromSensors } from './sensors';
 import type { Palette } from './sprite';
 import { STRINGS } from './strings';
+import { levelForXp, titleForLevel } from './levels';
 import { heroStyles, heroView } from './views/hero';
 import { questStyles, questView, rewardToast, toastStyles, type Reward } from './views/quest';
 import { villageStyles, villageView } from './views/village';
@@ -121,6 +122,7 @@ export class CuestPanel extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this._timer = setInterval(() => { if (typeof document === 'undefined' || !document.hidden) void this._refresh(); }, REFRESH_MS);
+    if (this._view === 'quest') this._armTick();
   }
 
   disconnectedCallback() {
@@ -133,8 +135,12 @@ export class CuestPanel extends LitElement {
   protected updated(changed: Map<string, unknown>) {
     if (!changed.has('_view')) return;
     if (this._view === 'quest') {
-      if (!this._qTimer) this._qTimer = setInterval(() => { this._tick++; }, 1000);
+      this._armTick();
     } else this._stopTick();
+  }
+
+  private _armTick() {
+    if (!this._qTimer) this._qTimer = setInterval(() => { this._tick++; }, 1000);
   }
 
   private _stopTick() {
@@ -152,13 +158,14 @@ export class CuestPanel extends LitElement {
     const pid = this._playerId;
     const api = this._api;
     if (!pid || !api) return;
-    const before = this._summary?.level ?? 0;
-    let reward: { xp: number; gold: number } | null = null;
-    void this._act(q, async () => { reward = (await api.done(q.id, pid)).reward as { xp: number; gold: number }; }, () => { this._view = 'village'; this._questId = null; }).then(() => {
-      if (!reward) return;
-      const after = this._summary?.level ?? before;
-      this._setReward({ xp: reward.xp, gold: reward.gold, level: before && after > before ? after : null, title: this._summary?.title ?? '' });
-    });
+    void this._act(q, async () => {
+      const res = await api.done(q.id, pid);
+      const r = res.reward as { xp: number; gold: number };
+      const xp = res.player?.xp;
+      const level = typeof xp === 'number' ? levelForXp(xp).level : 0;
+      const up = typeof xp === 'number' && level > levelForXp(xp - r.xp).level;
+      this._setReward({ xp: r.xp, gold: r.gold, level: up ? level : null, title: up ? titleForLevel(level) : '' });
+    }, () => { this._view = 'village'; this._questId = null; });
   };
 
   protected willUpdate(changed: Map<string, unknown>) {
@@ -308,7 +315,7 @@ export class CuestPanel extends LitElement {
     }
     if (this._view === 'quest') {
       const q = this._quests && [...this._quests.active, ...this._quests.open, ...this._quests.whenever].find((x) => x.id === this._questId);
-      if (!q) return html`<div class="centerbox"><button type="button" class="btn" data-go="village" @click=${() => { this._view = 'village'; }}>${STRINGS.back}</button></div>`;
+      if (!q) return html`<div class="centerbox"><p>${STRINGS.questTakenCare}</p><button type="button" class="btn" data-go="village" @click=${() => { this._view = 'village'; }}>${STRINGS.back}</button></div>`;
       const now = this.now();
       const started = q.startedAt ? Date.parse(q.startedAt) : now;
       const boost = this._summary?.player.boostUntil;

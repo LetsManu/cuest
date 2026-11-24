@@ -103,7 +103,7 @@ describe('cuest-panel', () => {
     el.shadowRoot.querySelector('[data-act="start"]').click();
     for (let i = 0; i < 3; i++) { await new Promise((r) => setTimeout(r, 0)); await el.updateComplete; }
     expect(callApi).toHaveBeenCalledWith('POST', 'cuest/quests/q1/start', { playerId: 'p1' });
-    expect(text(el)).toContain('quest screen');
+    expect(text(el)).toContain('Quest started');
   });
 
   it('Later calls later', async () => {

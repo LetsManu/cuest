@@ -5,6 +5,8 @@ import { COLORS, FONT_BODY, FONT_PIXEL } from './palette';
 import { cuestSignature, playersFromSensors } from './sensors';
 import type { Palette } from './sprite';
 import { STRINGS } from './strings';
+import { heroStyles, heroView } from './views/hero';
+import { questStyles, questView, rewardToast, toastStyles, type Reward } from './views/quest';
 import { villageStyles, villageView } from './views/village';
 
 type View = 'village' | 'shop' | 'hero' | 'quest';
@@ -39,10 +41,15 @@ export class CuestPanel extends LitElement {
     _poolOpen: { state: true },
     _loaded: { state: true },
     _switching: { state: true },
+    _reward: { state: true },
+    _tick: { state: true },
   };
 
   static styles = [
     villageStyles,
+    heroStyles,
+    questStyles,
+    toastStyles,
     css`
     :host{display:block;min-height:100%;background:${unsafeCSS(COLORS.parchment)};color:${unsafeCSS(COLORS.ink)};font-family:${unsafeCSS(FONT_BODY)};font-size:15px;box-sizing:border-box}
     *{box-sizing:border-box}
@@ -78,12 +85,19 @@ export class CuestPanel extends LitElement {
   declare _poolOpen: boolean;
   declare _loaded: boolean;
   declare _switching: boolean;
+  declare _reward: Reward | null;
+  declare _tick: number;
+
+  /** Injectable clock (ms) so tests can drive the quest timer. */
+  now: () => number = () => Date.now();
 
   private _api: CuestApi | null = null;
   private _sig: string | null = null;
   private _timer: ReturnType<typeof setInterval> | undefined;
   private _loading = false;
   private _pending = false;
+  private _qTimer: ReturnType<typeof setInterval> | undefined;
+  private _toastTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor() {
     super();
@@ -100,6 +114,8 @@ export class CuestPanel extends LitElement {
     this._poolOpen = false;
     this._loaded = false;
     this._switching = false;
+    this._reward = null;
+    this._tick = 0;
   }
 
   connectedCallback() {
@@ -110,7 +126,40 @@ export class CuestPanel extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     clearInterval(this._timer);
+    this._stopTick();
+    clearTimeout(this._toastTimer);
   }
+
+  protected updated(changed: Map<string, unknown>) {
+    if (!changed.has('_view')) return;
+    if (this._view === 'quest') {
+      if (!this._qTimer) this._qTimer = setInterval(() => { this._tick++; }, 1000);
+    } else this._stopTick();
+  }
+
+  private _stopTick() {
+    clearInterval(this._qTimer);
+    this._qTimer = undefined;
+  }
+
+  private _setReward(r: Reward | null) {
+    clearTimeout(this._toastTimer);
+    this._reward = r;
+    if (r) this._toastTimer = setTimeout(() => { this._reward = null; }, 8000);
+  }
+
+  private _finish = (q: Quest) => {
+    const pid = this._playerId;
+    const api = this._api;
+    if (!pid || !api) return;
+    const before = this._summary?.level ?? 0;
+    let reward: { xp: number; gold: number } | null = null;
+    void this._act(q, async () => { reward = (await api.done(q.id, pid)).reward as { xp: number; gold: number }; }, () => { this._view = 'village'; this._questId = null; }).then(() => {
+      if (!reward) return;
+      const after = this._summary?.level ?? before;
+      this._setReward({ xp: reward.xp, gold: reward.gold, level: before && after > before ? after : null, title: this._summary?.title ?? '' });
+    });
+  };
 
   protected willUpdate(changed: Map<string, unknown>) {
     if (!changed.has('hass') || !this.hass) return;
@@ -258,8 +307,31 @@ export class CuestPanel extends LitElement {
       });
     }
     if (this._view === 'quest') {
-      return html`<div class="centerbox"><h2>${this._quests && [...this._quests.active, ...this._quests.open, ...this._quests.whenever].find((q) => q.id === this._questId)?.title || ''}</h2>
-        <p>${STRINGS.questPlaceholder}</p><button type="button" class="btn" data-go="village" @click=${() => { this._view = 'village'; }}>${STRINGS.back}</button></div>`;
+      const q = this._quests && [...this._quests.active, ...this._quests.open, ...this._quests.whenever].find((x) => x.id === this._questId);
+      if (!q) return html`<div class="centerbox"><button type="button" class="btn" data-go="village" @click=${() => { this._view = 'village'; }}>${STRINGS.back}</button></div>`;
+      const now = this.now();
+      const started = q.startedAt ? Date.parse(q.startedAt) : now;
+      const boost = this._summary?.player.boostUntil;
+      return questView({
+        title: q.title,
+        startedAtMs: Number.isNaN(started) ? now : started,
+        nowMs: now,
+        xp: q.xp,
+        boosted: !!boost && Date.parse(boost) > now,
+        busy: !!this._busy[q.id],
+        onDone: () => this._finish(q),
+        onBack: () => { this._view = 'village'; },
+      });
+    }
+    if (this._view === 'hero') {
+      return heroView({
+        summary: this._summary,
+        leading: this._menu(),
+        canSwitch: this._who.players.length > 1,
+        onSwitch: this._switch,
+        palette: this._palette(),
+        decor: this._decor(),
+      });
     }
     return html`<div class="centerbox"><h2>${this._view === 'shop' ? STRINGS.navShop : STRINGS.navHero}</h2><p>${STRINGS.comingNext}</p></div>`;
   }
@@ -271,6 +343,7 @@ export class CuestPanel extends LitElement {
       <main>
         ${this.narrow && !(this._who && this._playerId && this._view === 'village') ? html`<div class="menu">${this._menu()}</div>` : nothing}
         ${this._offline ? html`<div class="banner" role="status">${STRINGS.offlineBanner}</div>` : nothing}
+        ${this._reward ? rewardToast(this._reward, () => this._setReward(null)) : nothing}
         ${this._error ? html`<div class="error" role="alert">${this._error}</div>` : nothing}
         ${this._body()}
       </main>

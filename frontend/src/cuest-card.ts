@@ -138,7 +138,8 @@ export class CuestCard extends LitElement {
     const name = (a.player_name as string) || '';
     const into = Number(a.into_level) || 0;
     const toNext = Number(a.to_next) || 0;
-    const pct = into + toNext > 0 ? Math.max(0, Math.min(100, Math.round((100 * into) / (into + toNext)))) : 0;
+    const remaining = Math.max(0, toNext - into);
+    const pct = toNext > 0 ? Math.max(0, Math.min(100, Math.round((100 * into) / toNext))) : 0;
     const palette = (a.outfit_palette as Palette | undefined) ?? {};
     const decor = Array.isArray(a.decor) ? (a.decor as string[]) : [];
     const decorText = decor.map((d) => STRINGS.decorNames[d] ?? d).join(', ');
@@ -151,7 +152,7 @@ export class CuestCard extends LitElement {
           <div class="name">${name}</div>
           <div class="lvl">${STRINGS.level} ${level}${title ? ` · ${title}` : ''}</div>
           <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><div class="fill" style="width:${pct}%"></div></div>
-          <div class="meta"><span>${toNext} ${STRINGS.xpToNext}</span><span>${p.gold ? p.gold.state : '0'} ${STRINGS.gold}</span></div>
+          <div class="meta"><span>${remaining} ${STRINGS.xpToNext}</span><span>${p.gold ? p.gold.state : '0'} ${STRINGS.gold}</span></div>
           ${decorText ? html`<div class="decor">${STRINGS.village}: ${decorText}</div>` : nothing}
         </div>
       </div>

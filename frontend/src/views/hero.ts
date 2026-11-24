@@ -47,7 +47,7 @@ export function heroView(p: HeroProps): TemplateResult {
   const level = s?.level ?? 1;
   const title = s?.title ?? '';
   const into = s?.intoLevel ?? 0;
-  const span = into + (s?.toNext ?? 0);
+  const span = s?.toNext ?? 0;
   const pct = span > 0 ? Math.max(0, Math.min(100, Math.round((100 * into) / span))) : 0;
   const cur = stageForLevel(level);
   return html`

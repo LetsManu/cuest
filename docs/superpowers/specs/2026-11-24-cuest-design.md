@@ -101,13 +101,50 @@ as an open-source project others can install.
      automatically or with one tap; anything that takes longer (opening chests, building the
      village, reading story) can wait until later.
 
+9. **Works with most integrations: auto-detect** (owner's choice)
+   - The bridge sends Cuest the list of HA entities with their registry details: domain,
+     device_class, integration (platform), translation key, enum options, device name,
+     manufacturer and model. Cuest proposes ready-made quests for what it recognizes; the
+     owner confirms with one tap.
+   - Recognized out of the box (owner's devices first): Home Connect (Bosch/Siemens), Miele,
+     LG ThinQ, SmartThings (Samsung), Roborock, Xiaomi, Dreame, Ecovacs and any HA `vacuum`
+     entity, smart plugs measuring power (Shelly, Tasmota, TP-Link and others), vibration
+     sensors, and `running` binary sensors.
+   - States differ by brand, model and language (e.g. `finished`, `finish`, `program_ended`,
+     `end`), so detection must not rely on one exact value. Two generic rule kinds cover this:
+     - **finished-state**: the entity changes to a value from a "done" vocabulary
+       (normalized: lower case, spaces → underscores; English and German at least).
+     - **running-stops**: the entity is "running" (a running-vocabulary value, `on`, or power
+       above a threshold) and then stays not-running for N minutes. Pause-like states do not
+       count as stopped.
+   - Matching uses device and entity names in English and German (washer/Waschmaschine,
+     dryer/Trockner, dishwasher/Geschirrspüler/Spülmaschine) to tell appliances apart.
+   - Considered but not chosen for now: learn mode, a free rule builder, HA automations creating
+     quests.
+10. **Two-way with Home Assistant** (owner's choice: all four)
+   - **Sensors** in HA: level, XP, gold, open quests count, streak.
+   - **Events** in HA for automations: quest opened, quest done, level up (with details).
+   - **Finish from HA**: quests can be completed from HA (dashboard button, NFC tag at the
+     washer, Zigbee button) through Cuest actions in HA; open quests also appear as an HA
+     to-do list so ticking one off there completes it.
+   - **Dashboard card**: a small Cuest card for HA dashboards showing the hero and open quests.
+11. **Things to spend gold on** (owner's choice: all four)
+   - **House treats**: the unlocks from goal 4.
+   - **Hero wardrobe**: hats, cloaks, scarves, broom skins and colors for the pixel hero.
+   - **Village decor**: lanterns, flowers, a fountain, a village cat and so on, shown in the
+     village scene.
+   - **Helpers**: rest-day tokens that protect the streak, mystery chests, a "double XP hour"
+     potion.
+   - Prices are tuned so a normal day of quests buys something small, and bigger items are
+     a goal for the week.
+
 ## 3. Releases
 
 The feature set is large, so it ships in steps (the owner can reorder):
 
-- **Release 1, daily game loop**: goals 1–5 and 7, plus fresh-quest bonus, combo chain,
-  quest of the day, house celebrates, loot drops, mystery chest, collection book, more house
-  unlocks.
+- **Release 1, daily game loop**: goals 1–5, 7, 9, 10 and 11, plus fresh-quest bonus, combo
+  chain, quest of the day, house celebrates, loot drops, mystery chest, collection book, more
+  house unlocks.
 - **Release 2, friends and pride**: pet companion, badges, weekly recap, Assist voice (goal 6).
 - **Release 3, the big world**: build your village, story chapters.
 
@@ -170,6 +207,9 @@ Two parts:
 - Runs actions the server asks for: lights, scenes, unlock switches, TTS, and phone
   notifications through `notify.mobile_app_*`; passes notification button presses back.
 - Registers Assist voice intents and forwards them to the server.
+- Sends the entity list with registry details for auto-detect (goal 9).
+- Publishes Cuest's sensors, events, to-do list and "complete quest" actions in HA (goal 10).
+- Ships the Cuest dashboard card.
 - Adds a "Cuest" entry to the HA sidebar that opens the server's web app, so the game opens
   inside the HA Companion app on the phone and on the wall tablet.
 - Optionally exposes a few sensors (current quest, level, open quests) for HA dashboards.

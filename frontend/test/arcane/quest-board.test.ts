@@ -131,7 +131,8 @@ describe('quest board full', () => {
   it('rejects an unknown variant and a bad threshold', () => {
     const el = document.createElement(TAG) as HTMLElement & { setConfig(c: unknown): void };
     expect(() => el.setConfig({ variant: 'big' })).toThrow(/cuest-quest-board: "variant" must be one of full, compact/);
-    expect(() => el.setConfig({ battery_threshold: 0 })).toThrow(/battery_threshold/);
+    expect(() => el.setConfig({ battery_threshold: 0 })).toThrow('cuest-quest-board: "battery_threshold" must be between 1 and 100');
+    expect(() => el.setConfig({ battery_threshold: 1 })).not.toThrow();
   });
 
   it('reports grid, size and stub', async () => {

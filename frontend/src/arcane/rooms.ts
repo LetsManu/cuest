@@ -71,7 +71,7 @@ export class CuestRoomsCard extends ArcaneCard<RoomsConfig> {
       title,
       ...(areas.length ? { areas } : {}),
       ...(path ? { path } : {}),
-      battery_threshold: v.num(raw, 'battery_threshold', TAG, { def: 20, min: 0, max: 100 }),
+      battery_threshold: v.num(raw, 'battery_threshold', TAG, { def: 20, min: 1, max: 100 }),
       heading: v.oneOf(raw, 'heading', TAG, ['outside', 'inside'] as const, 'outside'),
     };
   }

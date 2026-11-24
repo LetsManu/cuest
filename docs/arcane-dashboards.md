@@ -129,7 +129,7 @@ takes:
 | `domains` | none | `online` only: count only these domains. Without it, automation, script, scene, zone, sun, person, update and `input_*` are skipped. |
 | `integrations` | none | `online` only: count only these integrations. |
 | `exclude` | none | Entity ids to leave out; `*` is a wildcard. Works for `online`, `lights` and `health`. |
-| `battery_threshold` | `20` | `health` only, 0 to 100. |
+| `battery_threshold` | `20` | `health` only, 1 to 100. |
 
 Online share is the share of counted entities whose state is not
 `unavailable`. Lights count only real lights: light groups (a group helper, a
@@ -273,7 +273,7 @@ battery is at or below `battery_threshold`.
 | `heading` | `outside` | `outside` puts the heading above the panel, `inside` inside it. |
 | `areas` | all areas | A list of area names or ids, or items `{ area, name, temperature }`. |
 | `path` | none | Makes rows tappable. `{area}` is replaced by the area id. |
-| `battery_threshold` | `20` | 0 to 100. |
+| `battery_threshold` | `20` | 1 to 100. |
 
 ```yaml
 type: custom:cuest-rooms-card

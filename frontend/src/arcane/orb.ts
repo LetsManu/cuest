@@ -73,7 +73,7 @@ export function validateOrb(raw: unknown, tag: string): OrbItem {
     const l = v.strings(r, k, tag);
     if (l.length) item[k] = l;
   }
-  if (preset === 'health') item.battery_threshold = v.num(r, 'battery_threshold', tag, { def: 20, min: 0, max: 100 });
+  if (preset === 'health') item.battery_threshold = v.num(r, 'battery_threshold', tag, { def: 20, min: 1, max: 100 });
   return item;
 }
 

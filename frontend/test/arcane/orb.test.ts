@@ -157,6 +157,12 @@ describe('orb decoration and numbers', () => {
     expect(validateOrb({ preset: 'online' }, TAG).battery_threshold).toBeUndefined();
     expect(validateOrb({ preset: 'health' }, TAG).battery_threshold).toBe(20);
   });
+  it('takes battery_threshold from 1 to 100, like the quest board and rooms', () => {
+    expect(() => validateOrb({ preset: 'health', battery_threshold: 0 }, TAG)).toThrow('cuest-orb-card: "battery_threshold" must be between 1 and 100');
+    expect(() => validateOrb({ preset: 'health', battery_threshold: 101 }, TAG)).toThrow(/between 1 and 100/);
+    expect(validateOrb({ preset: 'health', battery_threshold: 1 }, TAG).battery_threshold).toBe(1);
+    expect(validateOrb({ preset: 'health', battery_threshold: 100 }, TAG).battery_threshold).toBe(100);
+  });
 });
 
 describe('orb row', () => {

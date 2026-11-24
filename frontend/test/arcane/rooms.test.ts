@@ -157,6 +157,13 @@ describe('rooms card', () => {
     expectClean(el);
   });
 
+  it('takes battery_threshold from 1 to 100', () => {
+    const el = document.createElement(TAG) as HTMLElement & { setConfig(c: unknown): void };
+    expect(() => el.setConfig({ battery_threshold: 0 })).toThrow('cuest-rooms-card: "battery_threshold" must be between 1 and 100');
+    expect(() => el.setConfig({ battery_threshold: 101 })).toThrow(/between 1 and 100/);
+    expect(() => el.setConfig({ battery_threshold: 1 })).not.toThrow();
+  });
+
   it('battery_threshold decides battery versus check at the boundary', async () => {
     const at = await mount(TAG, { areas: ['Büro'], battery_threshold: 4 }, house());
     expect(rowTexts(at)).toEqual(['Büro ? battery']);

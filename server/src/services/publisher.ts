@@ -2,7 +2,8 @@ import type { BridgeHub } from '../bridge/hub.js';
 import type { SnapshotPlayer, SnapshotQuest } from '../bridge/protocol.js';
 import type { Bus } from '../bus.js';
 import type { Clock } from '../clock.js';
-import { levelForXp, titleForLevel } from '../domain/levels.js';
+import { levelForXp, levelUp, titleForLevel } from '../domain/levels.js';
+import type { Player } from '../domain/types.js';
 import type { ItemsRepo } from '../repos/items.js';
 import { findItem } from '../shop/catalog.js';
 import type { PlayersRepo } from '../repos/players.js';
@@ -61,17 +62,29 @@ export class Publisher {
           gold: reward.gold,
         },
       });
-      const before = levelForXp(player.xp - reward.xp).level;
-      const after = levelForXp(player.xp).level;
-      if (after > before) {
-        this.hub.send({
-          type: 'fire_event',
-          event: 'cuest_level_up',
-          data: { player_id: player.id, player_name: player.name, level: after, title: titleForLevel(after) },
-        });
-      }
+      this.levelUpEvent(player, reward.xp);
+    });
+    // Sprint XP (finish, auto-finish and quick-log notes) is XP like any other.
+    deps.bus.on('sprint:finished', ({ player, xp }) => {
+      snap();
+      this.levelUpEvent(player, xp);
+    });
+    deps.bus.on('sprint:logged', ({ player, xp }) => {
+      snap();
+      this.levelUpEvent(player, xp);
     });
     deps.hub.onAuthenticated?.(snap);
+  }
+
+  /** Fires `cuest_level_up` when gaining `gained` XP took the player over a level. */
+  private levelUpEvent(player: Player, gained: number): void {
+    const up = levelUp(player.xp, gained);
+    if (!up) return;
+    this.hub.send({
+      type: 'fire_event',
+      event: 'cuest_level_up',
+      data: { player_id: player.id, player_name: player.name, level: up.level, title: up.title },
+    });
   }
 
   publishSnapshot(): void {

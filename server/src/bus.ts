@@ -11,7 +11,9 @@ export type BusEvents = {
   'quest:snoozed': Quest;
   'daily:picked': { questId: string | null };
   'sprint:started': { playerId: string; sprint: Sprint };
-  'sprint:finished': { playerId: string; sprint: Sprint; xp: number; auto: boolean };
+  /** `player` is the fresh player after the sprint XP was credited (for snapshots and level-up checks). */
+  'sprint:finished': { playerId: string; sprint: Sprint; xp: number; auto: boolean; player: Player };
+  'sprint:logged': { playerId: string; sprint: Sprint; xp: number; player: Player };
   'shop:changed': { playerId: string };
 };
 

@@ -56,7 +56,7 @@ describe('CelebrateService', () => {
   it('does nothing without lights', () => {
     const { bus, calls } = setup();
     bus.emit('quest:done', done(30, 10));
-    bus.emit('sprint:finished', { playerId: 'p1', sprint, xp: 10, auto: false });
+    bus.emit('sprint:finished', { playerId: 'p1', sprint, xp: 10, auto: false, player: player(40) });
     expect(calls).toEqual([]);
   });
 
@@ -72,8 +72,17 @@ describe('CelebrateService', () => {
   it('flashes at sprint end', () => {
     const { bus, settings, calls } = setup();
     settings.update({ celebrationLights: ['light.hall'] });
-    bus.emit('sprint:finished', { playerId: 'p1', sprint, xp: 10, auto: true });
+    bus.emit('sprint:finished', { playerId: 'p1', sprint, xp: 10, auto: true, player: player(40) });
     expect(calls[0]).toMatchObject({ domain: 'light', data: { flash: 'short' } });
+  });
+
+  it('flashes long when sprint XP crosses a level; a quick-log flashes only then', () => {
+    const { bus, settings, calls } = setup();
+    settings.update({ celebrationLights: ['light.hall'] });
+    bus.emit('sprint:finished', { playerId: 'p1', sprint, xp: 10, auto: false, player: player(105) }); // 95 -> 105
+    bus.emit('sprint:logged', { playerId: 'p1', sprint, xp: 5, player: player(60) }); // no level: no flash
+    bus.emit('sprint:logged', { playerId: 'p1', sprint, xp: 5, player: player(301) }); // 296 -> 301 crosses level 3
+    expect(calls.map((c) => c.data)).toEqual([{ flash: 'long' }, { flash: 'long' }]);
   });
 
   it('only logs when the bridge call fails', () => {

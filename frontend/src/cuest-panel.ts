@@ -1,5 +1,5 @@
 import { LitElement, css, html, nothing, unsafeCSS } from 'lit';
-import { CuestApi, toApiError, type BuyResult, type CollectionItem, type DiceResult, type Energy, type QuestLists, type Quest, type Sprint, type ShopItem, type ShopView, type Summary, type WhoAmI } from './api';
+import { CuestApi, toApiError, type BuyResult, type CollectionItem, type DiceResult, type Energy, type QuestLists, type Quest, type Sprint, type ShopItem, type ShopView, type SprintCredit, type Summary, type WhoAmI } from './api';
 import type { HomeAssistant } from './hass-types';
 import { COLORS, FONT_BODY, FONT_PIXEL } from './palette';
 import { cuestSignature, playersFromSensors } from './sensors';
@@ -586,9 +586,18 @@ export class CuestPanel extends LitElement {
       this._sprintReq++;
       this._sprint = r.sprint;
       this._sprintNote = '';
+      if (this._sprintLevelUp(r) && this._sound) playFanfare('level');
       void this._refresh();
     });
   };
+
+  /** Sprint XP that crossed a level gets the same level-up toast as a quest. Returns whether it did. */
+  private _sprintLevelUp(r: SprintCredit): boolean {
+    const up = r.levelUp;
+    if (!up || typeof up.level !== 'number') return false;
+    this._setReward({ xp: r.xp, gold: 0, level: up.level, title: up.title, lines: [] });
+    return true;
+  }
 
   private _sprintFinish = () => {
     const pid = this._playerId;
@@ -603,7 +612,8 @@ export class CuestPanel extends LitElement {
       this._sprintSummary = { minutes: Math.round(r.xp / XP_PER_MINUTE), logs, xp: r.xp + logs * XP_PER_LOG };
       this._sprintSummaryId = r.sprint.id;
       this._sprint = null;
-      if (this._sound) playFanfare('done');
+      const up = this._sprintLevelUp(r);
+      if (this._sound) playFanfare(up ? 'level' : 'done');
       void this._refresh();
     });
   };

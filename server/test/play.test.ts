@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DatabaseSync } from 'node:sqlite';
 import { FakeClock } from '../src/clock.js';
 import type { Config } from '../src/config.js';
@@ -210,5 +210,57 @@ describe('power sprint', () => {
     const other = (await post('/api/players', { name: 'Ben' })).json().id;
     await start();
     expect((await post('/api/sprint/start', { playerId: other, minutes: 5 })).statusCode).toBe(201);
+  });
+});
+
+describe('sprint XP reaches Home Assistant', () => {
+  type Msg = { type: string; event?: string; data?: Record<string, unknown>; players?: { id: string; xp: number; level: number }[] };
+  let sent: Msg[];
+  let calls: { domain: string; service: string; data: Record<string, unknown> }[];
+  beforeEach(async () => {
+    sent = [];
+    calls = [];
+    vi.spyOn(engine.hub, 'send').mockImplementation(((m: Msg) => (sent.push(m), true)) as never);
+    vi.spyOn(engine.hub, 'callService').mockImplementation(((domain: string, service: string, data: Record<string, unknown>) => (calls.push({ domain, service, data }), true)) as never);
+    await engine.app.inject({ method: 'PATCH', url: '/api/settings', payload: { celebrationLights: ['light.hall'] } });
+  });
+  const snapshots = () => sent.filter((m) => m.type === 'snapshot');
+  const levelUps = () => sent.filter((m) => m.type === 'fire_event' && m.event === 'cuest_level_up');
+  const flashes = () => calls.filter((c) => c.domain === 'light').map((c) => c.data.flash);
+
+  it('start, log and finish across a level publish snapshots, fire cuest_level_up and flash long', async () => {
+    new PlayersRepo(db).addRewards(pid, 90, 0);
+    await post('/api/sprint/start', { playerId: pid, minutes: 5 });
+    sent.length = 0;
+    const logged = (await post('/api/sprint/log', { playerId: pid, note: 'sink' })).json();
+    expect(logged.levelUp).toBeNull();
+    expect(snapshots().at(-1)!.players!.find((p) => p.id === pid)).toMatchObject({ xp: 95, level: 1 });
+    expect(levelUps()).toHaveLength(0);
+    clock.advance(5);
+    const finished = (await post('/api/sprint/finish', { playerId: pid })).json();
+    expect(finished).toMatchObject({ xp: 10, levelUp: { level: 2, title: 'Apprentice' } });
+    expect(snapshots().at(-1)!.players!.find((p) => p.id === pid)).toMatchObject({ xp: 105, level: 2 });
+    expect(levelUps()).toHaveLength(1);
+    expect(levelUps()[0]!.data).toMatchObject({ player_id: pid, player_name: 'Ana', level: 2, title: 'Apprentice' });
+    expect(flashes()).toEqual(['long']);
+  });
+
+  it('a quick-log that crosses a level fires the level-up and flashes long', async () => {
+    new PlayersRepo(db).addRewards(pid, 98, 0);
+    await post('/api/sprint/start', { playerId: pid, minutes: 5 });
+    const logged = (await post('/api/sprint/log', { playerId: pid, note: 'sink' })).json();
+    expect(logged.levelUp).toEqual({ level: 2, title: 'Apprentice' });
+    expect(levelUps()).toHaveLength(1);
+    expect(flashes()).toEqual(['long']);
+  });
+
+  it('the tick auto-finish publishes and flashes short without a level-up', async () => {
+    await post('/api/sprint/start', { playerId: pid, minutes: 5 });
+    sent.length = 0;
+    clock.advance(6);
+    engine.tick();
+    expect(snapshots().at(-1)!.players!.find((p) => p.id === pid)).toMatchObject({ xp: 10 });
+    expect(levelUps()).toHaveLength(0);
+    expect(flashes()).toEqual(['short']);
   });
 });

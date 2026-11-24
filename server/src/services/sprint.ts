@@ -2,6 +2,8 @@ import type { DatabaseSync } from 'node:sqlite';
 import type { Bus } from '../bus.js';
 import { newId, type Clock } from '../clock.js';
 import { copy } from '../copy.js';
+import { levelUp } from '../domain/levels.js';
+import type { Player } from '../domain/types.js';
 import type { LedgerRepo } from '../repos/ledger.js';
 import type { PlayersRepo } from '../repos/players.js';
 
@@ -19,6 +21,13 @@ export interface Sprint {
   endedAt: string | null;
   logs: number;
   xp: number | null;
+}
+
+/** Sprint XP credit; `levelUp` is set when it crossed a level. */
+export interface SprintCredit {
+  sprint: Sprint;
+  xp: number;
+  levelUp: ReturnType<typeof levelUp>;
 }
 
 export type SprintErrorCode = 'sprint_running' | 'no_sprint' | 'log_limit' | 'unknown_player';
@@ -98,15 +107,15 @@ export class SprintService {
     return sprint;
   }
 
-  log(playerId: string, note: string): { sprint: Sprint; xp: number } {
+  log(playerId: string, note: string): SprintCredit {
     const text = note.trim().slice(0, MAX_NOTE);
-    return this.tx(() => {
+    const result = this.tx(() => {
       const cur = this.current(playerId);
       if (!cur) throw new SprintError('no_sprint');
       if (cur.logs >= MAX_LOGS) throw new SprintError('log_limit');
       const now = this.clock.now().toISOString();
       this.db.prepare('UPDATE sprints SET logs = logs + 1 WHERE id = ?').run(cur.id);
-      this.players.addRewards(playerId, XP_PER_LOG, 0);
+      const player = this.players.addRewards(playerId, XP_PER_LOG, 0);
       this.ledger.add({
         playerId,
         questId: null,
@@ -116,11 +125,13 @@ export class SprintService {
         at: now,
         meta: { sprint: true, log: true, sprintId: cur.id, note: text, lines: [{ label: copy.sprint.logLabel, xp: XP_PER_LOG, gold: 0 }] },
       });
-      return { sprint: { ...cur, logs: cur.logs + 1 }, xp: XP_PER_LOG };
+      return { sprint: { ...cur, logs: cur.logs + 1 }, xp: XP_PER_LOG, player };
     });
+    this.bus.emit('sprint:logged', { playerId, sprint: result.sprint, xp: result.xp, player: result.player });
+    return this.credit(result);
   }
 
-  finish(playerId: string): { sprint: Sprint; xp: number } {
+  finish(playerId: string): SprintCredit {
     return this.end(playerId, this.clock.now(), false);
   }
 
@@ -138,7 +149,7 @@ export class SprintService {
     }
   }
 
-  private end(playerId: string, at: Date, auto: boolean): { sprint: Sprint; xp: number } {
+  private end(playerId: string, at: Date, auto: boolean): SprintCredit {
     const result = this.tx(() => {
       const cur = this.current(playerId);
       if (!cur) throw new SprintError('no_sprint');
@@ -147,7 +158,7 @@ export class SprintService {
       const xp = minutes * XP_PER_MINUTE;
       const endedAt = at.toISOString();
       this.db.prepare('UPDATE sprints SET ended_at = ?, xp = ? WHERE id = ?').run(endedAt, xp, cur.id);
-      if (xp > 0) this.players.addRewards(playerId, xp, 0);
+      const player = xp > 0 ? this.players.addRewards(playerId, xp, 0) : this.requirePlayer(playerId);
       this.ledger.add({
         playerId,
         questId: null,
@@ -157,13 +168,19 @@ export class SprintService {
         at: endedAt,
         meta: { sprint: true, sprintId: cur.id, minutes, lines: [{ label: copy.sprint.finishLabel, xp, gold: 0 }] },
       });
-      return { sprint: { ...cur, endedAt, xp }, xp };
+      return { sprint: { ...cur, endedAt, xp }, xp, player };
     });
-    this.bus.emit('sprint:finished', { playerId, sprint: result.sprint, xp: result.xp, auto });
-    return result;
+    this.bus.emit('sprint:finished', { playerId, sprint: result.sprint, xp: result.xp, auto, player: result.player });
+    return this.credit(result);
   }
 
-  private requirePlayer(id: string): void {
-    if (!this.players.get(id)) throw new SprintError('unknown_player');
+  private credit(r: { sprint: Sprint; xp: number; player: Player }): SprintCredit {
+    return { sprint: r.sprint, xp: r.xp, levelUp: levelUp(r.player.xp, r.xp) };
+  }
+
+  private requirePlayer(id: string): Player {
+    const p = this.players.get(id);
+    if (!p) throw new SprintError('unknown_player');
+    return p;
   }
 }

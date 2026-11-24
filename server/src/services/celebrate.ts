@@ -1,6 +1,6 @@
 import type { BridgeHub } from '../bridge/hub.js';
 import type { Bus } from '../bus.js';
-import { levelForXp } from '../domain/levels.js';
+import { levelUp } from '../domain/levels.js';
 import type { SettingsRepo } from '../repos/settings.js';
 
 /** Flashes the house lights and starts the sprint scene. Failures are only logged. */
@@ -13,12 +13,13 @@ export class CelebrateService {
     this.hub = deps.hub;
     this.settings = deps.settings;
     this.log = deps.log;
-    deps.bus.on('quest:done', ({ reward, player }) => {
-      const levelUp = levelForXp(player.xp).level > levelForXp(player.xp - reward.xp).level;
-      this.flash(levelUp ? 'long' : 'short');
-    });
+    deps.bus.on('quest:done', ({ reward, player }) => this.flash(levelUp(player.xp, reward.xp) ? 'long' : 'short'));
     deps.bus.on('sprint:started', () => this.safely('sprint scene', () => this.startScene()));
-    deps.bus.on('sprint:finished', () => this.flash('short'));
+    deps.bus.on('sprint:finished', ({ xp, player }) => this.flash(levelUp(player.xp, xp) ? 'long' : 'short'));
+    // A quick-log only celebrates when its +5 XP crossed a level.
+    deps.bus.on('sprint:logged', ({ xp, player }) => {
+      if (levelUp(player.xp, xp)) this.flash('long');
+    });
   }
 
   private flash(kind: 'short' | 'long'): void {

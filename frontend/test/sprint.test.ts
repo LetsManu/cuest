@@ -6,7 +6,7 @@ const T0 = Date.parse('2026-11-24T10:00:00Z');
 const QUEST = { id: 'q9', title: 'Wipe the counters', minutes: 3, xp: 14, gold: 2, status: 'open', createdAt: '2026-11-24T09:00:00Z', startedAt: null, claimedBy: null, templateId: null, snoozedUntil: null };
 
 const running = (minutes = 15, agoMs = 0, logs = 0) => ({ id: 's1', playerId: 'p1', minutes, startedAt: new Date(T0 - agoMs).toISOString(), endedAt: null, logs, xp: null });
-interface Opts { getGate?: () => Promise<void>; sprint?: any; startErr?: number; logErr?: boolean }
+interface Opts { getGate?: () => Promise<void>; sprint?: any; startErr?: number; logErr?: boolean; levelUp?: { level: number; title: string } }
 function fakeHass(o: Opts = {}) {
   let sprint: any = o.sprint ?? null;
   const lists = { active: [] as any[], open: [{ ...QUEST }], whenever: [] as any[] };
@@ -24,14 +24,14 @@ function fakeHass(o: Opts = {}) {
     if (path === 'cuest/sprint/log') {
       if (o.logErr) throw { status_code: 409, body: { error: 'log_limit', message: 'Ten notes is plenty. Keep going!' } };
       sprint = { ...sprint, logs: sprint.logs + 1 };
-      return { sprint, xp: 5 };
+      return { sprint, xp: 5, levelUp: o.levelUp ?? null };
     }
     if (path === 'cuest/sprint/finish') {
       const elapsed = Math.floor((Date.now() - Date.parse(sprint.startedAt)) / 60000);
       const xp = Math.min(sprint.minutes, elapsed) * 2;
       const done = { ...sprint, endedAt: new Date().toISOString(), xp };
       sprint = null;
-      return { sprint: done, xp };
+      return { sprint: done, xp, levelUp: o.levelUp ?? null };
     }
     if (path.endsWith('/done')) return { quest: QUEST, reward: { xp: 14, gold: 2, lines: [] }, player: { id: 'p1', name: 'Ada', xp: 144, gold: 7, restTokens: 0, boostUntil: null } };
     return {};
@@ -178,6 +178,46 @@ describe('Power sprint', () => {
     expect(s.textContent).toContain('20');
     expect(s.textContent).not.toMatch(/fail|late|missed|penalty|overdue/i);
     expect(q(el, '[data-role="countdown"]')).toBeNull();
+  });
+
+  it('a finish that crosses a level shows the level-up toast', async () => {
+    const { hass } = fakeHass({ sprint: running(15, 5 * 60_000 + 5_000), levelUp: { level: 5, title: 'Hearthkeeper' } });
+    const el = await mount(hass);
+    await openSprint(el);
+    q(el, '[data-act="sprint-finish"]').click(); await settle(el);
+    const toast = q(el, '[data-role="toast"]');
+    expect(toast.classList.contains('levelup')).toBe(true);
+    expect(toast.textContent).toContain('5');
+    expect(toast.textContent).toContain('Hearthkeeper');
+    expect(toast.textContent).toContain('+10 XP');
+  });
+
+  it('a quick-log that crosses a level shows the level-up toast', async () => {
+    const { hass, callApi } = fakeHass({ sprint: running(15, 60_000), levelUp: { level: 2, title: 'Apprentice' } });
+    const el = await mount(hass);
+    await openSprint(el);
+    const input = q(el, '[data-role="log-input"]') as HTMLInputElement;
+    input.value = 'Sink';
+    input.dispatchEvent(new Event('input'));
+    await el.updateComplete;
+    q(el, '[data-act="sprint-log"]').click(); await settle(el);
+    expect(callApi).toHaveBeenCalledWith('POST', 'cuest/sprint/log', { playerId: 'p1', note: 'Sink' });
+    const toast = q(el, '[data-role="toast"]');
+    expect(toast.classList.contains('levelup')).toBe(true);
+    expect(toast.textContent).toContain('Apprentice');
+  });
+
+  it('a plain quick-log shows no toast', async () => {
+    const { hass, callApi } = fakeHass({ sprint: running(15, 60_000) });
+    const el = await mount(hass);
+    await openSprint(el);
+    const input = q(el, '[data-role="log-input"]') as HTMLInputElement;
+    input.value = 'Sink';
+    input.dispatchEvent(new Event('input'));
+    await el.updateComplete;
+    q(el, '[data-act="sprint-log"]').click(); await settle(el);
+    expect(callApi).toHaveBeenCalledWith('POST', 'cuest/sprint/log', { playerId: 'p1', note: 'Sink' });
+    expect(q(el, '[data-role="toast"]')).toBeNull();
   });
 
   it('notices the server auto-finish when time is up and shows the result', async () => {

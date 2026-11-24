@@ -23,6 +23,8 @@ export interface Quest {
   snoozedUntil: string | null;
   energy?: Energy;
 }
+/** Sprint XP credit; `levelUp` is set when it took the player over a level. */
+export interface SprintCredit { sprint: Sprint; xp: number; levelUp?: { level: number; title: string } | null }
 export interface Sprint { id: string; playerId: string; minutes: number; startedAt: string; endedAt: string | null; logs: number; xp: number | null }
 export interface QuestLists { active: Quest[]; open: Quest[]; whenever: Quest[]; questOfDay?: string | null }
 export interface Summary {
@@ -128,8 +130,8 @@ export class CuestApi {
   acceptDice(playerId: string, suggestion: Suggestion) { return this.call<Quest>('POST', 'cuest/dice/accept', { playerId, suggestion }); }
   sprint(playerId: string) { return this.call<{ sprint: Sprint | null }>('GET', `cuest/sprint?playerId=${encodeURIComponent(playerId)}`); }
   sprintStart(playerId: string, minutes: number) { return this.call<Sprint>('POST', 'cuest/sprint/start', { playerId, minutes }); }
-  sprintLog(playerId: string, note: string) { return this.call<{ sprint: Sprint; xp: number }>('POST', 'cuest/sprint/log', { playerId, note }); }
-  sprintFinish(playerId: string) { return this.call<{ sprint: Sprint; xp: number }>('POST', 'cuest/sprint/finish', { playerId }); }
+  sprintLog(playerId: string, note: string) { return this.call<SprintCredit>('POST', 'cuest/sprint/log', { playerId, note }); }
+  sprintFinish(playerId: string) { return this.call<SprintCredit>('POST', 'cuest/sprint/finish', { playerId }); }
   later(questId: string) { return this.call<{ quest: Quest }>('POST', `cuest/quests/${encodeURIComponent(questId)}/later`, {}); }
   buy(playerId: string, itemId: string) { return this.call<BuyResult>('POST', 'cuest/shop/buy', { playerId, itemId }); }
   openChest(playerId: string) { return this.call<BuyResult>('POST', 'cuest/shop/open-chest', { playerId }); }

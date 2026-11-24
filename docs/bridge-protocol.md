@@ -77,7 +77,7 @@ The first message must be `hello` with the shared secret, within 5 seconds. Othe
 `fire_event` (the bridge fires this HA event on the event bus). `event` is one of `cuest_quest_opened`, `cuest_quest_done`, `cuest_level_up`. The `data` keys are:
 - `cuest_quest_opened`: `quest_id`, `title`, `xp`, `minutes`
 - `cuest_quest_done`: `quest_id`, `title`, `player_id`, `player_name`, `xp`, `gold`
-- `cuest_level_up`: `player_id`, `player_name`, `level`, `title`
+- `cuest_level_up`: `player_id`, `player_name`, `level`, `title` (fired whenever XP crosses a level: a finished quest, a finished power sprint or a sprint quick-log note)
 
 ```json
 { "type": "fire_event", "event": "cuest_level_up", "data": { "player_id": "b71d09", "player_name": "Ada", "level": 4, "title": "Hearthkeeper" } }

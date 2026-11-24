@@ -10,7 +10,10 @@ export interface StreakResult {
   usedRest: 'free' | 'token' | null;
 }
 
-/** Longer gaps than this simply start a new streak without walking every day. */
+/**
+ * Performance bound: a gap of more than 60 missed days is not walked day by day; after two months
+ * away a fresh start is the kind outcome anyway (best streak is kept).
+ */
 const MAX_COVERABLE_GAP = 60;
 
 /** Quest of the day and kind streaks (one free rest day per ISO week, then rest tokens). */
@@ -21,6 +24,7 @@ export class DailyService {
   private readonly clock: Clock;
   private readonly tz: string;
   private readonly rng: () => number;
+  private readonly onPicked: ((questId: string | null) => void) | undefined;
 
   constructor(deps: {
     db: DatabaseSync;
@@ -29,7 +33,10 @@ export class DailyService {
     clock: Clock;
     tz: string;
     rng?: () => number;
+    /** Called when a new day's quest of the day is chosen (tick or first-opened fallback). */
+    onPicked?: (questId: string | null) => void;
   }) {
+    this.onPicked = deps.onPicked;
     this.db = deps.db;
     this.quests = deps.quests;
     this.players = deps.players;
@@ -39,7 +46,10 @@ export class DailyService {
   }
 
   tick(now: Date): void {
-    this.ensurePicked(localDate(now, this.tz));
+    const date = localDate(now, this.tz);
+    const fresh = this.row(date) === undefined;
+    const pick = this.ensurePicked(date);
+    if (fresh) this.onPicked?.(pick);
   }
 
   questOfDay(now: Date): string | null {
@@ -56,6 +66,7 @@ export class DailyService {
     const row = this.row(date);
     if (row && row.quest_id === null) {
       this.db.prepare('UPDATE daily SET quest_id = ? WHERE date = ? AND quest_id IS NULL').run(quest.id, date);
+      this.onPicked?.(quest.id);
     }
   }
 

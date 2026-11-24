@@ -8,6 +8,7 @@ export type BusEvents = {
   'quest:done': { quest: Quest; reward: Reward; player: Player; streak?: StreakResult };
   'quest:whenever': Quest;
   'quest:snoozed': Quest;
+  'daily:picked': { questId: string | null };
   'shop:changed': { playerId: string };
 };
 

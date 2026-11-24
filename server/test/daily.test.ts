@@ -20,6 +20,7 @@ let daily: DailyService;
 let bus: Bus;
 let pid: string;
 let rngValue: number;
+let picked: (string | null)[];
 
 beforeEach(() => {
   db = openDb(':memory:');
@@ -29,7 +30,8 @@ beforeEach(() => {
   questsRepo = new QuestsRepo(db);
   bus = new Bus();
   rngValue = 0;
-  daily = new DailyService({ db, quests: questsRepo, players, clock, tz: TZ, rng: () => rngValue });
+  picked = [];
+  daily = new DailyService({ db, quests: questsRepo, players, clock, tz: TZ, rng: () => rngValue, onPicked: (id) => picked.push(id) });
   bus.on('quest:opened', (q) => daily.onQuestOpened(q, clock.now()));
   quests = new QuestService({
     quests: questsRepo,
@@ -69,7 +71,7 @@ describe('quest of the day', () => {
   it('is picked once per local day with the rng and stays', () => {
     const a = open('A');
     const b = open('B');
-    const c = open('C');
+    open('C');
     rngValue = 0.5;
     daily.tick(clock.now());
     expect(daily.questOfDay(clock.now())).toBe(b.id);
@@ -78,7 +80,6 @@ describe('quest of the day', () => {
     expect(daily.questOfDay(clock.now())).toBe(b.id);
     expect(daily.isQuestOfDay(b.id, clock.now())).toBe(true);
     expect(daily.isQuestOfDay(a.id, clock.now())).toBe(false);
-    expect([a.id, c.id]).toHaveLength(2);
   });
 
   it('re-picks the next local day (Berlin midnight)', () => {
@@ -200,18 +201,59 @@ describe('streaks', () => {
     expect(p().restTokens).toBe(0);
   });
 
-  it('handles the DST change week (Berlin, 2026-10-25)', () => {
-    doneOn('2026-10-24T09:00:00Z'); // Sat
-    expect(doneOn('2026-10-25T10:00:00Z').streak.streak).toBe(2); // Sun, 25h day
-    expect(doneOn('2026-10-26T10:00:00Z').streak.streak).toBe(3); // Mon
+  it('handles the DST change near local midnight (Berlin, 2026-10-25)', () => {
+    expect(doneOn('2026-10-24T22:30:00Z').streak.streak).toBe(1); // Oct 25 00:30 CEST
+    // 23:31 CET the same local day (UTC is already the 25th too, but only local day counts)
+    expect(doneOn('2026-10-25T22:30:00Z').streak.streak).toBe(1);
+    expect(doneOn('2026-10-25T23:30:00Z').streak.streak).toBe(2); // Oct 26 00:30 CET
+    // one missed local day (Oct 27) across the change week is covered by the free rest day
+    expect(doneOn('2026-10-27T23:30:00Z').streak).toEqual({ streak: 3, restarted: false, usedRest: 'free' });
   });
 
-  it('quest:done carries the streak and rolls back with the transaction', () => {
+  it('a gap across the DST change counts local days', () => {
+    doneOn('2026-10-24T21:30:00Z'); // Oct 24 23:30 CEST
+    const r = doneOn('2026-10-25T23:30:00Z'); // Oct 26 00:30 CET: Oct 25 missed
+    expect(r.streak).toEqual({ streak: 2, restarted: false, usedRest: 'free' });
+  });
+
+  it('quest:done carries the streak', () => {
     const seen: unknown[] = [];
     bus.on('quest:done', (e) => seen.push((e as { streak?: unknown }).streak));
     const q = open('X');
     quests.done(q.id, pid);
     expect(seen).toEqual([{ streak: 1, restarted: false, usedRest: null }]);
+  });
+
+  it('rolls everything back when the streak step throws', () => {
+    const failing = new QuestService({
+      quests: questsRepo,
+      players,
+      ledger: new LedgerRepo(db),
+      bus,
+      clock,
+      tx: (fn) => transaction(db, fn),
+      onDone: () => {
+        throw new Error('boom');
+      },
+    });
+    const q = open('X');
+    expect(() => failing.done(q.id, pid)).toThrow('boom');
+    expect(questsRepo.get(q.id)?.status).toBe('open');
+    expect(players.get(pid)).toMatchObject({ xp: 0, gold: 0, streak: 0, bestStreak: 0, lastStreakDay: null });
+    expect(new LedgerRepo(db).listForPlayer(pid)).toHaveLength(0);
+  });
+});
+
+describe('daily:picked notification', () => {
+  it('fires on the first tick of a day and when the first-opened fallback fills it', () => {
+    daily.tick(clock.now());
+    daily.tick(clock.now());
+    expect(picked).toEqual([null]);
+    const q = open('First'); // the quest:opened hook fills the empty day
+    expect(picked).toEqual([null, q.id]);
+    clock.set(at('2026-11-25T09:00:00Z'));
+    daily.tick(clock.now());
+    expect(picked).toEqual([null, q.id, q.id]);
   });
 });
 

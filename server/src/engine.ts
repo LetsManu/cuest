@@ -45,7 +45,10 @@ export async function createEngine(deps: {
   const items = new ItemsRepo(db);
   const unlocks = new UnlocksRepo(db);
   const bus = new Bus();
-  const daily = new DailyService({ db, quests: questsRepo, players, clock, tz: config.tz });
+  // The Publisher republishes on 'daily:picked', so listener order against 'quest:opened' does not matter.
+  const daily = new DailyService({ db, quests: questsRepo, players, clock, tz: config.tz,
+    onPicked: (questId) => bus.emit('daily:picked', { questId }),
+  });
   const quests = new QuestService({
     quests: questsRepo,
     players,

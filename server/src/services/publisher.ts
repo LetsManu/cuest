@@ -46,6 +46,7 @@ export class Publisher {
     deps.bus.on('quest:whenever', snap);
     deps.bus.on('quest:snoozed', snap);
     deps.bus.on('shop:changed', snap);
+    deps.bus.on('daily:picked', snap);
     deps.bus.on('quest:done', ({ quest, reward, player }) => {
       snap();
       this.hub.send({

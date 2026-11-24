@@ -177,7 +177,10 @@ that fits. Tap **Another** for a different one.
 
 If nothing matches your energy, you get the closest fit. If there are no quests
 at all, Cuest suggests a tiny one: "Quick tidy: put 5 things back where they
-belong" (2 minutes, 10 XP) that you can start right away.
+belong" (2 minutes, 10 XP) that you can start right away. A quick suggestion
+gives a small flat reward: its 10 XP and a little gold, and it counts for your
+streak, but it has no bonuses, loot or chest-key progress and is never the
+Quest of the day. When a real quest is waiting, Cuest asks you to roll again.
 
 ## Power sprint
 

@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { copy } from '../copy.js';
-import type { DiceService } from '../services/dice.js';
+import { DiceError, type DiceService } from '../services/dice.js';
 import { MAX_NOTE, SprintError, SPRINT_MINUTES, type SprintService } from '../services/sprint.js';
 import { parseBody, sendQuestError } from './util.js';
 
@@ -53,6 +53,7 @@ export function registerPlayRoutes(app: FastifyInstance, dice: DiceService, spri
     try {
       return reply.code(201).send(dice.accept(body.playerId, body.suggestion));
     } catch (e) {
+      if (e instanceof DiceError) return reply.code(409).send({ error: e.code, message: copy.dice.errors[e.code] });
       return sendQuestError(e, reply);
     }
   });

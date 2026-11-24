@@ -57,6 +57,8 @@ export interface QuestTemplate {
   lastSpawnedAt: string | null;
   createdAt: string;
 }
+/** Where a quest came from when that changes its rewards; null for a normal quest. */
+export type QuestSource = 'dice_suggestion';
 export interface Quest {
   id: string;
   templateId: string | null;
@@ -76,6 +78,8 @@ export interface Quest {
   snoozedUntil: string | null;
   nudgeCount: number;
   lastNudgeAt: string | null;
+  /** 'dice_suggestion': accepted from the energy dice; pays a small flat reward. */
+  source?: QuestSource | null;
 }
 export interface LedgerEntry {
   id: string;

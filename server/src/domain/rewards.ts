@@ -19,6 +19,11 @@ export function nextCombo(lastDoneAt: Date | null | undefined, doneAt: Date, pre
   return Math.max(prevCount, 1) + 1;
 }
 
+/** A quick dice suggestion pays its flat base XP and gold only. */
+export function baseReward(quest: Quest): Reward {
+  return { xp: quest.xp, gold: quest.gold, lines: [{ label: copy.reward.base, xp: quest.xp, gold: quest.gold }] };
+}
+
 export function computeReward(input: {
   quest: Quest;
   startedAt: Date | null;

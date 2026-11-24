@@ -11,6 +11,13 @@ export interface Suggestion {
 
 const ORDER: Energy[] = ['low', 'medium', 'high'];
 
+export class DiceError extends Error {
+  constructor(public readonly code: 'quest_waiting') {
+    super(code);
+    this.name = 'DiceError';
+  }
+}
+
 /** Energy dice: picks a quest matching the player's energy, else the nearest energy, else a suggestion. */
 export class DiceService {
   private readonly quests: QuestService;
@@ -24,8 +31,7 @@ export class DiceService {
   }
 
   roll(energy: Energy): { quest: Quest } | { suggestion: Suggestion } {
-    const { open, whenever } = this.quests.listVisible();
-    const pool = [...open, ...whenever];
+    const pool = this.pool();
     const at = ORDER.indexOf(energy);
     for (const distance of [0, 1, 2]) {
       const near = pool.filter((q) => Math.abs(ORDER.indexOf(q.energy) - at) === distance);
@@ -34,16 +40,26 @@ export class DiceService {
     return { suggestion: { ...copy.dice.suggestion } };
   }
 
-  /** Accepting the suggestion creates a manual quest and starts it for the player. */
+  /**
+   * Accepting the suggestion creates a manual quest (marked as a dice suggestion) and starts it.
+   * The dice only offer it when no quest is waiting, so the server re-checks that here.
+   */
   accept(playerId: string, suggestion: Suggestion): Quest {
     return this.tx(() => {
+      if (this.pool().length > 0) throw new DiceError('quest_waiting');
       const { quest } = this.quests.open({
         title: suggestion.title,
         energy: suggestion.energy,
         minutes: suggestion.minutes,
         xp: suggestion.xp,
+        source: 'dice_suggestion',
       });
       return this.quests.start(quest.id, playerId);
     });
+  }
+
+  private pool(): Quest[] {
+    const { open, whenever } = this.quests.listVisible();
+    return [...open, ...whenever];
   }
 }

@@ -30,6 +30,9 @@ export const copy = {
   alreadyDone: 'This quest is already done. Nice!',
   dice: {
     suggestion: { title: 'Quick tidy: put 5 things back where they belong', minutes: 2, xp: 10, energy: 'low' as const },
+    errors: {
+      quest_waiting: "There's a quest waiting already — roll again!",
+    },
   },
   sprint: {
     logLabel: 'Sprint note',

@@ -1,8 +1,8 @@
 import type { Bus } from '../bus.js';
 import type { Clock } from '../clock.js';
 import { newId } from '../clock.js';
-import { computeReward, nextCombo, type Reward } from '../domain/rewards.js';
-import type { Energy, Player, Quest } from '../domain/types.js';
+import { baseReward, computeReward, nextCombo, type Reward } from '../domain/rewards.js';
+import type { Energy, Player, Quest, QuestSource } from '../domain/types.js';
 import type { LedgerRepo } from '../repos/ledger.js';
 import type { PlayersRepo } from '../repos/players.js';
 import type { QuestsRepo } from '../repos/quests.js';
@@ -37,6 +37,7 @@ export interface OpenInput {
   xp: number;
   gold?: number;
   wheneverAfterHours?: number;
+  source?: QuestSource;
 }
 
 export class QuestService {
@@ -110,6 +111,7 @@ export class QuestService {
       snoozedUntil: null,
       nudgeCount: 0,
       lastNudgeAt: null,
+      source: input.source ?? null,
     };
     this.quests.insert(quest);
     this.bus.emit('quest:opened', quest);
@@ -139,9 +141,12 @@ export class QuestService {
     if (quest.status === 'done') throw new QuestError('already_done');
     if (quest.status === 'active' && quest.claimedBy !== playerId) throw new QuestError('already_claimed');
     const now = this.clock.now();
+    // A quick dice suggestion is effort that counts (streak), but only for its flat base reward:
+    // no bonuses, no loot, no chest-key progress and no combo, so it cannot be farmed.
+    const flat = quest.source === 'dice_suggestion';
     const lastDoneAt = doer.lastDoneAt ? new Date(doer.lastDoneAt) : null;
-    const questOfDay = this.isQuestOfDay(questId, now);
-    const reward = computeReward({
+    const questOfDay = !flat && this.isQuestOfDay(questId, now);
+    const reward = flat ? baseReward(quest) : computeReward({
       quest,
       startedAt: quest.startedAt ? new Date(quest.startedAt) : null,
       doneAt: now,
@@ -160,12 +165,15 @@ export class QuestService {
       });
       this.players.addRewards(playerId, reward.xp, reward.gold);
       const streak = this.onDone?.(playerId, now);
-      const lootId = this.onLoot?.(playerId, questOfDay) ?? null;
+      const lootId = flat ? null : (this.onLoot?.(playerId, questOfDay) ?? null);
       const loot = lootId ? { itemId: lootId, name: findItem(lootId)?.name ?? lootId } : null;
-      const doneCount = this.players.incrementDoneCount(playerId);
-      const chestKey = doneCount % QUESTS_PER_CHEST_KEY === 0;
-      if (chestKey) this.players.addChestKeys(playerId, 1);
-      const player = this.players.setCombo(playerId, combo, now.toISOString());
+      let chestKey = false;
+      if (!flat) {
+        const doneCount = this.players.incrementDoneCount(playerId);
+        chestKey = doneCount % QUESTS_PER_CHEST_KEY === 0;
+        if (chestKey) this.players.addChestKeys(playerId, 1);
+      }
+      const player = flat ? (this.players.get(playerId) as Player) : this.players.setCombo(playerId, combo, now.toISOString());
       this.ledger.add({
         playerId,
         questId,
@@ -173,7 +181,7 @@ export class QuestService {
         xp: reward.xp,
         gold: reward.gold,
         at: now.toISOString(),
-        meta: { lines: reward.lines },
+        meta: { lines: reward.lines, ...(flat ? { source: quest.source } : {}) },
       });
       return { quest: doneQuest, reward, player, ...(streak ? { streak } : {}), loot, chestKey };
     });

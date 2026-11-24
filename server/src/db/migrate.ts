@@ -124,6 +124,9 @@ export const MIGRATIONS: string[] = [
     value TEXT NOT NULL
   );
   `,
+  `
+  ALTER TABLE quests ADD COLUMN source TEXT;
+  `,
 ];
 
 export function migrate(db: DatabaseSync): void {

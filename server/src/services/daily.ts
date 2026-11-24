@@ -64,6 +64,7 @@ export class DailyService {
   onQuestOpened(quest: Quest, now: Date): void {
     const date = localDate(now, this.tz);
     const row = this.row(date);
+    if (quest.source === 'dice_suggestion') return;
     if (row && row.quest_id === null) {
       this.db.prepare('UPDATE daily SET quest_id = ? WHERE date = ? AND quest_id IS NULL').run(quest.id, date);
       this.onPicked?.(quest.id);
@@ -121,7 +122,7 @@ export class DailyService {
   private ensurePicked(date: string): string | null {
     const row = this.row(date);
     if (row) return row.quest_id;
-    const pool = this.quests.listByStatus(['open', 'whenever']);
+    const pool = this.quests.listByStatus(['open', 'whenever']).filter((q) => q.source !== 'dice_suggestion');
     const pick = pool.length === 0 ? null : (pool[Math.min(pool.length - 1, Math.floor(this.rng() * pool.length))] as Quest).id;
     this.db.prepare('INSERT INTO daily (date, quest_id) VALUES (?, ?)').run(date, pick);
     return pick;

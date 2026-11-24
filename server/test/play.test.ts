@@ -98,6 +98,81 @@ describe('energy dice', () => {
   });
 });
 
+describe('quick suggestions pay a small flat reward (Ruling 2)', () => {
+  const accept = async () => {
+    const { suggestion } = (await get(`/api/dice?playerId=${pid}&energy=low`)).json();
+    const res = await post('/api/dice/accept', { playerId: pid, suggestion });
+    expect(res.statusCode).toBe(201);
+    return res.json();
+  };
+  const done = async (id: string) => (await post(`/api/quests/${id}/done`, { playerId: pid })).json();
+  const player = () => new PlayersRepo(db).get(pid)!;
+
+  it('marks the accepted quest as a dice suggestion', async () => {
+    const q = await accept();
+    expect(q.source).toBe('dice_suggestion');
+  });
+
+  it('pays base XP and gold only: no fresh, keep-going, combo or quest of the day', async () => {
+    engine.tick(); // today's quest-of-the-day row exists but is empty
+    const real = await mkQuest('Dishes', 'low');
+    await done(real.id); // a real quest just before: a combo would start here
+    const q = await accept();
+    expect((await get('/api/quests')).json().questOfDay).toBe(real.id);
+    clock.advance(6); // keep-going would pay here
+    const r = await done(q.id);
+    expect(r.reward).toEqual({ xp: 10, gold: 3, lines: [{ label: 'Quest', xp: 10, gold: 3 }] });
+  });
+
+  it('never becomes the quest of the day, even as the first quest opened that day', async () => {
+    engine.tick();
+    const q = await accept();
+    expect((await get('/api/quests')).json().questOfDay).toBeNull();
+    const r = await done(q.id);
+    expect(r.reward.lines.map((l: { label: string }) => l.label)).toEqual(['Quest']);
+  });
+
+  it('is never picked as quest of the day from the pool either', async () => {
+    const q = await accept();
+    db.prepare("UPDATE quests SET status = 'whenever', claimed_by = NULL, started_at = NULL WHERE id = ?").run(q.id);
+    clock.advance(24 * 60);
+    engine.tick();
+    expect((await get('/api/quests')).json().questOfDay).toBeNull();
+  });
+
+  it('rolls no loot and does not count towards chest keys', async () => {
+    db.prepare('UPDATE players SET done_count = 4 WHERE id = ?').run(pid);
+    for (let i = 0; i < 6; i++) {
+      const r = await done((await accept()).id);
+      expect(r).toMatchObject({ loot: null, chestKey: false });
+      clock.advance(1);
+    }
+    expect(player()).toMatchObject({ doneCount: 4, chestKeys: 0 });
+    expect(db.prepare('SELECT COUNT(*) AS n FROM player_items WHERE player_id = ?').get(pid)).toEqual({ n: 0 });
+  });
+
+  it('does not touch the combo chain', async () => {
+    const q = await accept();
+    await done(q.id);
+    expect(player()).toMatchObject({ comboCount: 0, lastDoneAt: null });
+  });
+
+  it('still counts for the streak', async () => {
+    const r = await done((await accept()).id);
+    expect(r.streak).toMatchObject({ streak: 1 });
+    expect(player().streak).toBe(1);
+  });
+
+  it('accept is 409 with kind copy when a quest is waiting in the pool', async () => {
+    const { suggestion } = (await get(`/api/dice?playerId=${pid}&energy=low`)).json();
+    await mkQuest('Vacuum', 'high');
+    const res = await post('/api/dice/accept', { playerId: pid, suggestion });
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toEqual({ error: 'quest_waiting', message: copy.dice.errors.quest_waiting });
+    expect((await get('/api/quests')).json().active).toHaveLength(0);
+  });
+});
+
 describe('power sprint', () => {
   const start = (minutes = 15) => post('/api/sprint/start', { playerId: pid, minutes });
 

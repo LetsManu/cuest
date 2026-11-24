@@ -64,12 +64,85 @@ Store integration) installed.
     switch to the code editor and add `person: person.your_name`. Click
     **Save**.
 
-The card shows your hero, level, XP bar, gold and your open quests, each with
-a **Done** button.
+The card shows your hero (wearing your outfit), level, XP bar, gold and your
+open quests, each with a **Done** button.
 
 Note: **Done** on the card (and ticking a quest in the to-do list) credits the
 player linked to the Home Assistant user who is logged in. On a shared wall
 tablet, log in as the person who did the quest, or use their phone.
+
+## Open Cuest
+
+Cuest adds its own page to Home Assistant.
+
+1. Open **Cuest** in the Home Assistant sidebar (the list on the left). The
+   same entry is in the Home Assistant app on the iPhone, from anywhere Home
+   Assistant is reachable.
+2. If your Home Assistant user is not linked to a player yet, Cuest asks
+   **Who's playing?**. Pick your hero. This device remembers it.
+3. To play as someone else, use **Switch player**. It only shows when there is
+   more than one player.
+
+People who are not Home Assistant administrators can play (finish quests) and
+shop, but they cannot change settings.
+
+## House treats
+
+A house treat is something in your home that a player can buy with gold, for
+example a movie-night scene or the gaming PC.
+
+1. Go to **Settings → Devices & services → Cuest → Configure** and choose
+   **House treats**.
+2. Pick the scenes, scripts, switches or input booleans that may be treats.
+3. For each one, give it a name and a price in gold (5 to 1000, in steps of 5).
+
+Cuest can only switch on exactly the things you picked, and it can only turn
+them on. It never turns anything off.
+
+### A treat that lasts for a set time
+
+Because Cuest only turns things on, make a script that also turns it off again.
+For "Gaming PC for 1 hour":
+
+1. Go to **Settings → Automations & scenes → Scripts → New script**.
+2. Add three actions: turn on `switch.gaming_pc`, wait one hour, turn off
+   `switch.gaming_pc`. In YAML it looks like this:
+
+   ```yaml
+   sequence:
+     - action: switch.turn_on
+       target:
+         entity_id: switch.gaming_pc
+     - delay: "1:00:00"
+     - action: switch.turn_off
+       target:
+         entity_id: switch.gaming_pc
+   ```
+
+3. Save it with a clear name, then pick that script under **House treats**.
+
+If Home Assistant is not connected to Cuest, the shop shows a message and no
+gold is spent.
+
+## The shop
+
+Open **Shop** in the Cuest page. It has four tabs: **House treats**,
+**Wardrobe**, **Village** and **Helpers**. Gold is never taken away. It is only
+spent when you buy something.
+
+- **House treats**: your own treats from above, at the prices you set. They can
+  be bought again and again.
+- **Wardrobe** (buy once, then **Wear**; the worn item shows **Wearing**):
+  Ember hood (40 gold), Night-sky hood (70), Teal scarf (25), Golden broom (80).
+  Your outfit shows on your hero, also on the dashboard card.
+- **Village** (buy once, then **In village**): Village lantern (30), Flower bed
+  (20), Village cat (60), Little fountain (90).
+- **Helpers** (can be bought again):
+  - Rest-day token (50): saved now. Streaks will use it in a later update.
+  - Mystery chest (40): half the time a wardrobe item you do not own yet,
+    otherwise 20 to 80 gold. If you own all wardrobe items, you get gold.
+  - Double XP hour (70): quests you finish in the next hour give double XP
+    (gold stays the same). Buying again adds another hour.
 
 ## Optional: finish a quest with an NFC tag
 

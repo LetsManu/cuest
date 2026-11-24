@@ -1,7 +1,7 @@
 # Cuest — Chore Quest: Design
 
 Date: 2026-11-24
-Status: Draft, awaiting approval
+Status: Plans 1–3 implemented (server, Home Assistant bridge, sidebar app and shop)
 
 ## 1. Intent
 

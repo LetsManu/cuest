@@ -321,7 +321,7 @@ Hold a tile for half a second to open its more-info dialog.
 | `icon` | by entity | `bulb`, `tv`, `pc`, `shield`, `spark`, or an `mdi:` name. |
 | `tone` | `gold` | `gold` or `green`. |
 | `state_text` | the state | `wide` only: replaces the state text. |
-| `tap_action` | toggle for light, switch, input_boolean and fan; activate for scene and script; press for button; otherwise more-info | `action`: `toggle`, `call-service`, `more-info` or `none`. With `call-service`: `service` and optional `data`. |
+| `tap_action` | toggle for light, switch, input_boolean and fan; activate for scene and script; press for button; otherwise more-info | `action`: `toggle`, `call-service`, `more-info` or `none`. With `call-service`: `service` and optional `data`. A `tap_action` without `action` toggles a light, switch, input_boolean or fan tile; for any other tile, or with a `service`, `action` is required. |
 
 ```yaml
 type: custom:cuest-spell-tile

@@ -417,4 +417,18 @@ describe('updates and config', () => {
     expect(mk({ entity: 'light.a', icon: 'mdi:lamp' })).not.toThrow();
     expect(mk({ tap_action: { action: 'call-service', service: 'a.b' } })).not.toThrow();
   });
+
+  it('tap_action without action toggles a toggleable tile and is an error otherwise', async () => {
+    const mk = (c: unknown) => () => (document.createElement(TAG) as unknown as CuestSpellTile).setConfig(c);
+    const msg = 'cuest-spell-tile: "tap_action": "action" is required';
+    expect(mk({ entity: 'vacuum.robo', tap_action: { service: 'vacuum.start' } })).toThrow(msg);
+    expect(mk({ entity: 'light.a', tap_action: { service: 'script.x' } })).toThrow(msg);
+    expect(mk({ entity: 'scene.a', tap_action: {} })).toThrow(msg);
+    expect(mk({ tap_action: {} })).toThrow(msg);
+    const h = one('light.a');
+    const el = await mount(TAG, { entity: 'light.a', tap_action: {} }, h);
+    tile(el).click();
+    expect(h.callService).toHaveBeenCalledWith('light', 'toggle', { entity_id: 'light.a' });
+    expect(tile(el).getAttribute('aria-pressed')).toBe('true');
+  });
 });

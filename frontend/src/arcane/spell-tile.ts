@@ -107,7 +107,15 @@ export class CuestSpellTile extends ArcaneCard<TileConfig> {
     const ta = raw.tap_action;
     if (ta !== undefined && ta !== null) {
       if (!isObject(ta)) throw new ConfigError(`${TAG}: "tap_action" must be an object`);
-      const action = v.oneOf(ta, 'action', `${TAG}: "tap_action"`, ACTIONS, 'none');
+      const where = `${TAG}: "tap_action"`;
+      let action: Action;
+      if (ta.action === undefined || ta.action === null || ta.action === '') {
+        // Without an action a toggleable tile toggles; anything else must say what to do.
+        if (ta.service !== undefined || !entity || !TOGGLE_DOMAINS.includes(domainOf(entity))) throw new ConfigError(`${where}: "action" is required`);
+        action = 'toggle';
+      } else {
+        action = v.oneOf(ta, 'action', where, ACTIONS, 'none');
+      }
       const tap: TapAction = { action };
       if (action === 'call-service') {
         const service = v.str(ta, 'service', `${TAG}: "tap_action"`, true) as string;

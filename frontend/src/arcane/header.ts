@@ -5,7 +5,7 @@ import { ARCANE_COPY, fill } from './copy';
 import { clockLine, fmtTemp, num } from './format';
 import { lightStats } from './house';
 import { missingOrbEntity, orbColorText, orbValue, renderOrb, validateOrb, type OrbItem } from './orb';
-import { ARCANE, FONT_PIXEL } from './theme';
+import { ARCANE, FONT_BODY, FONT_PIXEL } from './theme';
 
 const C = ARCANE_COPY;
 const A = ARCANE;
@@ -67,13 +67,13 @@ export class CuestArcaneHeader extends ArcaneCard<HeaderConfig> {
       .moon{position:absolute;right:40px;top:30px;width:34px;height:34px;border-radius:99px;background:#F3E6C0;box-shadow:0 0 24px #F3E6C0}
       .moon-cut{position:absolute;right:30px;top:26px;width:30px;height:30px;border-radius:99px;background:#1A1F3E}
       .village{position:absolute;left:0;bottom:0}
-      .win.lit{animation:flicker 4s ease-in-out infinite;filter:drop-shadow(0 0 4px ${u(A.goldText)})}
+      .win.lit{animation:flicker 4s ease-in-out infinite}
       .temps{position:absolute;right:16px;bottom:44px;font-size:12px;color:${u(A.soft)};text-align:right}
       .inner{max-width:1280px;margin:0 auto;padding:22px 24px;display:flex;flex-wrap:wrap;align-items:center;gap:24px;position:relative}
       .inner .titles{flex:1 1 260px}
       .orbrow{display:flex;gap:22px;flex-wrap:wrap}
       .orbitem{display:flex;align-items:center;gap:10px}
-      .orbitem .val{font-family:${u(FONT_PIXEL)};font-size:18px}
+      .orbitem .val{font-family:${u(FONT_BODY)};font-weight:700;font-variant-numeric:tabular-nums;font-size:18px}
       .orbitem .what{font-size:12px;color:${u(A.muted)}}
       @media (prefers-reduced-motion: reduce){.win.lit{animation:none}}
     `,
@@ -200,7 +200,7 @@ export class CuestArcaneHeader extends ArcaneCard<HeaderConfig> {
     const val = orbValue(h, o);
     return html`<div class="orbitem">
       ${renderOrb(val, o.color, i, 72, { ring: false })}
-      <div><div class="val" style="color:${orbColorText(o.color)}">${val.text}</div>
+      <div><div class="val num" style="color:${orbColorText(o.color)}">${val.text}</div>
         <div class="what">${val.sublabel ? `${val.label} · ${val.sublabel}` : val.label}</div></div>
     </div>`;
   }

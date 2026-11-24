@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { expectClean, fakeHass, mount, st, text } from './fake-hass';
-import { validateOrb } from '../../src/arcane/orb';
+import { CuestOrbCard, validateOrb } from '../../src/arcane/orb';
 import '../../src/arcane/orb';
 
 const TAG = 'cuest-orb-card';
@@ -74,7 +74,7 @@ describe('orb presets', () => {
   it('lights shows Glow 1 with sublabel lights on', async () => {
     const el = await mount(TAG, { preset: 'lights' }, fakeHass({ states: HOUSE }));
     expect(text(el)).toContain('Glow 1');
-    expect(root(el).querySelector('.sub')!.textContent).toBe('lights on');
+    expect(root(el).querySelector('.sub')!.textContent).toBe('1 light on');
   });
 
   it('health uses singular copy for one quest', async () => {
@@ -99,6 +99,58 @@ describe('orb presets', () => {
     const el = await mount(TAG, { preset: 'online', label: 'Power', sublabel: 'all good' }, fakeHass({ states: HOUSE }));
     expect(text(el)).toContain('Power 89%');
     expect(text(el)).toContain('all good');
+  });
+});
+
+const front = (el: HTMLElement) => root(el).querySelector('[data-wave="front"]')!.getAttribute('transform');
+
+describe('orb levels per preset', () => {
+  it('health: 3 of 4 batteries ok -> p .75', async () => {
+    const bat = (n: string) => st(n, { device_class: 'battery', unit_of_measurement: '%' });
+    const states = { 'sensor.a_battery': bat('3'), 'sensor.b_battery': bat('90'), 'sensor.c_battery': bat('80'), 'sensor.d_battery': bat('70') };
+    expect(front(await mount(TAG, { preset: 'health' }, fakeHass({ states })))).toBe('translate(0,8)');
+  });
+  it('lights: 1 of 2 -> translate(0,34), singular copy and aria', async () => {
+    const el = await mount(TAG, { preset: 'lights' }, fakeHass({ states: HOUSE }));
+    expect(front(el)).toBe('translate(0,34)');
+    expect(root(el).querySelector('.sub')!.textContent).toBe('1 light on');
+    expect(root(el).querySelector('svg')!.getAttribute('aria-label')).toBe('Glow: 1 light on');
+  });
+  it('lights: several on keep the plural and the aria text', async () => {
+    const states = { 'light.a': st('on'), 'light.b': st('on'), 'light.c': st('off') };
+    const el = await mount(TAG, { preset: 'lights' }, fakeHass({ states }));
+    expect(root(el).querySelector('.sub')!.textContent).toBe('lights on');
+    expect(root(el).querySelector('svg')!.getAttribute('aria-label')).toBe('Glow: 2 lights on');
+  });
+  it('online: 89% (8 of 9) -> translate(0,-6.56)', async () => {
+    expect(front(await mount(TAG, { preset: 'online' }, fakeHass({ states: HOUSE })))).toBe('translate(0,-6.56)');
+  });
+  it('ratio: 50 of 200 -> translate(0,60)', async () => {
+    const h = fakeHass({ states: { 'sensor.v': st('50'), 'sensor.max': st('200') } });
+    expect(front(await mount(TAG, { preset: 'ratio', entity: 'sensor.v', max: 'sensor.max' }, h))).toBe('translate(0,60)');
+  });
+});
+
+describe('orb decoration and numbers', () => {
+  it('spins the ring on mana only and uses a 4 wide rim at 96px', async () => {
+    const el = await mount(TAG, { orbs: [{ preset: 'online' }, { preset: 'health' }, { preset: 'lights' }] }, fakeHass({ states: HOUSE }));
+    expect(root(el).querySelectorAll('.spin').length).toBe(1);
+    expect(root(el).querySelector('svg:first-of-type .spin')).not.toBeNull();
+    for (const c of Array.from(root(el).querySelectorAll('circle[r="54"]'))) expect(c.getAttribute('stroke-width')).toBe('4');
+  });
+  it('shows the value in a numeric span, word apart', async () => {
+    const el = await mount(TAG, { preset: 'percent', entity: 'sensor.p' }, fakeHass({ states: { 'sensor.p': st('50') } }));
+    expect(root(el).querySelector('.line .num')!.textContent).toBe('50%');
+    expect(text(el)).toContain('Mana 50%');
+  });
+  it('styles .num with Inter 700 and tabular figures', () => {
+    const css = CuestOrbCard.styles.map((s) => (s as { cssText: string }).cssText).join('\n');
+    expect(css).toMatch(/\.num\{[^}]*font-weight:700[^}]*font-variant-numeric:tabular-nums/);
+    expect(css).toMatch(/\.num\{[^}]*font-family:Inter/);
+  });
+  it('sets battery_threshold only for health', () => {
+    expect(validateOrb({ preset: 'online' }, TAG).battery_threshold).toBeUndefined();
+    expect(validateOrb({ preset: 'health' }, TAG).battery_threshold).toBe(20);
   });
 });
 

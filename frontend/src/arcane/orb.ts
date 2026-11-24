@@ -4,7 +4,7 @@ import { ArcaneCard, ConfigError, registerCard, v } from './base';
 import { ARCANE_COPY, fill } from './copy';
 import { fmtPercent, num } from './format';
 import { collectFaults, lightStats, matches, onlineShare } from './house';
-import { ARCANE, FONT_PIXEL } from './theme';
+import { ARCANE, FONT_BODY, FONT_PIXEL } from './theme';
 
 const C = ARCANE_COPY;
 const A = ARCANE;
@@ -80,7 +80,7 @@ export function validateOrb(raw: unknown, tag: string): OrbItem {
     const l = strings(r, k, tag);
     if (l) item[k] = l;
   }
-  item.battery_threshold = v.num(r, 'battery_threshold', tag, { def: 20, min: 0, max: 100 });
+  if (preset === 'health') item.battery_threshold = v.num(r, 'battery_threshold', tag, { def: 20, min: 0, max: 100 });
   return item;
 }
 
@@ -125,8 +125,10 @@ export function orbValue(h: HomeAssistant, item: OrbItem): OrbValue {
       const ex = item.exclude ?? [];
       const s = lightStats(h, (id) => !matches(id, ex));
       const p = s.total === 0 ? null : s.on / s.total;
-      const o = out(p, String(s.on), C.orb.lights.unit, `${name}: ${s.on} ${C.orb.lights.unit}`);
-      if (p === null) o.aria = `${name}: ${s.on} ${C.orb.lights.unit}`;
+      const unit = s.on === 1 ? C.orb.lights.unitOne : C.orb.lights.unit;
+      const aria = s.on === 1 ? `${name}: ${unit}` : `${name}: ${s.on} ${unit}`;
+      const o = out(p, String(s.on), unit, aria);
+      if (p === null) o.aria = aria;
       return o;
     }
     case 'health': {
@@ -185,6 +187,7 @@ export class CuestOrbCard extends ArcaneCard<OrbCardConfig> {
       .orbs{position:relative;display:flex;justify-content:space-around;padding:16px 8px 12px;overflow:hidden}
       .cell{display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0}
       .cell .line{font-family:${u(FONT_PIXEL)};font-size:14px}
+      .num{font-family:${u(FONT_BODY)};font-weight:700;font-variant-numeric:tabular-nums}
       .cell .sub{font-size:11px;color:${u(A.muted)}}
       .cell .warn{max-width:120px}
     `,
@@ -228,7 +231,7 @@ export class CuestOrbCard extends ArcaneCard<OrbCardConfig> {
     const val = orbValue(h, item);
     return html`<div class="cell">
       ${renderOrb(val, item.color, i, 96, { ring: item.color === 'mana' })}
-      <span class="line" style="color:${COLOR_TEXT[item.color]}">${val.label} ${val.text}</span>
+      <span class="line" style="color:${COLOR_TEXT[item.color]}">${val.label} <span class="num">${val.text}</span></span>
       ${val.sublabel ? html`<span class="sub">${val.sublabel}</span>` : nothing}
     </div>`;
   }

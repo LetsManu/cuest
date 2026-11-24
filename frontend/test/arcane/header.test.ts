@@ -75,6 +75,14 @@ describe('header phone', () => {
     expect(text(el)).toContain('2° outside');
   });
 
+  it('re-renders when the inside temperature changes', async () => {
+    const el = await mount<{ hass: unknown }>(TAG, { inside: 'sensor.inside' }, fakeHass({ states: { 'sensor.inside': st('20') } }));
+    expect(text(el)).toContain('20° inside');
+    el.hass = fakeHass({ states: { 'sensor.inside': st('22') } });
+    await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+    expect(text(el)).toContain('22° inside');
+  });
+
   it('flickers lit windows but honours reduced motion', () => {
     const css = CuestArcaneHeader.styles.map((s) => (s as { cssText: string }).cssText).join('\n');
     expect(css).toMatch(/\.win\.lit\{[^}]*animation:flicker 4s/);
@@ -124,7 +132,12 @@ describe('header wide', () => {
     expect(new Set(Array.from(root(el).querySelectorAll('clipPath')).map((c) => c.id)).size).toBe(3);
     expect(text(el)).toContain('Tuesday 16:40 · the house is happy · -0.7° outside');
     expect(text(el)).toContain('Mana · online');
-    expect(text(el)).toContain('Glow · lights on');
+    expect(root(el).querySelectorAll('.spin').length).toBe(0);
+    for (const c of Array.from(root(el).querySelectorAll('circle[r="54"]'))) expect(c.getAttribute('stroke-width')).toBe('5');
+    expect(root(el).querySelector('.orbitem .val')!.classList.contains('num')).toBe(true);
+    expect(CuestArcaneHeader.styles.map((x) => (x as { cssText: string }).cssText).join('')).toMatch(/\.orbitem \.val\{[^}]*font-family:Inter[^}]*font-weight:700[^}]*tabular-nums/);
+    expect(CuestArcaneHeader.styles.map((x) => (x as { cssText: string }).cssText).join('')).not.toMatch(/drop-shadow/);
+    expect(text(el)).toContain('Glow · 1 light on');
     expectClean(el);
   });
 

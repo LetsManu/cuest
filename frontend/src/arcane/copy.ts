@@ -64,7 +64,7 @@ export const ARCANE_COPY = {
   orb: {
     online: { label: 'Mana', unit: 'online' },
     health: { label: 'Health', unit: '{n} quests', unitOne: '1 quest' },
-    lights: { label: 'Glow', unit: 'lights on' },
+    lights: { label: 'Glow', unit: 'lights on', unitOne: '1 light on' },
   },
   header: {
     title: 'Cuest Home',

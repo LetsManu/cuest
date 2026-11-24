@@ -10,6 +10,8 @@ import { transaction } from './db/db.js';
 import { LedgerRepo } from './repos/ledger.js';
 import { PlayersRepo } from './repos/players.js';
 import { QuestsRepo } from './repos/quests.js';
+import { UnlocksRepo } from './repos/unlocks.js';
+import { ShopService } from './services/shop.js';
 import { TemplatesRepo } from './repos/templates.js';
 import { Publisher } from './services/publisher.js';
 import type { EntityInfo } from './bridge/protocol.js';
@@ -40,11 +42,13 @@ export async function createEngine(deps: {
   const questsRepo = new QuestsRepo(db);
   const ledger = new LedgerRepo(db);
   const items = new ItemsRepo(db);
+  const unlocks = new UnlocksRepo(db);
   const bus = new Bus();
   const quests = new QuestService({ quests: questsRepo, players, ledger, bus, clock, tx: (fn) => transaction(db, fn) });
+  const hub = new BridgeHub({ secret: config.bridgeSecret, log });
+  const shop = new ShopService({ players, items, ledger, unlocks, hub, bus, clock, tx: (fn) => transaction(db, fn) });
   const rules = new RuleEngine({ templates, quests });
   const recurring = new RecurringScheduler({ templates, quests, tz: config.tz });
-  const hub = new BridgeHub({ secret: config.bridgeSecret, log });
   const nudges = new NudgeService({ bus, hub, quests, questsRepo, templates, players, clock, tz: config.tz });
 
   let entities: EntityInfo[] = [];
@@ -79,6 +83,8 @@ export async function createEngine(deps: {
     players,
     templates,
     quests,
+    shop,
+    unlocks,
     onTemplatesChanged: refreshSubscriptions,
     onPlayersChanged: () => publisher.publishSnapshot(),
     getEntities: () => entities,

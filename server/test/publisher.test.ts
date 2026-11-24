@@ -4,6 +4,7 @@ import { FakeClock } from '../src/clock.js';
 import { openDb } from '../src/db/db.js';
 import { migrate } from '../src/db/migrate.js';
 import { LedgerRepo } from '../src/repos/ledger.js';
+import { UnlocksRepo } from '../src/repos/unlocks.js';
 import { ItemsRepo } from '../src/repos/items.js';
 import { PlayersRepo } from '../src/repos/players.js';
 import { QuestsRepo } from '../src/repos/quests.js';
@@ -35,7 +36,7 @@ beforeEach(() => {
   authFns = [];
   const hub = { send: (m: ServerMessage) => (sent.push(m), true), onAuthenticated: (fn: () => void) => void authFns.push(fn) };
   publisher = new Publisher({ bus, hub, players, quests, items, clock });
-  shop = new ShopService({ players, items, ledger: new LedgerRepo(db), tx: (fn) => transaction(db, fn), clock, bus });
+  shop = new ShopService({ players, items, ledger: new LedgerRepo(db), tx: (fn) => transaction(db, fn), clock, bus, unlocks: new UnlocksRepo(db), hub: { isConnected: () => true, callService: () => true } });
   pid = players.create({ name: 'Ana', haPerson: 'person.ana' }, clock.now()).id;
 });
 

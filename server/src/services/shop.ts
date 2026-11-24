@@ -4,6 +4,8 @@ import type { Bus } from '../bus.js';
 import type { PlayersRepo } from '../repos/players.js';
 import type { ItemsRepo } from '../repos/items.js';
 import type { LedgerRepo } from '../repos/ledger.js';
+import type { UnlocksRepo } from '../repos/unlocks.js';
+import type { BridgeHub } from '../bridge/hub.js';
 import { CATALOG, findItem } from '../shop/catalog.js';
 
 export type ShopErrorCode =
@@ -25,6 +27,7 @@ export type BuyResult = {
   player: Player;
   result:
     | { kind: 'item'; itemId: string }
+    | { kind: 'treat'; itemId: string }
     | { kind: 'rest_token' }
     | { kind: 'potion'; boostUntil: string }
     | { kind: 'chest'; itemId: string }
@@ -42,6 +45,8 @@ export interface ShopView {
 
 const POTION_MINUTES = 60;
 
+const domainOf = (entityId: string): string => entityId.split('.')[0] as string;
+
 export class ShopService {
   private players: PlayersRepo;
   private items: ItemsRepo;
@@ -50,6 +55,8 @@ export class ShopService {
   private clock: Clock;
   private rng: () => number;
   private bus: Bus | undefined;
+  private unlocks: UnlocksRepo;
+  private hub: Pick<BridgeHub, 'callService' | 'isConnected'>;
 
   constructor(deps: {
     players: PlayersRepo;
@@ -59,6 +66,8 @@ export class ShopService {
     clock: Clock;
     rng?: () => number;
     bus?: Bus;
+    unlocks: UnlocksRepo;
+    hub: Pick<BridgeHub, 'callService' | 'isConnected'>;
   }) {
     this.players = deps.players;
     this.items = deps.items;
@@ -67,9 +76,59 @@ export class ShopService {
     this.clock = deps.clock;
     this.rng = deps.rng ?? Math.random;
     this.bus = deps.bus;
+    this.unlocks = deps.unlocks;
+    this.hub = deps.hub;
+  }
+
+  private treatItem(itemId: string): { item: ShopItem; entityId: string } | null {
+    if (!itemId.startsWith('treat:')) return null;
+    const u = this.unlocks.get(itemId.slice('treat:'.length));
+    if (!u || !u.enabled) return null;
+    return { item: { id: itemId, kind: 'treat', name: u.name, cost: u.cost }, entityId: u.entityId };
+  }
+
+  private buyTreat(playerId: string, itemId: string): BuyResult {
+    const treat = this.treatItem(itemId);
+    if (!treat) throw new ShopError('unknown_item');
+    if (!this.hub.isConnected()) throw new ShopError('bridge_offline');
+    const { item, entityId } = treat;
+    const out = this.tx((): BuyResult => {
+      if (!this.players.get(playerId)) throw new ShopError('unknown_player');
+      this.players.spendGold(playerId, item.cost);
+      this.ledger.add({
+        playerId,
+        questId: null,
+        kind: 'purchase',
+        xp: 0,
+        gold: -item.cost,
+        at: this.clock.now().toISOString(),
+        meta: { itemId },
+      });
+      return { player: this.players.get(playerId) as Player, result: { kind: 'treat', itemId } };
+    });
+    const ok = this.hub.callService(domainOf(entityId), 'turn_on', {}, { entity_id: entityId });
+    if (!ok) {
+      this.tx(() => {
+        this.players.addRewards(playerId, 0, item.cost);
+        this.ledger.add({
+          playerId,
+          questId: null,
+          kind: 'purchase',
+          xp: 0,
+          gold: item.cost,
+          at: this.clock.now().toISOString(),
+          meta: { itemId, refund: true },
+        });
+      });
+      this.bus?.emit('shop:changed', { playerId });
+      throw new ShopError('bridge_offline');
+    }
+    this.bus?.emit('shop:changed', { playerId });
+    return out;
   }
 
   buy(playerId: string, itemId: string): BuyResult {
+    if (itemId.startsWith('treat:')) return this.buyTreat(playerId, itemId);
     const item = findItem(itemId);
     if (!item) throw new ShopError('unknown_item');
     const out = this.tx((): BuyResult => {
@@ -159,7 +218,16 @@ export class ShopService {
       boostUntil: player.boostUntil,
       owned,
       equipped: this.items.equipped(playerId),
-      catalog: CATALOG.map((i) => ({ ...i, owned: (owned[i.id] ?? 0) > 0 })),
+      catalog: [
+        ...CATALOG.map((i) => ({ ...i, owned: (owned[i.id] ?? 0) > 0 })),
+        ...this.unlocks.list({ enabledOnly: true }).map((u) => ({
+          id: `treat:${u.id}`,
+          kind: 'treat' as const,
+          name: u.name,
+          cost: u.cost,
+          owned: false,
+        })),
+      ],
     };
   }
 }

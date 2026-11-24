@@ -77,6 +77,16 @@ export const MIGRATIONS: string[] = [
     PRIMARY KEY (player_id, slot)
   );
   `,
+  `
+  CREATE TABLE unlocks (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    cost INTEGER NOT NULL,
+    entity_id TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL
+  );
+  `,
 ];
 
 export function migrate(db: DatabaseSync): void {

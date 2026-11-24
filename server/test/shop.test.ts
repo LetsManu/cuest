@@ -4,6 +4,7 @@ import { openDb, transaction } from '../src/db/db.js';
 import { migrate, MIGRATIONS } from '../src/db/migrate.js';
 import { PlayersRepo } from '../src/repos/players.js';
 import { LedgerRepo } from '../src/repos/ledger.js';
+import { UnlocksRepo } from '../src/repos/unlocks.js';
 import { ItemsRepo } from '../src/repos/items.js';
 import { ShopService, ShopError } from '../src/services/shop.js';
 import { CATALOG, findItem } from '../src/shop/catalog.js';
@@ -53,6 +54,8 @@ describe('shop', () => {
       clock,
       rng: () => rngValues.shift() ?? 0.99,
       bus,
+      unlocks: new UnlocksRepo(db),
+      hub: { isConnected: () => true, callService: () => true },
     });
     pid = players.create({ name: 'Ada' }, start).id;
   });
@@ -88,7 +91,7 @@ describe('shop', () => {
     expect(p).toMatchObject({ xp: 12, gold: 34, restTokens: 0, boostUntil: null });
     expect(new ItemsRepo(old).owned('p1')).toEqual({});
     const v = old.prepare('SELECT version FROM schema_version').all();
-    expect(v).toEqual([{ version: 2 }]);
+    expect(v).toEqual([{ version: 3 }]);
   });
 
   it('buys a wardrobe item', () => {

@@ -20,6 +20,14 @@ export const copy = {
   alreadyDone: 'This quest is already done. Nice!',
   actions: { start: 'Start 2 min', done: 'Already done', later: 'Later' },
   shop: {
+    errors: {
+      unknown_item: 'Not found',
+      unknown_player: 'Not found',
+      not_enough_gold: "Not quite enough gold yet. A few more quests and it's yours!",
+      already_owned: 'You already have this one.',
+      bridge_offline: "Home Assistant isn't connected right now, so this treat can't switch on. Your gold is safe.",
+      not_owned: 'Get this one in the shop first.',
+    },
     items: {
       hood_ember: 'Ember hood',
       hood_night: 'Night-sky hood',

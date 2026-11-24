@@ -27,10 +27,10 @@ export class CuestHeroCard extends ArcaneCard<HeroConfig> {
       .hero{display:flex;flex-direction:column;gap:8px}
       .head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
       .title{font-family:${u(FONT_PIXEL)};font-size:17px;color:${u(A.goldText)}}
-      .streak{font-size:12px;color:${u(A.emberText)}}
+      .streak{font-size:12px;color:${u(A.emberText)};font-variant-numeric:tabular-nums}
       .bar{position:relative;height:14px;background:${u(A.well)};border:2px solid ${u(A.gold)};border-radius:8px;overflow:hidden}
       .fill{height:100%;background:linear-gradient(90deg,${u(A.glowTo)},${u(A.lantern)})}
-      .rest{font-size:12px;color:${u(A.muted)}}
+      .rest{font-size:12px;color:${u(A.muted)};font-variant-numeric:tabular-nums}
       .num{font-family:${u(FONT_BODY)};font-weight:700;font-variant-numeric:tabular-nums}
     `,
   ];

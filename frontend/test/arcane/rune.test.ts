@@ -121,7 +121,7 @@ describe('climate rune', () => {
     expect(text(el)).toContain('21.5°');
     expect(root(el).querySelectorAll('button').length).toBe(0);
     expect(root(el).querySelector('.rune.compact')).toBeTruthy();
-    expect(CuestRuneGauge.prototype.getGridOptions.call({ config: { controls: false } })).toEqual({ columns: 6, rows: 3 });
+    expect((el as unknown as CuestRuneGauge).getGridOptions()).toEqual({ columns: 6, rows: 3 });
   });
 
   it('warns about a missing entity', async () => {
@@ -191,5 +191,104 @@ describe('rune config and styles', () => {
     expect(btn(el, 'Warmer').classList.contains('btn')).toBe(true);
     expect(btn(el, 'Cooler').classList.contains('btn')).toBe(true);
     expect(root(el).querySelector('svg text.num')).toBeTruthy();
+  });
+});
+
+const tick = (el: HTMLElement) => (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+
+describe('rune pending target', () => {
+  it('sends a change back to the start when an earlier change was already sent', async () => {
+    const h = fakeHass({ states: { 'climate.living': heater() } });
+    const el = await mount(TAG, { entity: 'climate.living' }, h);
+    btn(el, 'Warmer').click();
+    vi.advanceTimersByTime(800);
+    expect(h.callService).toHaveBeenCalledTimes(1);
+    btn(el, 'Cooler').click();
+    await tick(el);
+    expect(text(el)).toContain('23°');
+    vi.advanceTimersByTime(800);
+    expect(h.callService).toHaveBeenCalledTimes(2);
+    expect(h.callService).toHaveBeenLastCalledWith('climate', 'set_temperature', { entity_id: 'climate.living', temperature: 23 });
+  });
+
+  it('shows the device target again after 8 s without an echo', async () => {
+    const h = fakeHass({ states: { 'climate.living': heater() } });
+    const el = await mount(TAG, { entity: 'climate.living' }, h);
+    btn(el, 'Warmer').click();
+    await tick(el);
+    expect(text(el)).toContain('23.5°');
+    vi.advanceTimersByTime(800);
+    vi.advanceTimersByTime(7000);
+    await tick(el);
+    expect(text(el)).toContain('23.5°');
+    vi.advanceTimersByTime(1100);
+    await tick(el);
+    expect(text(el)).toContain('23°');
+    expect(text(el)).not.toContain('23.5°');
+  });
+
+  it('clears every timer on disconnect after a send', async () => {
+    const h = fakeHass({ states: { 'climate.living': heater() } });
+    const el = await mount(TAG, { entity: 'climate.living' }, h);
+    btn(el, 'Warmer').click();
+    vi.advanceTimersByTime(800);
+    el.remove();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('drops the pending value when hass echoes the new target', async () => {
+    const h = fakeHass({ states: { 'climate.living': heater() } });
+    const el = await mount(TAG, { entity: 'climate.living' }, h);
+    btn(el, 'Warmer').click();
+    vi.advanceTimersByTime(800);
+    (el as unknown as { hass: unknown }).hass = fakeHass({ states: { 'climate.living': heater({ temperature: 23.5 }) } });
+    await tick(el);
+    expect(text(el)).toContain('23.5°');
+    vi.advanceTimersByTime(8000);
+    await tick(el);
+    expect(text(el)).toContain('23.5°');
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('drops the pending value when the service call is rejected', async () => {
+    const h = fakeHass({ states: { 'climate.living': heater() } });
+    h.callService.mockRejectedValueOnce(new Error('no'));
+    const el = await mount(TAG, { entity: 'climate.living' }, h);
+    btn(el, 'Warmer').click();
+    vi.advanceTimersByTime(800);
+    await vi.advanceTimersByTimeAsync(0);
+    await tick(el);
+    expect(text(el)).toContain('23°');
+    expect(text(el)).not.toContain('23.5°');
+  });
+
+  it('keeps a pending tap when the config is set again for the same entity', async () => {
+    const h = fakeHass({ states: { 'climate.living': heater() } });
+    const el = await mount(TAG, { entity: 'climate.living' }, h);
+    btn(el, 'Warmer').click();
+    (el as unknown as { setConfig(c: unknown): void }).setConfig({ entity: 'climate.living' });
+    vi.advanceTimersByTime(800);
+    expect(h.callService).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('rune safe values', () => {
+  it('survives min_temp equal to max_temp without NaN', async () => {
+    const s = heater({ temperature: 20, min_temp: 20, max_temp: 20 });
+    const el = await mount(TAG, { entity: 'climate.living' }, fakeHass({ states: { 'climate.living': s } }));
+    expect(arc(el).getAttribute('stroke-dasharray')).toMatch(/^[\d.]+ 277$/);
+    expectClean(el);
+  });
+
+  it('draws the heat_cool arc up to the high target', async () => {
+    const s = st('heat_cool', { target_temp_low: 20, target_temp_high: 23, min_temp: 7, max_temp: 30 });
+    const el = await mount(TAG, { entity: 'climate.living' }, fakeHass({ states: { 'climate.living': s } }));
+    expect(arc(el).getAttribute('stroke-dasharray')).toBe('192.7 277');
+  });
+
+  it('numbers in the label and sub-line are tabular', () => {
+    const css = CuestRuneGauge.styles.map((s) => (s as { cssText: string }).cssText).join('\n');
+    expect(css).toMatch(/\.gauge-sub\{[^}]*font-variant-numeric:tabular-nums/);
+    expect(css).toMatch(/\.label\{[^}]*font-variant-numeric:tabular-nums/);
   });
 });

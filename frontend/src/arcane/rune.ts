@@ -11,6 +11,7 @@ const u = unsafeCSS;
 const TAG = 'cuest-rune-gauge';
 const CIRCUMFERENCE = 277;
 const DEBOUNCE_MS = 800;
+const EXPIRY_MS = 8000;
 
 export type RuneKind = 'fire' | 'water' | 'arcane';
 const RUNES: readonly RuneKind[] = ['fire', 'water', 'arcane'];
@@ -40,7 +41,7 @@ export interface RuneView {
 }
 
 const clamp = (n: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, n));
-const frac = (x: number | null, min: number, max: number): number => (x === null ? 0 : clamp((x - min) / (max - min), 0, 1));
+const frac = (x: number | null, min: number, max: number): number => (x === null || !(max > min) ? 0 : clamp((x - min) / (max - min), 0, 1));
 const unavailable = (s: HassState): boolean => s.state === 'unavailable' || s.state === 'unknown';
 const unitOf = (s: HassState): string => (typeof s.attributes.unit_of_measurement === 'string' ? s.attributes.unit_of_measurement : '');
 
@@ -48,8 +49,9 @@ function climateView(s: HassState, cfg: RuneConfig, target: number | null): Rune
   const rune = cfg.rune ?? 'fire';
   const rn = PRESET[rune].name;
   const a = s.attributes;
-  const min = num(a.min_temp) ?? 7;
-  const max = num(a.max_temp) ?? 35;
+  let min = num(a.min_temp) ?? 7;
+  let max = num(a.max_temp) ?? 35;
+  if (!(max > min)) [min, max] = [7, 35];
   const step = num(a.target_temp_step) || 0.5;
   const cur = num(a.current_temperature);
   const resting = fill(C.runeResting, { Rune: rn });
@@ -99,19 +101,21 @@ export class CuestRuneGauge extends ArcaneCard<RuneConfig> {
       .rune{display:flex;align-items:center;gap:12px}
       .rune.compact{flex-direction:column;justify-content:center;text-align:center}
       .side{flex:1;display:flex;flex-direction:column;gap:8px;min-width:0}
-      .label{font-size:15px;font-weight:700}
+      .label{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
       .btns{display:flex;gap:8px}
       .btn{width:48px;height:48px;min-width:48px;min-height:48px;border-radius:12px;border:2px solid ${u(A.panelBorder)};background:${u(A.bg)};font:700 20px ${u(FONT_BODY)};cursor:pointer;padding:0}
       .btn.cool{color:${u(A.manaFrom)}}
       .btn.warm{color:${u(A.emberText)};border-color:${u(A.rim)}}
       .num{font-family:${u(FONT_BODY)};font-weight:700;font-variant-numeric:tabular-nums}
-      .gauge-sub{font-family:${u(FONT_BODY)}}
+      .gauge-sub{font-family:${u(FONT_BODY)};font-variant-numeric:tabular-nums}
     `,
   ];
 
   private _pending: number | null = null;
   private _base: number | null = null;
+  private _lastSent: number | null = null;
   private _timer?: ReturnType<typeof setTimeout>;
+  private _expiry?: ReturnType<typeof setTimeout>;
 
   static getStubConfig(h?: HomeAssistant): object {
     const hit = h && Object.keys(h.states).find((id) => id.startsWith('climate.'));
@@ -127,8 +131,13 @@ export class CuestRuneGauge extends ArcaneCard<RuneConfig> {
     if (raw.min !== undefined && raw.min !== null) cfg.min = v.num(raw, 'min', TAG, { def: 0 });
     if (raw.max !== undefined && raw.max !== null) cfg.max = v.num(raw, 'max', TAG, { def: 100 });
     if ((cfg.min ?? 0) >= (cfg.max ?? 100)) throw new ConfigError(`${TAG}: "min" must be below "max"`);
-    this.cancel();
     return cfg;
+  }
+
+  setConfig(raw: unknown): void {
+    const prev = this.config?.entity;
+    super.setConfig(raw);
+    if (prev !== this.config.entity) this.cancel();
   }
 
   protected signature(h: HomeAssistant): string {
@@ -152,8 +161,11 @@ export class CuestRuneGauge extends ArcaneCard<RuneConfig> {
   private cancel(): void {
     if (this._timer !== undefined) clearTimeout(this._timer);
     this._timer = undefined;
+    if (this._expiry !== undefined) clearTimeout(this._expiry);
+    this._expiry = undefined;
     this._pending = null;
     this._base = null;
+    this._lastSent = null;
   }
 
   private tap(dir: 1 | -1, view: RuneView): void {
@@ -163,6 +175,8 @@ export class CuestRuneGauge extends ArcaneCard<RuneConfig> {
     if (this._pending === null) this._base = a.target;
     this._pending = clamp(round4(from + dir * a.step), a.min, a.max);
     if (this._timer !== undefined) clearTimeout(this._timer);
+    if (this._expiry !== undefined) clearTimeout(this._expiry);
+    this._expiry = undefined;
     this._timer = setTimeout(() => this.send(), DEBOUNCE_MS);
     this.requestUpdate();
   }
@@ -171,22 +185,34 @@ export class CuestRuneGauge extends ArcaneCard<RuneConfig> {
     this._timer = undefined;
     const target = this._pending;
     const h = this._hass;
-    if (target === null || !h || target === this._base) {
-      this._pending = null;
+    if (target === null || !h || target === (this._lastSent ?? this._base)) {
+      if (this._lastSent === null) this.cancel();
+      else this.armExpiry();
       this.requestUpdate();
       return;
     }
+    this._lastSent = target;
+    this.armExpiry();
     Promise.resolve(h.callService('climate', 'set_temperature', { entity_id: this.config.entity, temperature: target })).catch(() => {
-      this._pending = null;
+      this.cancel();
       this.requestUpdate();
     });
+  }
+
+  /** Without a hass echo the card goes back to the device's own target. */
+  private armExpiry(): void {
+    if (this._expiry !== undefined) clearTimeout(this._expiry);
+    this._expiry = setTimeout(() => {
+      this.cancel();
+      this.requestUpdate();
+    }, EXPIRY_MS);
   }
 
   /** The pending tap wins until the thermostat reports a different target than the one tapped from. */
   private shown(s: HassState): number | null {
     if (this._pending === null) return null;
     if (this._timer === undefined && num(s.attributes.temperature) !== this._base) {
-      this._pending = null;
+      this.cancel();
       return null;
     }
     return this._pending;

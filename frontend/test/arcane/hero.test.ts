@@ -80,6 +80,8 @@ describe('hero card', () => {
     const css = CuestHeroCard.styles.map((s) => (s as { cssText: string }).cssText).join('\n');
     expect(css).toMatch(/\.bar\{[^}]*height:14px[^}]*background:#0E1124/i);
     expect(css).toMatch(/\.streak\{[^}]*color:#FFB27A/i);
+    expect(css).toMatch(/\.streak\{[^}]*font-variant-numeric:tabular-nums/);
+    expect(css).toMatch(/\.rest\{[^}]*font-variant-numeric:tabular-nums/);
     expect(css).toMatch(/\.title\{[^}]*font-size:17px/);
   });
 });

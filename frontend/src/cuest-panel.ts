@@ -478,9 +478,11 @@ export class CuestPanel extends LitElement {
     const pid = this._playerId;
     const api = this._api;
     if (!pid || !api) return;
+    const token = ++this._sprintReq;
     try {
       const { sprint } = await api.sprint(pid);
-      if (pid !== this._playerId) return;
+      // Stale: a newer load, start or finish happened while this request was in flight.
+      if (pid !== this._playerId || token !== this._sprintReq) return;
       this._sprintSettle(sprint);
       this._error = '';
       this._offline = false;
@@ -494,7 +496,8 @@ export class CuestPanel extends LitElement {
   /** Apply a fresh GET /sprint. If a sprint we were showing is gone, the server auto-finished it: show the result. */
   private _sprintSettle(sprint: Sprint | null) {
     const prev = this._sprint;
-    if (!sprint && prev && prev.id !== this._sprintSummaryId && Date.now() >= endsAtMs(prev) - 1000) {
+    // Gone from the server: it auto-finished (no client clock check, so skew cannot hide the result).
+    if (!sprint && prev && prev.id !== this._sprintSummaryId) {
       const minutes = prev.minutes;
       this._sprintSummary = { minutes, logs: prev.logs, xp: minutes * XP_PER_MINUTE + prev.logs * XP_PER_LOG };
       this._sprintSummaryId = prev.id;
@@ -503,6 +506,7 @@ export class CuestPanel extends LitElement {
     this._sprint = sprint;
   }
 
+  private _sprintReq = 0;
   private _sprintSummaryId = '';
   private _sprintPolling = false;
   private _sprintPolledAt = 0;
@@ -545,8 +549,12 @@ export class CuestPanel extends LitElement {
     if (!pid || !api || this._busy['sprint']) return;
     if (this._sound) unlock();
     this._sprintSummary = null;
+    this._sprintNote = '';
     void this._sprintAct(async () => {
-      this._sprint = await api.sprintStart(pid, minutes);
+      this._sprintReq++;
+      const started = await api.sprintStart(pid, minutes);
+      this._sprintReq++;
+      this._sprint = started;
       this._sprintPolledAt = 0;
     });
   };
@@ -571,7 +579,9 @@ export class CuestPanel extends LitElement {
     if (!pid || !api || this._busy['sprint']) return;
     if (this._sound) unlock();
     void this._sprintAct(async () => {
+      this._sprintReq++;
       const r = await api.sprintFinish(pid);
+      this._sprintReq++;
       const logs = r.sprint.logs;
       this._sprintSummary = { minutes: Math.round(r.xp / XP_PER_MINUTE), logs, xp: r.xp + logs * XP_PER_LOG };
       this._sprintSummaryId = r.sprint.id;

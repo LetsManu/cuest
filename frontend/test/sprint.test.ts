@@ -6,7 +6,7 @@ const T0 = Date.parse('2026-11-24T10:00:00Z');
 const QUEST = { id: 'q9', title: 'Wipe the counters', minutes: 3, xp: 14, gold: 2, status: 'open', createdAt: '2026-11-24T09:00:00Z', startedAt: null, claimedBy: null, templateId: null, snoozedUntil: null };
 
 const running = (minutes = 15, agoMs = 0, logs = 0) => ({ id: 's1', playerId: 'p1', minutes, startedAt: new Date(T0 - agoMs).toISOString(), endedAt: null, logs, xp: null });
-interface Opts { sprint?: any; startErr?: number; logErr?: boolean }
+interface Opts { getGate?: () => Promise<void>; sprint?: any; startErr?: number; logErr?: boolean }
 function fakeHass(o: Opts = {}) {
   let sprint: any = o.sprint ?? null;
   const lists = { active: [] as any[], open: [{ ...QUEST }], whenever: [] as any[] };
@@ -15,7 +15,7 @@ function fakeHass(o: Opts = {}) {
     if (path === 'cuest/quests') return lists;
     if (path.endsWith('/summary')) return { player: { id: 'p1', name: 'Ada', xp: 130, gold: 5, restTokens: 0, boostUntil: null }, level: 4, title: 'Hearthkeeper', intoLevel: 30, toNext: 70 };
     if (path.startsWith('cuest/shop?')) return { gold: 5, restTokens: 0, boostUntil: null, owned: {}, equipped: {}, catalog: [] };
-    if (path.startsWith('cuest/sprint?')) return { sprint };
+    if (path.startsWith('cuest/sprint?')) { const snap = sprint; if (o.getGate) { const g = o.getGate; o.getGate = undefined; await g(); } return { sprint: snap }; }
     if (path === 'cuest/sprint/start') {
       if (o.startErr) { sprint = running(15, 60_000); throw { status_code: o.startErr, body: { error: 'sprint_running', message: 'A sprint is already running.' } }; }
       sprint = { id: 's1', playerId: 'p1', minutes: body.minutes, startedAt: new Date(Date.now()).toISOString(), endedAt: null, logs: 0, xp: null };
@@ -206,5 +206,118 @@ describe('Power sprint', () => {
     await openSprint(el);
     el.remove();
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('countdown has role=timer and a polite live region that changes only per minute', async () => {
+    const { hass } = fakeHass({ sprint: running(15, 4 * 60_000 + 30_000) });
+    const el = await mount(hass);
+    await openSprint(el);
+    expect(q(el, '[data-role="countdown"]').getAttribute('role')).toBe('timer');
+    const live = q(el, '[data-role="countdown-live"]');
+    expect(live.getAttribute('aria-live')).toBe('polite');
+    expect(live.textContent).toContain('11');
+    const first = live.textContent;
+    await tickFor(el, 20_000);
+    expect(q(el, '[data-role="countdown-live"]').textContent).toBe(first);
+    await tickFor(el, 40_000);
+    expect(q(el, '[data-role="countdown-live"]').textContent).toContain('10');
+  });
+});
+
+describe('Power sprint polling and stale loads', () => {
+  const gets = (callApi: any) => callApi.mock.calls.filter((c: any[]) => String(c[1]).startsWith('cuest/sprint?')).length;
+
+  it('does not poll GET /sprint before time is up', async () => {
+    const { hass, callApi } = fakeHass({ sprint: running(15, 60_000) });
+    const el = await mount(hass);
+    await openSprint(el);
+    const n = gets(callApi);
+    for (let i = 0; i < 10; i++) { await tickFor(el, 1000); await settle(el); }
+    expect(gets(callApi)).toBe(n);
+  });
+
+  it('after time is up polls at most once per 3 seconds', async () => {
+    const { hass, callApi } = fakeHass({ sprint: running(5, 5 * 60_000 - 1000) });
+    const el = await mount(hass);
+    await openSprint(el);
+    const n = gets(callApi);
+    await tickFor(el, 1000); await settle(el);
+    expect(gets(callApi)).toBe(n + 1);
+    for (let i = 0; i < 2; i++) { await tickFor(el, 1000); await settle(el); }
+    expect(gets(callApi)).toBe(n + 1);
+    await tickFor(el, 1000); await settle(el);
+    expect(gets(callApi)).toBe(n + 2);
+  });
+
+  it('never overlaps polls while one is pending', async () => {
+    let release!: () => void;
+    const { hass, callApi } = fakeHass({ sprint: running(5, 5 * 60_000 - 1000) });
+    const el = await mount(hass);
+    await openSprint(el);
+    const n = gets(callApi);
+    const orig = (hass as any).callApi;
+    const hold = new Promise<void>((r) => { release = r; });
+    (hass as any).callApi = vi.fn(async (m: string, path: string, b?: any) => { if (path.startsWith('cuest/sprint?')) await hold; return orig(m, path, b); });
+    el.hass = { ...hass };
+    await tickFor(el, 1000);
+    for (let i = 0; i < 8; i++) await tickFor(el, 1000);
+    const pending = (hass as any).callApi.mock.calls.filter((c: any[]) => String(c[1]).startsWith('cuest/sprint?')).length;
+    expect(pending).toBe(1);
+    release(); await settle(el);
+    expect(n).toBeGreaterThan(0);
+    expect(callApi).toBeDefined();
+  });
+
+  it('stops polling once the sprint is gone and on view change', async () => {
+    const h = fakeHass({ sprint: running(5, 5 * 60_000 - 1000) });
+    const el = await mount(h.hass);
+    await openSprint(el);
+    h.endSprint();
+    await tickFor(el, 1000); await settle(el);
+    expect(q(el, '[data-role="sprint-summary"]')).toBeTruthy();
+    const n = gets(h.callApi);
+    for (let i = 0; i < 9; i++) { await tickFor(el, 1000); await settle(el); }
+    expect(gets(h.callApi)).toBe(n);
+  });
+
+  it('no polling after leaving the view', async () => {
+    const { hass, callApi } = fakeHass({ sprint: running(5, 5 * 60_000 + 10_000) });
+    const el = await mount(hass);
+    await openSprint(el);
+    q(el, '[data-go="village"]').click(); await settle(el);
+    const n = gets(callApi);
+    for (let i = 0; i < 9; i++) { await tickFor(el, 1000); await settle(el); }
+    expect(gets(callApi)).toBe(n);
+  });
+
+  it('a slow GET issued on open cannot overwrite a sprint started meanwhile', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    const { hass } = fakeHass({ getGate: () => gate });
+    const el = await mount(hass);
+    q(el, '[data-act="sprint"]').click(); await settle(el);
+    q(el, '[data-minutes="5"]').click(); await settle(el);
+    expect(q(el, '[data-role="countdown"]').textContent).toBe('05:00');
+    release(); await settle(el);
+    expect(q(el, '[data-role="countdown"]').textContent).toBe('05:00');
+  });
+
+  it('starting a new sprint clears the old note', async () => {
+    const { hass } = fakeHass();
+    const el = await mount(hass);
+    await openSprint(el);
+    el._sprintNote = 'stale';
+    q(el, '[data-minutes="5"]').click(); await settle(el);
+    expect((q(el, '[data-role="log-input"]') as HTMLInputElement).value).toBe('');
+  });
+
+  it('shows the summary for an auto-finish even if the clock is behind', async () => {
+    const h = fakeHass({ sprint: running(5, 4 * 60_000 + 50_000, 0) });
+    const el = await mount(h.hass);
+    await openSprint(el);
+    h.endSprint();
+    await tickFor(el, 10_000); await settle(el);
+    await tickFor(el, 3000); await settle(el);
+    expect(q(el, '[data-role="sprint-summary"]')).toBeTruthy();
   });
 });

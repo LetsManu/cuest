@@ -4,6 +4,7 @@ import { COLORS, FONT_PIXEL } from '../palette';
 import { STRINGS } from '../strings';
 
 export const SPRINT_LENGTHS = [5, 15, 25] as const;
+// Keep in sync with server/src/services/sprint.ts (XP_PER_MINUTE, XP_PER_LOG, MAX_LOGS, MAX_NOTE).
 export const XP_PER_MINUTE = 2;
 export const XP_PER_LOG = 5;
 export const MAX_LOGS = 10;
@@ -43,7 +44,14 @@ export function mmss(ms: number): string {
   return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
 }
 
+/** Spoken only when the whole minute changes, so screen readers are not told every second. */
+export function minutesLeft(ms: number): string {
+  const m = Math.ceil(Math.max(0, ms) / 60_000);
+  return m <= 0 ? STRINGS.sprintTimeUp : m === 1 ? STRINGS.sprintOneMinuteLeft : `${m} ${STRINGS.sprintMinutesLeft}`;
+}
+
 export const sprintStyles = css`
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
   .sp{display:flex;flex-direction:column;gap:14px}
   .sp .sphead{display:flex;flex-direction:column;align-items:flex-start;gap:8px}
   .sp h1{font-size:24px}
@@ -97,7 +105,8 @@ function runningView(p: SprintViewProps, s: Sprint): TemplateResult {
   return html`
     <section class="spclock" aria-label="${STRINGS.sprintLeft}">
       <span class="lbl">${STRINGS.sprintLeft}</span>
-      <div class="time" data-role="countdown">${mmss(left)}</div>
+      <div class="time" role="timer" data-role="countdown">${mmss(left)}</div>
+      <span class="sr" aria-live="polite" data-role="countdown-live">${minutesLeft(left)}</span>
       <div class="spbar" role="progressbar" aria-label="${STRINGS.sprintProgress}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div>
     </section>
     <div class="spxp"><span>${STRINGS.sprintXpSoFar}</span><b data-role="sprint-xp">+${sprintXp(s, p.nowMs)} XP</b></div>

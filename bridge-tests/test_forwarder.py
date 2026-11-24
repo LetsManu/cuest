@@ -369,6 +369,11 @@ async def test_sprint_scene_read_at_call_time(hass: HomeAssistant) -> None:
     ("domain", "service", "target"),
     [
         ("scene", "turn_on", {"entity_id": "scene.other"}),
+        ("scene", "turn_on", {"entity_id": "scene.focu"}),
+        ("scene", "turn_on", {"entity_id": "scene.focus_2"}),
+        ("scene", "turn_on", {"entity_id": "SCENE.focus"}),
+        ("scene", "turn_on", {"entity_id": " scene.focus"}),
+        ("scene", "turn_on", {"entity_id": "scene.focus "}),
         ("scene", "turn_off", {"entity_id": "scene.focus"}),
         ("scene", "turn_on", {"entity_id": ["scene.focus"]}),
         ("scene", "turn_on", {"entity_id": ["scene.focus", "scene.other"]}),

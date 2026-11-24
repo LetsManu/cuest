@@ -24,18 +24,20 @@ export class CelebrateService {
   private flash(kind: 'short' | 'long'): void {
     this.safely('celebration', () => {
       const lights = this.settings.get().celebrationLights;
-      if (lights.length > 0) this.hub.callService('light', 'turn_on', { flash: kind }, { entity_id: lights });
+      if (lights.length > 0) return this.hub.callService('light', 'turn_on', { flash: kind }, { entity_id: lights });
+      return undefined;
     });
   }
 
-  private startScene(): void {
+  private startScene(): unknown {
     const scene = this.settings.get().sprintScene;
-    if (scene) this.hub.callService('scene', 'turn_on', {}, { entity_id: scene });
+    return scene ? this.hub.callService('scene', 'turn_on', {}, { entity_id: scene }) : undefined;
   }
 
-  private safely(what: string, fn: () => void): void {
+  private safely(what: string, fn: () => unknown): void {
     try {
-      fn();
+      const r = fn();
+      if (r instanceof Promise) r.catch((err: unknown) => this.log(`${what} failed: ${String(err)}`));
     } catch (err) {
       this.log(`${what} failed: ${String(err)}`);
     }

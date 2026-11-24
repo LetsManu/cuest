@@ -584,3 +584,25 @@ async def test_options_celebrations_server_failure_keeps_options(
     assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {"base": key}
     assert dict(entry.options) == {"keep": 1}
+
+
+async def test_options_celebrations_too_many_lights(
+    hass: HomeAssistant, entry_and_client
+) -> None:
+    entry, client = entry_and_client
+    client.api.side_effect = None
+    client.api.return_value = (200, {})
+    calls_before = len(client.api.await_args_list)
+    result = await _menu(hass, entry, "celebrations")
+    lights = [f"light.l{i}" for i in range(21)]
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"lights": lights}
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "too_many_lights"}
+    assert len(client.api.await_args_list) == calls_before
+    assert dict(entry.options) == {"keep": 1}
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"lights": lights[:20]}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY

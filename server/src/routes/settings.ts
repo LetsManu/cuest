@@ -13,14 +13,13 @@ const patchBody = z
   .partial()
   .strict();
 
-export function registerSettingsRoutes(app: FastifyInstance, settings: SettingsRepo, onChanged: () => void = () => {}): void {
+export function registerSettingsRoutes(app: FastifyInstance, settings: SettingsRepo): void {
   app.get('/api/settings', async () => settings.get());
 
   app.patch('/api/settings', async (req, reply) => {
     const body = parseBody(patchBody, req.body, reply);
     if (!body) return reply;
     const saved = settings.update(defined(body));
-    onChanged();
     return saved;
   });
 }

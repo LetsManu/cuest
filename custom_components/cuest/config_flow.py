@@ -53,6 +53,7 @@ CONF_COST = "cost"
 CONF_LIGHTS = "lights"
 CONF_SCENE = "scene"
 DEFAULT_TREAT_COST = 50
+MAX_CELEBRATION_LIGHTS = 20  # the server accepts at most this many
 
 
 NO_PHONE = "none"
@@ -468,6 +469,9 @@ class CuestOptionsFlow(OptionsFlow):
         if user_input is not None:
             lights = list(user_input.get(CONF_LIGHTS, []))
             scene = user_input.get(CONF_SCENE) or None
+            if len(lights) > MAX_CELEBRATION_LIGHTS:
+                errors["base"] = "too_many_lights"
+        if user_input is not None and not errors:
             try:
                 await self._api(
                     "PATCH",

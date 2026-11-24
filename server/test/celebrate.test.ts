@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DatabaseSync } from 'node:sqlite';
 import { Bus } from '../src/bus.js';
 import { FakeClock } from '../src/clock.js';
@@ -89,10 +89,12 @@ describe('settings API + done never breaks', () => {
   const config: Config = { port: 0, dataDir: ':memory:', bridgeSecret: 'sekrit', tz: 'UTC', tickSeconds: 30 };
   let db: DatabaseSync;
   let engine: Engine;
+  let logs: string[];
   beforeEach(async () => {
     db = openDb(':memory:');
     migrate(db);
-    engine = await createEngine({ db, clock: new FakeClock(new Date('2026-11-24T10:00:00Z')), config, log: () => {}, logger: false });
+    logs = [];
+    engine = await createEngine({ db, clock: new FakeClock(new Date('2026-11-24T10:00:00Z')), config, log: (m) => logs.push(m), logger: false });
   });
   afterEach(async () => {
     await engine.app.close();
@@ -118,11 +120,17 @@ describe('settings API + done never breaks', () => {
     expect((await patch(body)).statusCode).toBe(400);
   });
 
-  it('quest done still works when celebration fails', async () => {
+  it.each([
+    ['throws', () => { throw new Error('boom'); }],
+    ['rejects', () => Promise.reject(new Error('boom'))],
+  ])('quest done still works when the bridge call %s', async (_n, impl) => {
+    vi.spyOn(engine.hub, 'callService').mockImplementation(impl as never);
     await patch({ celebrationLights: ['light.hall'] });
     const pid = (await engine.app.inject({ method: 'POST', url: '/api/players', payload: { name: 'Ana' } })).json().id;
     const q = (await engine.app.inject({ method: 'POST', url: '/api/quests', payload: { title: 'T', energy: 'low', minutes: 5, xp: 10 } })).json();
     const res = await engine.app.inject({ method: 'POST', url: `/api/quests/${q.id}/done`, payload: { playerId: pid } });
     expect(res.statusCode).toBe(200);
+    await new Promise((r) => setImmediate(r));
+    expect(logs.some((l) => l.includes('celebration failed') && l.includes('boom'))).toBe(true);
   });
 });

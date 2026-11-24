@@ -107,6 +107,6 @@ async def test_streak_sensor(cuest) -> None:
     assert streak.attributes["ha_person"] == "person.ada"
     await _push(hass, client, [PLAYER_BEN], [])
     ben = _entity(hass, "cuest_p2_streak")
-    assert ben.state == "unknown" or ben.state == "0"
+    assert ben.state == "unknown"  # PLAYER_BEN has no streak field
     assert ben.attributes["best_streak"] == 0
     assert ben.attributes["chest_keys"] == 0

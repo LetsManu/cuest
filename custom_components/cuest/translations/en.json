@@ -93,7 +93,8 @@
     },
     "error": {
       "cannot_connect": "Could not reach the Cuest server. Check the address and that the server is running.",
-      "server_rejected": "The Cuest server couldn't handle this request. Please try again."
+      "server_rejected": "The Cuest server couldn't handle this request. Please try again.",
+      "too_many_lights": "Please pick at most 20 celebration lights."
     },
     "abort": {
       "cannot_connect": "Could not reach the Cuest server. Check the address and that the server is running.",

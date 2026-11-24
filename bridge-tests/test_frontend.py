@@ -12,7 +12,8 @@ async def test_card_served(cuest, hass_client):
     resp = await client.get("/cuest/cuest-card.js")
     assert resp.status == 200
     text = await resp.text()
-    assert "customElements.define('cuest-card'" in text
+    assert '"cuest-card"' in text
+    assert "customElements.define" in text
     assert "customCards" in text
 
 

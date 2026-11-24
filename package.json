@@ -1,9 +1,9 @@
 {
   "name": "cuest",
   "private": true,
-  "workspaces": ["server"],
+  "workspaces": ["server", "frontend"],
   "scripts": {
-    "test": "npm test -w server",
-    "typecheck": "npm run typecheck -w server"
+    "test": "npm test -w server && npm test -w frontend",
+    "typecheck": "npm run typecheck -w server && npm run typecheck -w frontend"
   }
 }

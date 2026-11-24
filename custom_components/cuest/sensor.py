@@ -140,6 +140,10 @@ class CuestLevelSensor(CuestPlayerSensor):
             "title": player.get("title"),
             "into_level": player.get("intoLevel"),
             "to_next": player.get("toNext"),
+            "outfit_palette": dict((player.get("outfit") or {}).get("palette") or {}),
+            "decor": list(player.get("decor") or []),
+            "rest_tokens": player.get("restTokens") or 0,
+            "boost_until": player.get("boostUntil"),
         }
 
 

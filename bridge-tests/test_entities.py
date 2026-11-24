@@ -74,3 +74,23 @@ async def test_fire_event_reaches_bus(cuest) -> None:
     await hass.async_block_till_done()
     assert [e.data for e in events] == [{"playerId": "p1", "level": 4}]
     assert other == []
+
+
+async def test_level_sensor_exposes_outfit_attributes(cuest) -> None:
+    hass, client, _ = cuest
+    ada = {
+        **PLAYER_ADA,
+        "outfit": {"items": {"hood": "hood_ember", "scarf": None, "broom": None}, "palette": {"G": "#B5523B"}},
+        "decor": ["lantern"],
+        "restTokens": 2,
+        "boostUntil": "2026-01-01T10:00:00.000Z",
+    }
+    await _push(hass, client, [ada], [])
+    attrs = _entity(hass, "cuest_p1_level").attributes
+    assert attrs["outfit_palette"] == {"G": "#B5523B"}
+    assert attrs["decor"] == ["lantern"]
+    assert attrs["rest_tokens"] == 2
+    assert attrs["boost_until"] == "2026-01-01T10:00:00.000Z"
+    await _push(hass, client, [PLAYER_ADA], [])
+    attrs = _entity(hass, "cuest_p1_level").attributes
+    assert (attrs["outfit_palette"], attrs["decor"], attrs["rest_tokens"], attrs["boost_until"]) == ({}, [], 0, None)

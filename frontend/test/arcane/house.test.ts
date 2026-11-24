@@ -510,3 +510,60 @@ describe('boundaries', () => {
     expect(rows('21')[1].tempState).toBe('check');
   });
 });
+
+describe('whole-house scans are memoised per states object', () => {
+  /** States wrapped so every key listing (one per whole-house scan) is counted. */
+  const counted = (states: Record<string, ReturnType<typeof st>>) => {
+    const seen = { scans: 0 };
+    const proxy = new Proxy(states, {
+      ownKeys(t) {
+        seen.scans++;
+        return Reflect.ownKeys(t);
+      },
+    });
+    return { proxy, seen };
+  };
+  const base = {
+    'sensor.b_battery': st('3', { device_class: 'battery', unit_of_measurement: '%' }),
+    'light.a': st('on'),
+    'switch.x': st('unavailable'),
+  };
+
+  it('collectFaults computes once for the same states and options', () => {
+    const { proxy, seen } = counted({ ...base });
+    const h = fakeHass({ states: proxy });
+    const opts = { batteryThreshold: 20, exclude: [] };
+    const a = collectFaults(h, opts);
+    const n = seen.scans;
+    expect(collectFaults(h, { batteryThreshold: 20, exclude: [] })).toBe(a);
+    expect(collectFaults({ ...h }, opts)).toBe(a);
+    expect(seen.scans).toBe(n);
+  });
+
+  it('recomputes for new states, other options, other registries or another language', () => {
+    const h = fakeHass({ states: { ...base } });
+    const opts = { batteryThreshold: 20, exclude: [] };
+    const a = collectFaults(h, opts);
+    expect(collectFaults({ ...h, states: { ...h.states } }, opts)).not.toBe(a);
+    expect(collectFaults(h, { batteryThreshold: 2, exclude: [] })).not.toBe(a);
+    expect(collectFaults(h, { batteryThreshold: 20, exclude: ['light.*'] })).not.toBe(a);
+    expect(collectFaults({ ...h, entities: {} }, opts)).not.toBe(a);
+    expect(collectFaults({ ...h, locale: { language: 'de' } }, opts)).not.toBe(a);
+  });
+
+  it('memoises lightStats, onlineShare, restingAllies, roomRows and batteries too', () => {
+    const { proxy, seen } = counted({ ...base });
+    const h = fakeHass({ states: proxy, entities: { 'switch.x': { platform: 'tuya' } }, areas: AREAS });
+    const run = () => [
+      lightStats(h),
+      onlineShare(h, {}),
+      restingAllies(h, { ignore: [], minEntities: 1 }),
+      roomRows(h, { batteryThreshold: 20 }),
+      batteries(h, { exclude: [], limit: 8 }),
+    ];
+    const first = run();
+    const n = seen.scans;
+    run().forEach((r, i) => expect(r).toBe(first[i]));
+    expect(seen.scans).toBe(n);
+  });
+});

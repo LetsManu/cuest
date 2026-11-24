@@ -13,6 +13,32 @@ function lang(h: HomeAssistant): string {
   return h.locale?.language ?? 'en';
 }
 
+interface MemoEntry {
+  deps: unknown[];
+  value: unknown;
+}
+const MEMO = new WeakMap<object, Map<string, MemoEntry>>();
+
+/**
+ * Whole-house scans run once per `h.states` object (Home Assistant replaces it on every state change), per
+ * options and per registry/language. Several cards on one dashboard then share one result. Callers must not
+ * mutate what they get back.
+ */
+function memo<T>(h: HomeAssistant, name: string, opts: unknown, compute: () => T): T {
+  let byStates = MEMO.get(h.states);
+  if (!byStates) {
+    byStates = new Map();
+    MEMO.set(h.states, byStates);
+  }
+  const key = `${name}:${JSON.stringify(opts) ?? ''}`;
+  const deps = [h.entities, h.devices, h.areas, h.locale?.language];
+  const hit = byStates.get(key);
+  if (hit && hit.deps.every((d, i) => d === deps[i])) return hit.value as T;
+  const value = compute();
+  byStates.set(key, { deps, value });
+  return value;
+}
+
 /** Glob match on an entity id: `*` matches any run of characters, everything else is literal. */
 export function matches(entityId: string, patterns: string[]): boolean {
   return patterns.some((p) => new RegExp(`^${p.split('*').map((s) => s.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('.*')}$`).test(entityId));
@@ -52,6 +78,10 @@ export function isLightGroup(h: HomeAssistant, id: string): boolean {
 }
 
 export function lightStats(h: HomeAssistant, filter?: (id: string) => boolean): { on: number; total: number } {
+  return filter ? countLights(h, filter) : memo(h, 'lights', null, () => countLights(h));
+}
+
+function countLights(h: HomeAssistant, filter?: (id: string) => boolean): { on: number; total: number } {
   let on = 0;
   let total = 0;
   for (const id of Object.keys(h.states)) {
@@ -66,6 +96,13 @@ export function lightStats(h: HomeAssistant, filter?: (id: string) => boolean): 
 const SKIPPED_DOMAINS = ['automation', 'script', 'scene', 'zone', 'sun', 'person', 'update'];
 
 export function onlineShare(
+  h: HomeAssistant,
+  opts: { domains?: string[]; integrations?: string[]; exclude?: string[] },
+): { online: number; total: number; pct: number | null } {
+  return memo(h, 'online', opts, () => countOnline(h, opts));
+}
+
+function countOnline(
   h: HomeAssistant,
   opts: { domains?: string[]; integrations?: string[]; exclude?: string[] },
 ): { online: number; total: number; pct: number | null } {
@@ -106,10 +143,18 @@ function isBatteryPct(s: HassState | undefined, id: string): boolean {
   return id.startsWith('sensor.') && attr(s, 'device_class') === 'battery' && attr(s, 'unit_of_measurement') === '%';
 }
 
-export function collectFaults(
-  h: HomeAssistant,
-  opts: { batteryThreshold: number; exclude: string[] },
-): { faults: Fault[]; checked: number; faultyEntities: number; health: number } {
+export interface FaultReport {
+  faults: Fault[];
+  checked: number;
+  faultyEntities: number;
+  health: number;
+}
+
+export function collectFaults(h: HomeAssistant, opts: { batteryThreshold: number; exclude: string[] }): FaultReport {
+  return memo(h, 'faults', [opts.batteryThreshold, opts.exclude], () => findFaults(h, opts));
+}
+
+function findFaults(h: HomeAssistant, opts: { batteryThreshold: number; exclude: string[] }): FaultReport {
   const l = lang(h);
   const checked = new Set<string>();
   const faults: Fault[] = [];
@@ -253,6 +298,10 @@ function titleCase(s: string): string {
 }
 
 export function restingAllies(h: HomeAssistant, opts: { ignore: string[]; minEntities: number; names?: Record<string, string> }): Ally[] {
+  return memo(h, 'allies', opts, () => findAllies(h, opts));
+}
+
+function findAllies(h: HomeAssistant, opts: { ignore: string[]; minEntities: number; names?: Record<string, string> }): Ally[] {
   const groups = new Map<string, { total: number; down: number }>();
   for (const [id, e] of Object.entries(h.entities ?? {})) {
     const s = h.states[id];
@@ -275,6 +324,10 @@ export interface Battery {
 }
 
 export function batteries(h: HomeAssistant, opts: { entities?: string[]; exclude: string[]; limit: number }): Battery[] {
+  return memo(h, 'batteries', opts, () => findBatteries(h, opts));
+}
+
+function findBatteries(h: HomeAssistant, opts: { entities?: string[]; exclude: string[]; limit: number }): Battery[] {
   const ids = opts.entities?.length ? opts.entities : Object.keys(h.states).filter((id) => isBatteryPct(h.states[id], id));
   const out: Battery[] = [];
   for (const id of ids) {
@@ -325,6 +378,10 @@ function deviceBatteryLow(h: HomeAssistant, entityId: string, threshold: number)
 }
 
 export function roomRows(h: HomeAssistant, opts: { areas?: RoomConfig[]; batteryThreshold: number }): RoomRow[] {
+  return memo(h, 'rooms', opts, () => buildRooms(h, opts));
+}
+
+function buildRooms(h: HomeAssistant, opts: { areas?: RoomConfig[]; batteryThreshold: number }): RoomRow[] {
   const wanted: { area: { area_id: string; name: string }; name?: string; temperature?: string }[] = [];
   if (opts.areas?.length) {
     for (const c of opts.areas) {

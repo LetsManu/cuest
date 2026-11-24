@@ -49,7 +49,8 @@ def _valid_path(request: web.Request, path: str) -> bool:
 
 
 def _valid_query(request: web.Request) -> bool:
-    raw = request.rel_url.raw_query_string
+    # raw_path keeps the client's original escaping (yarl normalizes %2e etc.)
+    raw = request.raw_path.partition("?")[2]
     return not (
         _CONTROL_OR_BACKSLASH.search(request.query_string)
         or _CONTROL_OR_BACKSLASH.search(raw)
@@ -98,8 +99,9 @@ class CuestProxyView(HomeAssistantView):
         if found is None:
             return self.json(_OFFLINE, status_code=503)
         target = "/api/" + path
-        if request.rel_url.raw_query_string:
-            target += "?" + request.rel_url.raw_query_string
+        query = request.raw_path.partition("?")[2]
+        if query:
+            target += "?" + query
         try:
             status, result = await found[0].api(method, target, body)
         except (CuestNotConnected, TimeoutError):

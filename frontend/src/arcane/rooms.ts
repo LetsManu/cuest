@@ -21,7 +21,6 @@ interface RoomsConfig {
   heading: 'outside' | 'inside';
 }
 
-
 export class CuestRoomsCard extends ArcaneCard<RoomsConfig> {
   readonly tag = TAG;
 

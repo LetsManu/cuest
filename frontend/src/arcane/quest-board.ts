@@ -27,7 +27,6 @@ type AddState = 'added' | 'already' | 'failed' | 'installFailed';
 
 const INSTALL_WAIT_MS = 10 * 60_000;
 
-
 export class CuestQuestBoard extends ArcaneCard<BoardConfig> {
   readonly tag = TAG;
 

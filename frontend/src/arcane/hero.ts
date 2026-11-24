@@ -15,7 +15,6 @@ interface HeroConfig {
   player?: string;
 }
 
-
 export class CuestHeroCard extends ArcaneCard<HeroConfig> {
   readonly tag = TAG;
 

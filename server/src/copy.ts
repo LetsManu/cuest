@@ -14,5 +14,7 @@ export const copy = {
     const i = (((n - 1) % repeatTemplates.length) + repeatTemplates.length) % repeatTemplates.length;
     return (repeatTemplates[i] as (title: string) => string)(q.title);
   },
+  alreadyClaimed: 'Someone else is already on this one. Thanks for checking!',
+  alreadyDone: 'This quest is already done. Nice!',
   actions: { start: 'Start 2 min', done: 'Already done', later: 'Later' },
 };

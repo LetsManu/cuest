@@ -3,7 +3,7 @@ import WebSocket from 'ws';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../src/app.js';
 import { BridgeHub } from '../src/bridge/hub.js';
-import { registerBridgeRoute } from '../src/routes/bridge.js';
+import { makeDeps } from './helpers.js';
 import type { StateEvent } from '../src/domain/types.js';
 
 const SECRET = 'correct-horse';
@@ -14,8 +14,7 @@ const sockets: WebSocket[] = [];
 
 async function setup(): Promise<void> {
   hub = new BridgeHub({ secret: SECRET, log: () => {} });
-  app = await buildApp({ bridgeConnected: () => hub.isConnected() });
-  await registerBridgeRoute(app, hub);
+  app = await buildApp(makeDeps({ bridgeConnected: () => hub.isConnected(), hub }));
   await app.listen({ port: 0, host: '127.0.0.1' });
   port = (app.server.address() as { port: number }).port;
 }

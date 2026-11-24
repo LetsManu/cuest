@@ -6,3 +6,5 @@ import './rune';
 import './hero';
 import './quest-board';
 import './allies';
+import './rooms';
+import './stamina';

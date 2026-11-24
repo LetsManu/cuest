@@ -1,6 +1,7 @@
 """Tests for the Cuest forwarder."""
 
 from collections.abc import Callable
+from datetime import UTC, datetime
 
 import pytest
 
@@ -121,6 +122,49 @@ async def test_notification_action_forwarded(setup) -> None:
     assert msg["type"] == "notification_action"
     assert msg["action"] == "CUEST|DONE|q1|p1"
     assert msg["at"].endswith("+00:00")
+
+
+async def test_notification_action_uses_time_fired(setup) -> None:
+    hass, client, _ = setup
+    fired = datetime(2026, 1, 2, 3, 4, 5, tzinfo=UTC)
+    hass.bus.async_fire(
+        "mobile_app_notification_action", {"action": "CUEST|DONE|q|p"}, time_fired=fired.timestamp()
+    )
+    await hass.async_block_till_done()
+    assert client.sent[0]["at"] == fired.isoformat()
+
+
+async def test_call_service_non_string_domain_refused(setup) -> None:
+    hass, client, _ = setup
+    client.callbacks["call_service"](
+        {"type": "call_service", "id": "9", "domain": ["light"], "service": "turn_on"}
+    )
+    await hass.async_block_till_done()
+    assert client.sent == [
+        {"type": "result", "id": "9", "ok": False, "error": "domain_not_allowed"}
+    ]
+
+
+async def test_malformed_subscribe_ignored(setup) -> None:
+    hass, client, _ = setup
+    hass.states.async_set("sensor.washer", "a")
+    _subscribe(client, ["sensor.washer"])
+    client.callbacks["subscribe"]({"type": "subscribe", "entities": "sensor.washer"})
+    hass.states.async_set("sensor.washer", "b")
+    await hass.async_block_till_done()
+    assert len(client.sent) == 1  # previous subscription kept
+
+
+async def test_subscribe_after_stop_registers_nothing(hass: HomeAssistant) -> None:
+    client = FakeClient()
+    forwarder = Forwarder(hass, client)
+    await forwarder.async_start()
+    await forwarder.async_stop()
+    hass.states.async_set("sensor.washer", "a")
+    _subscribe(client, ["sensor.washer"])
+    hass.states.async_set("sensor.washer", "b")
+    await hass.async_block_till_done()
+    assert client.sent == []
 
 
 async def test_call_service_domain_not_allowed(setup) -> None:

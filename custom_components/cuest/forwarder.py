@@ -8,7 +8,6 @@ from typing import Any
 
 from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
 from homeassistant.helpers.event import async_track_state_change_event
-from homeassistant.util import dt as dt_util
 
 from .client import CuestClient, CuestNotConnected
 from .const import ALLOWED_DOMAINS
@@ -27,6 +26,7 @@ class Forwarder:
         self._client = client
         self._unsub_states: Callable[[], None] | None = None
         self._unsub_action: Callable[[], None] | None = None
+        self._stopped = False
 
     async def async_start(self) -> None:
         """Register message handlers and the notification action listener."""
@@ -38,6 +38,7 @@ class Forwarder:
 
     async def async_stop(self) -> None:
         """Remove all listeners."""
+        self._stopped = True
         self._clear_state_listener()
         if self._unsub_action is not None:
             self._unsub_action()
@@ -56,8 +57,15 @@ class Forwarder:
 
     @callback
     def _handle_subscribe(self, msg: dict) -> None:
+        if self._stopped:
+            return
+        entities = msg.get("entities")
+        if not isinstance(entities, list) or not all(
+            isinstance(e, str) for e in entities
+        ):
+            _LOGGER.debug("Ignoring malformed subscribe message")
+            return
         self._clear_state_listener()
-        entities = [e for e in msg.get("entities", []) if isinstance(e, str)]
         if entities:
             self._unsub_states = async_track_state_change_event(
                 self._hass, entities, self._handle_state_change
@@ -83,6 +91,8 @@ class Forwarder:
 
     @callback
     def _handle_notification_action(self, event: Event) -> None:
+        if self._stopped:
+            return
         action = event.data.get("action")
         if not isinstance(action, str) or not action.startswith(ACTION_PREFIX):
             return
@@ -91,7 +101,7 @@ class Forwarder:
                 {
                     "type": "notification_action",
                     "action": action,
-                    "at": dt_util.utcnow().isoformat(),
+                    "at": event.time_fired.isoformat(),
                 }
             )
         )
@@ -104,7 +114,11 @@ class Forwarder:
         call_id = msg.get("id")
         domain = msg.get("domain")
         service = msg.get("service")
-        if domain not in ALLOWED_DOMAINS:
+        if not (
+            isinstance(domain, str)
+            and isinstance(service, str)
+            and domain in ALLOWED_DOMAINS
+        ):
             await self._send(
                 {"type": "result", "id": call_id, "ok": False, "error": "domain_not_allowed"}
             )

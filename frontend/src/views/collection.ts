@@ -9,8 +9,8 @@ export const collectionStyles = css`
   .colgrid{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
   .coltile{background:${unsafeCSS(COLORS.card)};border:2px solid ${unsafeCSS(COLORS.line)};border-radius:14px;padding:8px 4px;min-height:112px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:4px;text-align:center;min-width:0}
   .coltile.on{border-color:${unsafeCSS(COLORS.forest)};background:#EEF3EC}
-  .coltile b{font-size:13px;overflow-wrap:anywhere}
-  .coltile .hint{font-size:12px;color:${unsafeCSS(COLORS.muted)};overflow-wrap:anywhere}
+  .coltile b{font-size:13px;overflow-wrap:break-word;hyphens:auto;max-width:100%}
+  .coltile .hint{font-size:12px;color:${unsafeCSS(COLORS.muted)};overflow-wrap:break-word;max-width:100%}
   .colbox{position:relative;width:56px;height:60px;flex:none;border-radius:10px;background:#EDE3CC;display:flex;align-items:center;justify-content:center;overflow:hidden}
   .colbox .mini{position:relative;width:${SPRITE_W * 2}px;height:${SPRITE_H * 2}px;flex:none;transform:scale(.95);transform-origin:center}
   .colbox .decorwrap{position:relative;height:24px;display:flex;align-items:flex-end;justify-content:center;transform:scale(1.4);transform-origin:center}
@@ -38,10 +38,10 @@ function locked(it: CollectionItem): TemplateResult {
 
 function tile(it: CollectionItem, level: number): TemplateResult {
   if (it.owned) {
-    return html`<li class="coltile on" data-item="${it.id}" role="group" aria-label="${it.name}, ${STRINGS.collectionFound}">${preview(it, level)}<b>${it.name}</b></li>`;
+    return html`<li class="coltile on" data-item="${it.id}" aria-label="${it.name}, ${STRINGS.collectionFound}">${preview(it, level)}<b>${it.name}</b></li>`;
   }
   const where = it.lootOnly ? STRINGS.collectionAriaLoot : STRINGS.collectionAriaShop;
-  return html`<li class="coltile" data-item="${it.id}" role="group" aria-label="${STRINGS.collectionUnknown}, ${where}">${locked(it)}<span class="hint">${it.lootOnly ? STRINGS.collectionLoot : STRINGS.collectionShop}</span></li>`;
+  return html`<li class="coltile" data-item="${it.id}" aria-label="${STRINGS.collectionUnknown}, ${where}">${locked(it)}<span class="hint">${it.lootOnly ? STRINGS.collectionLoot : STRINGS.collectionShop}</span></li>`;
 }
 
 /** The collection book: every wardrobe and decor item, with the unfound ones as silhouettes. */

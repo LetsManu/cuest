@@ -19,6 +19,11 @@ const NOTES: Record<Fanfare, number[]> = {
 
 let shared: AudioContext | null = null;
 
+/** Test-only: forget the shared AudioContext so each test starts from a clean slate. */
+export function resetSoundForTests(): void {
+  shared = null;
+}
+
 function context(): AudioContext | null {
   if (shared) return shared;
   const g = globalThis as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext };

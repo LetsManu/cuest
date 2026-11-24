@@ -6,10 +6,10 @@ const T0 = Date.parse('2026-11-24T10:00:00Z');
 const QUEST = { id: 'q9', title: 'Wipe the counters', minutes: 3, xp: 14, gold: 2, status: 'open', createdAt: '2026-11-24T09:00:00Z', startedAt: null, claimedBy: null, templateId: null, snoozedUntil: null };
 
 const running = (minutes = 15, agoMs = 0, logs = 0) => ({ id: 's1', playerId: 'p1', minutes, startedAt: new Date(T0 - agoMs).toISOString(), endedAt: null, logs, xp: null });
-interface Opts { getGate?: () => Promise<void>; sprint?: any; startErr?: number; logErr?: boolean; levelUp?: { level: number; title: string } }
+interface Opts { getGate?: () => Promise<void>; sprint?: any; startErr?: number; logErr?: boolean | string; levelUp?: { level: number; title: string }; active?: any[] }
 function fakeHass(o: Opts = {}) {
   let sprint: any = o.sprint ?? null;
-  const lists = { active: [] as any[], open: [{ ...QUEST }], whenever: [] as any[] };
+  const lists = { active: (o.active ?? []) as any[], open: [{ ...QUEST }], whenever: [] as any[] };
   const callApi = vi.fn(async (m: string, path: string, body?: any) => {
     if (path === 'cuest_whoami') return { playerId: 'p1', isAdmin: false, players: [{ id: 'p1', name: 'Ada' }] };
     if (path === 'cuest/quests') return lists;
@@ -22,6 +22,7 @@ function fakeHass(o: Opts = {}) {
       return sprint;
     }
     if (path === 'cuest/sprint/log') {
+      if (o.logErr === 'sprint_over') { const ended = sprint; sprint = null; throw { status_code: 409, body: { error: 'sprint_over', message: "Time's up, this sprint is finished. Great focus!" }, ended }; }
       if (o.logErr) throw { status_code: 409, body: { error: 'log_limit', message: 'Ten notes is plenty. Keep going!' } };
       sprint = { ...sprint, logs: sprint.logs + 1 };
       return { sprint, xp: 5, levelUp: o.levelUp ?? null };
@@ -164,6 +165,33 @@ describe('Power sprint', () => {
     q(el, '[data-act="sprint-quest-done"]').click(); await settle(el);
     expect(callApi).toHaveBeenCalledWith('POST', 'cuest/quests/q9/done', { playerId: 'p1' });
     expect(q(el, '[data-role="countdown"]')).toBeTruthy();
+  });
+
+  it('tick-one-off lists only quests that are free or mine, not ones another player claimed', async () => {
+    const mine = { ...QUEST, id: 'qm', title: 'My own one', status: 'active', claimedBy: 'p1', startedAt: new Date(T0).toISOString() };
+    const theirs = { ...QUEST, id: 'qt', title: 'Ben is on it', status: 'active', claimedBy: 'p2', startedAt: new Date(T0).toISOString() };
+    const { hass } = fakeHass({ sprint: running(15, 60_000), active: [mine, theirs] });
+    const el = await mount(hass);
+    await openSprint(el);
+    const list = q(el, '[data-role="sprint-quests"]').textContent!;
+    expect(list).toContain('My own one');
+    expect(list).toContain('Wipe the counters');
+    expect(list).not.toContain('Ben is on it');
+  });
+
+  it('a note sent after time is up shows the finished sprint, not an error', async () => {
+    const { hass } = fakeHass({ sprint: running(5, 4 * 60_000 + 59_000), logErr: 'sprint_over' });
+    const el = await mount(hass);
+    await openSprint(el);
+    const input = q(el, '[data-role="log-input"]') as HTMLInputElement;
+    input.value = 'Sink';
+    input.dispatchEvent(new Event('input'));
+    await el.updateComplete;
+    vi.setSystemTime(T0 + 1_000);
+    q(el, '[data-act="sprint-log"]').click(); await settle(el);
+    expect(q(el, '[role="alert"]')).toBeNull();
+    expect(q(el, '[data-role="sprint-summary"]')).toBeTruthy();
+    expect(q(el, '[data-role="countdown"]')).toBeNull();
   });
 
   it('end early finishes, shows the summary with base plus log XP and no shame wording', async () => {

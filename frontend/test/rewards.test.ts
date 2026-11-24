@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import '../src/cuest-panel';
 import type { HomeAssistant } from '../src/hass-types';
 import * as sound from '../src/sound';
-const { isSoundOn, playFanfare, setSoundOn, unlock } = sound;
+const { isSoundOn, playFanfare, resetSoundForTests, setSoundOn, unlock } = sound;
 
 const T0 = Date.parse('2026-11-24T10:00:00Z');
 const Q = (id: string, over: Record<string, unknown> = {}) => ({
@@ -17,8 +17,10 @@ function fakeHass(o: Opts = {}) {
     if (path === 'cuest/quests') return { active: [Q('q1', { status: 'active', startedAt: new Date(T0).toISOString() })], open: [Q('q2')], whenever: [], questOfDay: o.questOfDay === undefined ? 'q2' : o.questOfDay };
     if (path.endsWith('/summary')) return { player: { id: 'p1', name: 'Ada', xp: 130, gold: 215, restTokens: o.restTokens ?? 1, boostUntil: null }, level: 4, title: 'Hearthkeeper', intoLevel: 30, toNext: 70, streak: o.streak ?? 6, bestStreak: 9, restTokens: o.restTokens ?? 1, chestKeys: o.chestKeys ?? 0 };
     if (path.endsWith('/done')) return { quest: Q('q1', { status: 'done' }), reward: { xp: 52, gold: 3, lines: [{ label: 'Quest', xp: 12, gold: 3 }, { label: 'Kept going', xp: 25, gold: 0 }, { label: 'Combo ×3', xp: 15, gold: 0 }] }, player: { xp: 300 }, streak: { streak: 6, restarted: false, usedRest: null }, loot: null, chestKey: false, ...o.done };
-    if (path === 'cuest/shop/open-chest') { if (o.chestError) throw o.chestError; }
-    if (path === 'cuest/shop/open-chest') return { player: {}, result: o.chest ?? { kind: 'chest', gold: 40 } };
+    if (path === 'cuest/shop/open-chest') {
+      if (o.chestError) throw o.chestError;
+      return { player: {}, result: o.chest ?? { kind: 'chest', gold: 40 } };
+    }
     return {};
   });
   const hass = {
@@ -161,7 +163,10 @@ describe('rewards in the panel', () => {
 });
 
 describe('sound', () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+    resetSoundForTests();
+  });
   it('does not throw without AudioContext and persists the toggle', () => {
     expect(isSoundOn()).toBe(false);
     setSoundOn(true);
@@ -170,6 +175,11 @@ describe('sound', () => {
     expect(() => playFanfare('level')).not.toThrow();
     setSoundOn(false);
     expect(isSoundOn()).toBe(false);
+  });
+  it('an earlier test that already made a context does not leak into the next one', () => {
+    class Other { state = 'running'; currentTime = 0; destination = {}; resume = async () => {}; createOscillator() { return { type: '', frequency: { value: 0 }, connect: (n: unknown) => n, start() {}, stop() {} }; } createGain() { return { gain: { setValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect: (n: unknown) => n }; } }
+    (globalThis as any).AudioContext = Other;
+    try { unlock(); } finally { delete (globalThis as any).AudioContext; }
   });
   it('reuses one AudioContext across fanfares and unlock', () => {
     let made = 0;

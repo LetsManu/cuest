@@ -13,13 +13,20 @@ const ITEMS = [
   { id: 'owl', kind: 'decor', name: 'Sleepy owl', owned: true, lootOnly: true },
 ];
 
+const OPEN_Q = { id: 'q1', title: 'Dishes', minutes: 5, xp: 10, gold: 3, status: 'open', createdAt: 't', startedAt: null, claimedBy: null, templateId: null, snoozedUntil: null };
 function fakeHass(items: unknown = ITEMS) {
   const callApi = vi.fn(async (_m: string, path: string) => {
     if (path === 'cuest_whoami') return { playerId: 'p1', isAdmin: false, players: [{ id: 'p1', name: 'Ada' }] };
-    if (path === 'cuest/quests') return { active: [], open: [], whenever: [] };
+    if (path === 'cuest/quests') return { active: [], open: [OPEN_Q], whenever: [] };
+    if (path.endsWith('/start')) return { ...OPEN_Q, status: 'active', claimedBy: 'p1', startedAt: new Date(T0).toISOString() };
+    if (path.endsWith('/done')) return { quest: OPEN_Q, reward: { xp: 10, gold: 3, lines: [] }, player: { xp: 140 }, loot: null, chestKey: false };
     if (path.endsWith('/summary')) return { player: { id: 'p1', name: 'Ada', xp: 130, gold: 10, restTokens: 0, boostUntil: null }, level: 4, title: 'Hearthkeeper', intoLevel: 30, toNext: 70 };
     if (path.startsWith('cuest/shop?')) return { gold: 10, restTokens: 0, boostUntil: null, owned: {}, equipped: {}, catalog: [] };
-    if (path.startsWith('cuest/collection?')) { if (items === 'fail') throw new Error('nope'); return { items }; }
+    if (path.startsWith('cuest/collection?')) {
+      const v = typeof items === 'function' ? (items as () => unknown)() : items;
+      if (v === 'fail') throw new Error('nope');
+      return { items: v };
+    }
     return {};
   });
   const hass = {
@@ -83,6 +90,52 @@ describe('collection book', () => {
       expect(el.shadowRoot.querySelector('[data-collection]')).toBeNull();
       expect(el.shadowRoot.textContent).toContain('Path of the hero');
     }
+  });
+
+  it('tiles stay list items (no role override) and keep their aria-label', async () => {
+    const el = await openHero(fakeHass().hass);
+    for (const t of all(el, '[data-collection] [data-item]')) {
+      expect(t.tagName).toBe('LI');
+      expect(t.hasAttribute('role')).toBe(false);
+      expect(t.getAttribute('aria-label')).toBeTruthy();
+    }
+  });
+
+  it('a failed collection fetch keeps the list it already had', async () => {
+    let fail = false;
+    const { hass } = fakeHass(() => (fail ? 'fail' : ITEMS));
+    const el = await openHero(hass);
+    expect(all(el, '[data-collection] [data-item]')).toHaveLength(7);
+    fail = true;
+    el.hass = { ...hass, states: { 'sensor.cuest_ada_level': { state: '4', last_changed: 't2', attributes: { cuest_player_id: 'p1', cuest_kind: 'level' } } } };
+    await settle(el);
+    expect(all(el, '[data-collection] [data-item]')).toHaveLength(7);
+    (el.shadowRoot.querySelector('nav [data-go="village"]') as HTMLElement).click(); await settle(el);
+    (el.shadowRoot.querySelector('nav [data-go="hero"]') as HTMLElement).click(); await settle(el);
+    expect(all(el, '[data-collection] [data-item]')).toHaveLength(7);
+  });
+
+  it('fetches the collection on first load, when Hero opens and after a quest is done, not on every refresh', async () => {
+    const { hass, callApi } = fakeHass();
+    const el = document.createElement('cuest-panel') as any;
+    el.now = () => T0;
+    document.body.appendChild(el);
+    el.hass = hass;
+    await settle(el);
+    const colCalls = () => callApi.mock.calls.filter((c) => String(c[1]).startsWith('cuest/collection?')).length;
+    expect(colCalls()).toBe(1);
+    // A sensor change refreshes quests and summary, but not the collection.
+    el.hass = { ...hass, states: { 'sensor.cuest_ada_level': { state: '4', last_changed: 't2', attributes: { cuest_player_id: 'p1', cuest_kind: 'level' } } } };
+    await settle(el);
+    expect(callApi.mock.calls.filter((c) => c[1] === 'cuest/quests').length).toBe(2);
+    expect(colCalls()).toBe(1);
+    (el.shadowRoot.querySelector('nav [data-go="hero"]') as HTMLElement).click(); await settle(el);
+    expect(colCalls()).toBe(2);
+    (el.shadowRoot.querySelector('nav [data-go="village"]') as HTMLElement).click(); await settle(el);
+    expect(colCalls()).toBe(2);
+    (el.shadowRoot.querySelector('[data-act="start"]') as HTMLElement).click(); await settle(el);
+    (el.shadowRoot.querySelector('[data-act="done"]') as HTMLElement).click(); await settle(el);
+    expect(colCalls()).toBe(3);
   });
 
   it('shows owned loot-only decor in the village', async () => {

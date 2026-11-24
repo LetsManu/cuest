@@ -1,9 +1,8 @@
 import { css, html, nothing, unsafeCSS, type TemplateResult } from 'lit';
-import type { Summary } from '../api';
+import type { CollectionItem, Summary } from '../api';
 import { COLORS, FONT_PIXEL } from '../palette';
 import { SPRITE_H, SPRITE_W, spriteShadow, stageForLevel, type Palette } from '../sprite';
 import { STRINGS } from '../strings';
-import type { CollectionItem } from '../api';
 import { collectionView } from './collection';
 import { decorTemplate } from './decor';
 
@@ -27,9 +26,9 @@ export const heroStyles = css`
   .xpwrap{width:100%;display:flex;flex-direction:column;gap:4px}
   .xprow{display:flex;justify-content:space-between;font-size:13px;color:#D8D2C4;font-variant-numeric:tabular-nums}
   .path{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-  .stage{background:${unsafeCSS(COLORS.card)};border:2px solid ${unsafeCSS(COLORS.line)};border-radius:14px;padding:8px 4px;display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;min-width:0}
+  .stage{background:${unsafeCSS(COLORS.card)};border:2px solid ${unsafeCSS(COLORS.line)};border-radius:14px;padding:8px 2px;display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;min-width:0}
   .stage.on{border-color:${unsafeCSS(COLORS.forest)};background:#EEF3EC}
-  .stage b{font-size:13px;overflow-wrap:anywhere}
+  .stage b{font-size:12px;overflow-wrap:normal;word-break:normal;hyphens:auto}
   .stage span{font-size:12px;color:${unsafeCSS(COLORS.muted)}}
   .stage .sprite{position:relative;overflow:hidden}
   .stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}

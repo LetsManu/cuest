@@ -132,6 +132,13 @@ export class CuestPanel extends LitElement {
   private _pending = false;
   private _qTimer: ReturnType<typeof setInterval> | undefined;
   private _toastTimer: ReturnType<typeof setTimeout> | undefined;
+  /**
+   * The collection only changes on loot, buys, chests and equips, so it is not re-fetched on every
+   * refresh: `_colWanted` is bumped when a fetch is due (first load, Hero opens, after those results)
+   * and `_colHave` records the request that last succeeded.
+   */
+  private _colWanted = 1;
+  private _colHave = 0;
 
   constructor() {
     super();
@@ -213,6 +220,7 @@ export class CuestPanel extends LitElement {
     if (this._sound) unlock();
     void this._act(q, async () => {
       const res = await api.done(q.id, pid);
+      this._colWanted++; // loot may have been found
       const r = res.reward as { xp: number; gold: number; lines?: { label: string; xp: number }[] };
       const xp = res.player?.xp;
       const level = typeof xp === 'number' ? levelForXp(xp).level : 0;
@@ -254,14 +262,23 @@ export class CuestPanel extends LitElement {
       this._offline = false;
       if (this._playerId) {
         const pid = this._playerId;
-        const [summary, quests, shop, col] = await Promise.all([this._api.summary(pid), this._api.quests(), this._api.shop(pid).catch(() => null), this._api.collection(pid).catch(() => null)]);
+        const colWant = this._colWanted;
+        const colDue = colWant !== this._colHave;
+        const [summary, quests, shop, col] = await Promise.all([
+          this._api.summary(pid), this._api.quests(), this._api.shop(pid).catch(() => null),
+          colDue ? this._api.collection(pid).catch(() => null) : Promise.resolve(null),
+        ]);
         // A different player was picked while this load ran: drop the stale data but
         // still fall through so a queued re-run (below) happens.
         if (pid === this._playerId) {
           this._summary = summary;
           this._quests = quests;
           this._shop = Array.isArray(shop?.catalog) ? shop : null;
-          this._collection = Array.isArray(col?.items) ? col.items : null;
+          // A failed or malformed fetch keeps what we had and tries again on the next refresh.
+          if (colDue && Array.isArray(col?.items)) {
+            this._collection = col.items;
+            this._colHave = colWant;
+          }
         }
       }
       this._error = '';
@@ -296,6 +313,7 @@ export class CuestPanel extends LitElement {
     this._quests = null;
     this._shop = null;
     this._collection = null;
+    this._colWanted++;
     void this._refresh();
   }
 
@@ -392,6 +410,7 @@ export class CuestPanel extends LitElement {
     let msg = '';
     try {
       msg = await fn();
+      this._colWanted++; // a buy, chest or equip can change what is owned
       this._error = '';
     } catch (e) {
       const err = toApiError(e);
@@ -549,8 +568,9 @@ export class CuestPanel extends LitElement {
       const err = toApiError(e);
       if (err.offline) this._offline = true;
       else {
-        // Already running (another device started one): just resume it, no scolding.
-        if (err.code === 'sprint_running') await this._loadSprint();
+        // Already running (another device started one), or time ran out and the server just finished it:
+        // reload so the running sprint or its summary shows, no scolding.
+        if (err.code === 'sprint_running' || err.code === 'sprint_over') await this._loadSprint();
         else this._error = err.message || STRINGS.sprintFailed;
       }
     }
@@ -622,6 +642,15 @@ export class CuestPanel extends LitElement {
     if (this._busy[q.id]) return;
     this._finish(q, () => { /* stay in the sprint */ });
   };
+
+  private _go(v: View) {
+    this._view = v;
+    // The Hero tab shows the collection book: bring it up to date when it opens.
+    if (v === 'hero') {
+      this._colWanted++;
+      void this._refresh();
+    }
+  }
 
   private _toggleSound = () => {
     this._sound = !this._sound;
@@ -710,7 +739,9 @@ export class CuestPanel extends LitElement {
       });
     }
     if (this._view === 'sprint') {
-      const qs = this._quests ? [...this._quests.active, ...this._quests.open, ...this._quests.whenever] : [];
+      const pid = this._playerId;
+      // Quests another player already claimed would only answer "already claimed": leave them out.
+      const qs = this._quests ? [...this._quests.active, ...this._quests.open, ...this._quests.whenever].filter((x) => !x.claimedBy || x.claimedBy === pid) : [];
       return sprintView({
         sprint: this._sprint,
         summary: this._sprintSummary,
@@ -754,7 +785,7 @@ export class CuestPanel extends LitElement {
 
   protected render() {
     const nav = this._who && this._playerId && this._view !== 'quest';
-    const item = (v: View, label: string) => html`<button type="button" data-go="${v}" aria-current=${this._view === v ? 'page' : nothing} @click=${() => { this._view = v; }}>${label}</button>`;
+    const item = (v: View, label: string) => html`<button type="button" data-go="${v}" aria-current=${this._view === v ? 'page' : nothing} @click=${() => this._go(v)}>${label}</button>`;
     return html`<div class="shell">
       <main>
         ${this.narrow && !(this._who && this._playerId && this._view !== 'quest') ? html`<div class="menu">${this._menu()}</div>` : nothing}

@@ -1,0 +1,123 @@
+import { beforeEach, describe, expect, it } from 'vitest';
+import { openDb } from '../src/db/db.js';
+import { migrate } from '../src/db/migrate.js';
+import { PlayersRepo } from '../src/repos/players.js';
+import { QuestsRepo } from '../src/repos/quests.js';
+import { TemplatesRepo } from '../src/repos/templates.js';
+import { LedgerRepo } from '../src/repos/ledger.js';
+import { FakeClock } from '../src/clock.js';
+import { Bus } from '../src/bus.js';
+import { QuestService } from '../src/services/quests.js';
+import { RuleEngine } from '../src/services/rules.js';
+import { presetTemplates } from '../src/domain/presets.js';
+
+const T0 = new Date('2026-11-24T10:00:00.000Z');
+const at = (min: number) => new Date(T0.getTime() + min * 60_000);
+
+let templates: TemplatesRepo;
+let quests: QuestsRepo;
+let engine: RuleEngine;
+let clock: FakeClock;
+
+const power = (w: string, min: number) =>
+  engine.onState({ entityId: 'sensor.washer_power', oldState: null, newState: w, at: at(min) });
+const live = () => quests.listByStatus(['open', 'active', 'whenever']);
+
+beforeEach(() => {
+  const db = openDb(':memory:');
+  migrate(db);
+  clock = new FakeClock(T0);
+  templates = new TemplatesRepo(db);
+  quests = new QuestsRepo(db);
+  const svc = new QuestService({ quests, players: new PlayersRepo(db), ledger: new LedgerRepo(db), bus: new Bus(), clock });
+  engine = new RuleEngine({ templates, quests: svc });
+});
+
+const addPreset = (preset: Parameters<typeof presetTemplates>[0], entityId: string, enabled = true) =>
+  presetTemplates(preset, { entityId }).map((t) => templates.create({ ...t, enabled }, clock.now()));
+
+describe('RuleEngine power_below', () => {
+  beforeEach(() => {
+    addPreset('washer_power', 'sensor.washer_power');
+  });
+
+  it('washer quest after power stays low for 3 minutes', () => {
+    power('1800', 0);
+    power('2', 40);
+    engine.tick(at(42));
+    expect(live()).toHaveLength(0);
+    engine.tick(at(43));
+    expect(live()).toHaveLength(1);
+    expect(live()[0]!.title).toBe('Hang up the laundry');
+  });
+
+  it('short dip between cycles does not finish', () => {
+    power('1800', 0);
+    power('2', 10);
+    power('1500', 11);
+    engine.tick(at(20));
+    expect(live()).toHaveLength(0);
+  });
+
+  it('second wash while laundry quest open does not duplicate', () => {
+    power('1800', 0);
+    power('2', 10);
+    engine.tick(at(13));
+    power('1800', 60);
+    power('2', 70);
+    engine.tick(at(74));
+    expect(live()).toHaveLength(1);
+  });
+
+  it('unavailable and garbage are ignored', () => {
+    power('1800', 0);
+    power('unavailable', 5);
+    power('abc', 6);
+    power('2', 10);
+    engine.tick(at(13));
+    expect(live()).toHaveLength(1);
+  });
+
+  it('fires from onState when the low reading arrives late', () => {
+    power('1800', 0);
+    power('2', 10);
+    power('2', 14);
+    expect(live()).toHaveLength(1);
+  });
+});
+
+describe('RuleEngine state rules', () => {
+  it('respects from', () => {
+    addPreset('vacuum', 'vacuum.robo');
+    const ev = (o: string, n: string) => engine.onState({ entityId: 'vacuum.robo', oldState: o, newState: n, at: at(0) });
+    ev('idle', 'docked');
+    expect(live()).toHaveLength(0);
+    ev('docked', 'docked');
+    expect(live()).toHaveLength(0);
+    ev('cleaning', 'docked');
+    expect(live().map((q) => q.title)).toEqual(['Empty the vacuum bin']);
+    ev('cleaning', 'error');
+    expect(live().map((q) => q.title).sort()).toEqual(['Empty the vacuum bin', 'Rescue the robot vacuum']);
+  });
+
+  it('ignores unavailable and unknown', () => {
+    addPreset('vacuum_bin_sensor', 'binary_sensor.bin');
+    engine.onState({ entityId: 'binary_sensor.bin', oldState: 'off', newState: 'unavailable', at: at(0) });
+    expect(live()).toHaveLength(0);
+    engine.onState({ entityId: 'binary_sensor.bin', oldState: 'unavailable', newState: 'on', at: at(1) });
+    expect(live()).toHaveLength(1);
+  });
+});
+
+describe('RuleEngine entities', () => {
+  it('lists enabled rule entities only', () => {
+    addPreset('washer_power', 'sensor.b');
+    addPreset('vacuum', 'vacuum.a');
+    addPreset('dryer_state', 'sensor.off', false);
+    templates.create(
+      { ...presetTemplates('washer_state', { entityId: 'x' })[0]!, source: 'manual', rule: null },
+      clock.now(),
+    );
+    expect(engine.entities()).toEqual(['sensor.b', 'vacuum.a']);
+  });
+});

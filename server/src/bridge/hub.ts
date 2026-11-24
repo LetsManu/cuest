@@ -132,9 +132,12 @@ export class BridgeHub {
           if (!msg.ok) this.opts.log(`bridge: service call ${msg.id} failed: ${msg.error ?? 'unknown'}`);
           return;
         case 'entities': {
-          if (msg.chunk === 0 || this.chunkSocket !== socket) {
+          if (msg.chunk === 0) {
             this.chunkSocket = socket;
             this.chunks = [];
+          } else if (this.chunkSocket !== socket) {
+            this.opts.log(`bridge: ignoring entities chunk ${msg.chunk} with no set in progress`);
+            return;
           }
           this.chunks.push(...msg.entities);
           if (msg.last) {

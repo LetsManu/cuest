@@ -290,6 +290,18 @@ describe('bridge protocol extensions', () => {
     expect(got[0]!.map((e) => (e as { entityId: string }).entityId)).toEqual(['sensor.a', 'sensor.b']);
   });
 
+  it('a non-zero first chunk without a set in progress is ignored', async () => {
+    await setup();
+    const got: unknown[][] = [];
+    hub.onEntities((e) => got.push(e));
+    const c = await connect(SECRET);
+    c.ws.send(JSON.stringify({ type: 'entities', chunk: 1, last: true, entities: [ent('sensor.b')] }));
+    c.ws.send(JSON.stringify({ type: 'entities', chunk: 0, last: true, entities: [ent('sensor.a')] }));
+    await until(() => got.length >= 1);
+    expect(got).toHaveLength(1);
+    expect(got[0]!.map((e) => (e as { entityId: string }).entityId)).toEqual(['sensor.a']);
+  });
+
   it('api request is answered via the handler', async () => {
     await setup();
     hub.setApiHandler(async (req) => ({ status: 200, body: { path: req.path, method: req.method } }));

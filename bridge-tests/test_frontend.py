@@ -28,3 +28,12 @@ def test_blueprint_parses():
     assert bp["blueprint"]["domain"] == "automation"
     assert set(bp["blueprint"]["input"]) == {"tag", "quest_title"}
     assert bp["actions"][0]["action"] == "cuest.complete_quest"
+
+
+async def test_reload_does_not_register_card_twice(cuest):
+    hass, _, entry = cuest
+    from homeassistant.components.frontend import DATA_EXTRA_MODULE_URL
+
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert list(hass.data[DATA_EXTRA_MODULE_URL].urls).count("/cuest/cuest-card.js") == 1

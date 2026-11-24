@@ -6,6 +6,8 @@ offers a quest to whoever is home. Finish quests to earn XP and gold and level
 up. There are no penalties: quests never expire in a scary way, they just wait
 until you are ready.
 
+**Set up with Home Assistant:** [docs/install-home-assistant.md](docs/install-home-assistant.md)
+
 **Status: early development.** Only the server core exists so far. It is not
 ready for everyday use yet.
 

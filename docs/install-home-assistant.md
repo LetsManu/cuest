@@ -7,8 +7,10 @@ server) and a working Home Assistant with the HACS add-on installed.
 ## Part 1: Start the Cuest server
 
 1. On the PC or NAS that stays on, install Docker (with Docker Compose).
-2. Download the Cuest files from <https://github.com/LetsManu/cuest> and open
-   that folder in a terminal.
+2. Get the Cuest files. On <https://github.com/LetsManu/cuest> click the green
+   **Code** button, then **Download ZIP**, unzip it and open a terminal in that
+   folder. (If you know git, `git clone https://github.com/LetsManu/cuest`
+   does the same.)
 3. Copy `docker-compose.example.yml` to `docker-compose.yml`. Open it and set
    `CUEST_TZ` to your time zone, for example `Europe/Amsterdam`.
 4. Start the server:
@@ -44,12 +46,14 @@ server) and a working Home Assistant with the HACS add-on installed.
 
 ## Part 3: Tell Cuest who is who
 
-13. On the Cuest integration click **Configure** and choose **People**.
-14. Pick yourself, and pick your iPhone (so Cuest can send you
-    notifications). Repeat for everyone who plays.
-15. Click **Configure** again and choose **Devices**. Cuest suggests the
-    appliances it recognised (washing machine, dishwasher and so on). Tick the
-    ones you want to turn into quests.
+13. On the Cuest integration click **Configure** and choose
+    **People and their phones**. Tick the people who play, then continue.
+14. Cuest now asks **Phone for <person>** once for each person. Pick that
+    person's iPhone so Cuest can send them notifications, or pick
+    **No phone** if they should not get any.
+15. Click **Configure** again and choose **Devices found in your home**. Cuest
+    suggests the appliances it recognised (washing machine, dishwasher and so
+    on). Tick the ones you want to turn into quests.
 
 ## Part 4: Add the card to your dashboard
 
@@ -61,6 +65,10 @@ server) and a working Home Assistant with the HACS add-on installed.
 
 The card shows your hero, level, XP bar, gold and your open quests, each with
 a **Done** button.
+
+Note: **Done** on the card (and ticking a quest in the to-do list) credits the
+player linked to the Home Assistant user who is logged in. On a shared wall
+tablet, log in as the person who did the quest, or use their phone.
 
 ## Optional: finish a quest with an NFC tag
 
@@ -84,10 +92,11 @@ running (`docker compose ps`), that the address and port 8787 are right, and
 that the PC or NAS is on the same network as Home Assistant. Open
 `http://<address>:8787/api/health` in a browser to test it.
 
-**"The secret doesn't match" (a repair appears in Settings)**
-The secret in Home Assistant is not the one the server uses. Show it again
-with `docker compose exec cuest cat /data/bridge-secret`, then open the repair
-and paste the new secret.
+**"The Cuest secret does not match" (a repair in Settings)**
+The server rejected the secret Home Assistant has. Show the right one with
+`docker compose exec cuest cat /data/bridge-secret`. Then go to **Settings →
+Devices & services → Cuest**, remove the integration, and add it again
+(steps 10 to 12) with that secret.
 
 **The card is missing from the card list**
 Reload the page with the browser cache cleared (Ctrl+F5). On the phone app use

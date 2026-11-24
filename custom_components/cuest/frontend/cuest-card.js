@@ -111,7 +111,11 @@
       this._hass = hass;
       var todoId = this._findTodo();
       var todo = todoId && hass.states[todoId];
-      var stamp = todo ? todo.last_changed + '|' + todo.state : null;
+      var oq = Object.keys(hass.states).filter(function (id) {
+        return id.indexOf('sensor.') === 0 && hass.entities && hass.entities[id] && hass.entities[id].platform === 'cuest' &&
+          hass.states[id].attributes && Array.isArray(hass.states[id].attributes.quests);
+      }).map(function (id) { return JSON.stringify(hass.states[id].attributes.quests); }).join('|');
+      var stamp = todo ? todo.last_changed + '|' + todo.state + '|' + oq : null;
       if (todoId !== this._todoId || stamp !== this._todoStamp) {
         this._todoId = todoId;
         this._todoStamp = stamp;

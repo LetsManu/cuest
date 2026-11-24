@@ -163,4 +163,61 @@ describe('cuest-panel', () => {
     for (let i = 0; i < 3; i++) { await new Promise((r) => setTimeout(r, 0)); await el.updateComplete; }
     expect(callApi.mock.calls.filter((c) => c[1] === 'cuest/quests').length).toBe(before + 1);
   });
+
+  it('treats a network failure (no status) as offline, not a raw error', async () => {
+    const { hass } = fakeHass({ fail: (_m, path) => (path === 'cuest_whoami' ? { error: 'Request error' } : null) });
+    const el = await mount(hass);
+    expect(el.shadowRoot.querySelector('.banner')).not.toBeNull();
+    expect(el.shadowRoot.querySelector('[role="alert"]')).toBeNull();
+    expect(text(el)).not.toContain('Request error');
+  });
+
+  it('shows friendly copy for a plain-text error body', async () => {
+    const { hass } = fakeHass({ fail: (m, path) => (m === 'POST' && path.endsWith('/start') ? { error: 'Response error: 502', status_code: 502, body: '502: Bad Gateway' } : null) });
+    const el = await mount(hass);
+    el.shadowRoot.querySelector('[data-act="start"]').click();
+    for (let i = 0; i < 3; i++) { await new Promise((r) => setTimeout(r, 0)); await el.updateComplete; }
+    const alert = el.shadowRoot.querySelector('[role="alert"]').textContent;
+    expect(alert).toContain('Something went sideways');
+    expect(alert).not.toContain('502');
+    expect(el.shadowRoot.querySelector('.banner')).toBeNull();
+  });
+
+  it("shows \"Someone's on it\" without buttons for a quest another player is doing", async () => {
+    const { hass } = fakeHass({ quests: { active: [Q('a1', { status: 'active', claimedBy: 'p2' })], open: [], whenever: [] } });
+    const el = await mount(hass);
+    expect(text(el)).toContain("Someone's on it");
+    expect(el.shadowRoot.querySelector('.qcard [data-act="start"]')).toBeNull();
+    expect(text(el)).not.toContain('Continue');
+  });
+
+  it('shows Continue to the claimer', async () => {
+    const { hass } = fakeHass({ quests: { active: [Q('a1', { status: 'active', claimedBy: 'p1' })], open: [], whenever: [] } });
+    const el = await mount(hass);
+    expect(text(el)).toContain('Continue');
+  });
+
+  it('switches player: clears the choice and returns to the picker', async () => {
+    const { hass, callApi } = fakeHass({ who: { playerId: 'p1', isAdmin: false, players: [{ id: 'p1', name: 'Ada' }, { id: 'p2', name: 'Bo' }] } });
+    const el = await mount(hass);
+    localStorage.setItem('cuest.player', 'p1');
+    el.shadowRoot.querySelector('[data-act="switch"]').click();
+    await new Promise((r) => setTimeout(r, 0)); await el.updateComplete;
+    expect(localStorage.getItem('cuest.player')).toBeNull();
+    expect(text(el)).toContain("Who's playing?");
+    el.shadowRoot.querySelector('[data-player="p2"]').click();
+    for (let i = 0; i < 3; i++) { await new Promise((r) => setTimeout(r, 0)); await el.updateComplete; }
+    expect(callApi).toHaveBeenCalledWith('GET', 'cuest/players/p2/summary', undefined);
+    expect(localStorage.getItem('cuest.player')).toBe('p2');
+  });
+
+  it('re-runs a refresh requested while one is loading', async () => {
+    const { hass, callApi } = fakeHass();
+    const el = await mount(hass);
+    const before = callApi.mock.calls.filter((c) => c[1] === 'cuest/quests').length;
+    void el._refresh();
+    void el._refresh();
+    for (let i = 0; i < 5; i++) { await new Promise((r) => setTimeout(r, 0)); await el.updateComplete; }
+    expect(callApi.mock.calls.filter((c) => c[1] === 'cuest/quests').length).toBe(before + 2);
+  });
 });

@@ -14,6 +14,9 @@ const REFRESH_MS = 30_000;
 function readStored(): string | null {
   try { return localStorage.getItem(STORE_KEY); } catch { return null; }
 }
+function clearStored() {
+  try { localStorage.removeItem(STORE_KEY); } catch { /* ignore */ }
+}
 function writeStored(id: string) {
   try { localStorage.setItem(STORE_KEY, id); } catch { /* private mode: just don't remember */ }
 }
@@ -35,6 +38,7 @@ export class CuestPanel extends LitElement {
     _busy: { state: true },
     _poolOpen: { state: true },
     _loaded: { state: true },
+    _switching: { state: true },
   };
 
   static styles = [
@@ -45,7 +49,7 @@ export class CuestPanel extends LitElement {
     .shell{max-width:720px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
     main{flex:1;padding:18px 16px 24px;display:flex;flex-direction:column;gap:14px}
     .menu{display:flex;align-items:center;min-height:44px}
-    .banner{background:#F6E2B8;border:2px solid ${unsafeCSS(COLORS.amber)};border-radius:12px;padding:10px 12px;font-weight:700;color:#4A3A1A}
+    .banner{background:${unsafeCSS(COLORS.card)};border:2px solid ${unsafeCSS(COLORS.amber)};border-radius:12px;padding:10px 12px;font-weight:700;color:${unsafeCSS(COLORS.ink)}}
     .error{background:${unsafeCSS(COLORS.card)};border:2px solid ${unsafeCSS(COLORS.line)};border-radius:12px;padding:10px 12px}
     .centerbox{background:${unsafeCSS(COLORS.card)};border:2px solid ${unsafeCSS(COLORS.line)};border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:10px;line-height:1.45}
     h1,h2{font-family:${unsafeCSS(FONT_PIXEL)};margin:0;color:${unsafeCSS(COLORS.forest)}}
@@ -73,11 +77,13 @@ export class CuestPanel extends LitElement {
   declare _busy: Record<string, boolean>;
   declare _poolOpen: boolean;
   declare _loaded: boolean;
+  declare _switching: boolean;
 
   private _api: CuestApi | null = null;
   private _sig: string | null = null;
   private _timer: ReturnType<typeof setInterval> | undefined;
   private _loading = false;
+  private _pending = false;
 
   constructor() {
     super();
@@ -93,6 +99,7 @@ export class CuestPanel extends LitElement {
     this._busy = {};
     this._poolOpen = false;
     this._loaded = false;
+    this._switching = false;
   }
 
   connectedCallback() {
@@ -118,12 +125,13 @@ export class CuestPanel extends LitElement {
   }
 
   private async _refresh() {
-    if (!this._api || this._loading) return;
+    if (!this._api) return;
+    if (this._loading) { this._pending = true; return; }
     this._loading = true;
     try {
       if (!this._who || !this._playerId) {
         this._who = await this._api.whoami();
-        if (!this._playerId) this._playerId = this._choosePlayer(this._who);
+        if (!this._playerId && !this._switching) this._playerId = this._choosePlayer(this._who);
       }
       this._offline = false;
       if (this._playerId) {
@@ -140,18 +148,35 @@ export class CuestPanel extends LitElement {
       this._loaded = true;
       this._loading = false;
     }
+    if (this._pending) { this._pending = false; await this._refresh(); }
   }
 
   private _choosePlayer(who: WhoAmI): string | null {
-    if (who.playerId) return who.playerId;
     const stored = readStored();
-    return stored && who.players.some((p) => p.id === stored) ? stored : null;
+    if (stored && who.players.some((p) => p.id === stored)) return stored;
+    return who.playerId;
   }
 
   private _pick(id: string) {
     writeStored(id);
+    this._switching = false;
     this._playerId = id;
+    this._summary = null;
+    this._quests = null;
     void this._refresh();
+  }
+
+  private _switch = () => {
+    clearStored();
+    this._switching = true;
+    this._playerId = null;
+    this._summary = null;
+    this._quests = null;
+    this._view = 'village';
+  };
+
+  private _menu() {
+    return this.narrow ? html`<ha-menu-button .hass=${this.hass} .narrow=${this.narrow}></ha-menu-button>` : nothing;
   }
 
   private async _act(q: Quest, fn: () => Promise<unknown>, after?: () => void) {
@@ -218,6 +243,10 @@ export class CuestPanel extends LitElement {
     if (this._view === 'village') {
       return villageView({
         summary: this._summary,
+        playerId: this._playerId,
+        leading: this._menu(),
+        canSwitch: this._who.players.length > 1,
+        onSwitch: this._switch,
         quests: this._quests,
         palette: this._palette(),
         decor: this._decor(),
@@ -240,7 +269,7 @@ export class CuestPanel extends LitElement {
     const item = (v: View, label: string) => html`<button type="button" data-go="${v}" aria-current=${this._view === v ? 'page' : nothing} @click=${() => { this._view = v; }}>${label}</button>`;
     return html`<div class="shell">
       <main>
-        ${this.narrow ? html`<div class="menu"><ha-menu-button .hass=${this.hass} .narrow=${this.narrow}></ha-menu-button></div>` : nothing}
+        ${this.narrow && !(this._who && this._playerId && this._view === 'village') ? html`<div class="menu">${this._menu()}</div>` : nothing}
         ${this._offline ? html`<div class="banner" role="status">${STRINGS.offlineBanner}</div>` : nothing}
         ${this._error ? html`<div class="error" role="alert">${this._error}</div>` : nothing}
         ${this._body()}

@@ -45,6 +45,8 @@ export const STRINGS = {
   waiting: 'Waiting for you',
   poolOne: 'quest is resting in the Whenever pool. No rush.',
   poolMany: 'quests are resting in the Whenever pool. No rush.',
+  someoneOnIt: "Someone's on it",
+  switchPlayer: 'Switch player',
   xpToLevel: 'XP to Level',
   decorNames: {
     lantern: 'Village lantern',

@@ -28,6 +28,7 @@ export const ARCANE_COPY = {
   problemOne: 'Check {name}',
   problemGroup: 'Check {n} {model} devices',
   problemDetail: '{places} report a small problem',
+  problemDetailOne: '{places} reports a small problem',
   problemDetailNoArea: 'Reports a small problem',
   updateDetail: '{installed} → {latest} ready',
   updateDetailUnknown: 'Update ready',

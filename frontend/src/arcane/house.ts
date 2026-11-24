@@ -45,7 +45,12 @@ export function displayName(h: HomeAssistant, entityId: string): string {
 const domain = (id: string): string => id.slice(0, id.indexOf('.'));
 
 export function isLightGroup(h: HomeAssistant, id: string): boolean {
-  return Array.isArray(attr(h.states[id], 'entity_id')) || h.entities?.[id]?.platform === 'group';
+  return (
+    Array.isArray(attr(h.states[id], 'entity_id')) ||
+    attr(h.states[id], 'is_hue_group') === true ||
+    h.entities?.[id]?.platform === 'group' ||
+    /^group$/i.test(deviceOf(h, id)?.model ?? '')
+  );
 }
 
 export function lightStats(h: HomeAssistant, filter?: (id: string) => boolean): { on: number; total: number } {
@@ -206,18 +211,19 @@ export function collectFaults(
     const sorted = [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
     return { text: sorted.map(([n, c]) => (c > 1 ? `${n} ×${c}` : n)).join(' · '), top: sorted[0]?.[0] ?? null };
   };
-  const problemDetail = (p: { text: string }): string => (p.text ? fill(C.problemDetail, { places: p.text }) : C.problemDetailNoArea);
+  const problemDetail = (p: { text: string }, one: boolean): string =>
+    p.text ? fill(one ? C.problemDetailOne : C.problemDetail, { places: p.text }) : C.problemDetailNoArea;
   for (const [model, ids] of byModel) {
     if (ids.length < 2) {
       loose.push(...ids);
       continue;
     }
     const p = places(ids);
-    faults.push(fault('problem', { id: `problem:model:${model}`, title: fill(C.problemGroup, { n: ids.length, model }), detail: problemDetail(p), entityIds: ids, area: p.top }));
+    faults.push(fault('problem', { id: `problem:model:${model}`, title: fill(C.problemGroup, { n: ids.length, model }), detail: problemDetail(p, false), entityIds: ids, area: p.top }));
   }
   for (const id of loose) {
     const p = places([id]);
-    faults.push(fault('problem', { id: `problem:${id}`, title: fill(C.problemOne, { name: displayName(h, id) }), detail: problemDetail(p), entityIds: [id], area: p.top }));
+    faults.push(fault('problem', { id: `problem:${id}`, title: fill(C.problemOne, { name: displayName(h, id) }), detail: problemDetail(p, true), entityIds: [id], area: p.top }));
   }
 
   faults.sort((a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) || a.title.localeCompare(b.title));

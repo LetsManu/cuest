@@ -184,7 +184,7 @@ describe('collectFaults', () => {
       devices: { p: { id: 'p', area_id: 'kuche', model: 'Pump 1' } },
     });
     const byId = Object.fromEntries(collectFaults(h, opts).faults.map((f) => [f.id, f]));
-    expect(byId['problem:binary_sensor.pump_problem']).toMatchObject({ title: 'Check Pump', detail: 'Küche report a small problem', area: 'Küche' });
+    expect(byId['problem:binary_sensor.pump_problem']).toMatchObject({ title: 'Check Pump', detail: 'Küche reports a small problem', area: 'Küche' });
     expect(byId['problem:binary_sensor.fan_problem']).toMatchObject({ title: 'Check Fan', detail: 'Reports a small problem', area: null });
   });
 
@@ -378,5 +378,130 @@ describe('heroFor', () => {
   });
   it('is null without Cuest sensors', () => {
     expect(heroFor(fakeHass())).toBeNull();
+  });
+});
+
+describe('boundaries', () => {
+  const bat = (v: string, n: string) => st(v, { device_class: 'battery', unit_of_measurement: '%', friendly_name: `${n} Battery` });
+  const temp = (v: string) => st(v, { device_class: 'temperature', unit_of_measurement: '°C', friendly_name: 'T Temperature' });
+  const opts = { batteryThreshold: 20, exclude: [] as string[] };
+  const kinds = (states: Record<string, ReturnType<typeof st>>) => collectFaults(fakeHass({ states }), opts).faults.map((f) => f.kind);
+
+  it('critical battery is at most 5 percent', () => {
+    expect(kinds({ 'sensor.a_battery': bat('5', 'A') })).toEqual(['battery_critical']);
+    expect(kinds({ 'sensor.a_battery': bat('6', 'A') })).toEqual(['battery_low']);
+    expect(kinds({ 'sensor.a_battery': bat('20', 'A') })).toEqual(['battery_low']);
+    expect(kinds({ 'sensor.a_battery': bat('21', 'A') })).toEqual([]);
+  });
+
+  it('groups exactly two devices of one model, never one', () => {
+    const mk = (n: number) => {
+      const states: Record<string, ReturnType<typeof st>> = {};
+      const entities: Record<string, { device_id: string }> = {};
+      const devices: Record<string, { id: string; model: string }> = {};
+      for (let i = 0; i < n; i++) {
+        states[`binary_sensor.v${i}_problem`] = st('on', { device_class: 'problem', friendly_name: `V${i}` });
+        entities[`binary_sensor.v${i}_problem`] = { device_id: `d${i}` };
+        devices[`d${i}`] = { id: `d${i}`, model: 'Valve' };
+      }
+      return collectFaults(fakeHass({ states, entities, devices }), opts).faults.map((f) => f.id);
+    };
+    expect(mk(2)).toEqual(['problem:model:Valve']);
+    expect(mk(1)).toEqual(['problem:binary_sensor.v0_problem']);
+  });
+
+  it('impossible temperature limits are -50 and 100 degrees', () => {
+    const ids = (v: string) => kinds({ 'sensor.t_temperature': temp(v) });
+    expect(ids('-50')).toEqual([]);
+    expect(ids('-51')).toEqual(['temperature']);
+    expect(ids('100')).toEqual([]);
+    expect(ids('101')).toEqual(['temperature']);
+  });
+
+  it('rounds health to the nearest percent', () => {
+    const states: Record<string, ReturnType<typeof st>> = {};
+    for (let i = 0; i < 8; i++) states[`sensor.b${i}_battery`] = bat(i < 3 ? '10' : '90', `B${i}`);
+    expect(collectFaults(fakeHass({ states }), opts).health).toBe(63);
+  });
+
+  it('uses the singular verb for one device', () => {
+    const h = fakeHass({
+      states: { 'binary_sensor.p_problem': st('on', { device_class: 'problem', friendly_name: 'P' }) },
+      areas: AREAS,
+      entities: { 'binary_sensor.p_problem': { area_id: 'kuche' } },
+    });
+    expect(collectFaults(h, opts).faults[0].detail).toBe('Küche reports a small problem');
+  });
+
+  it('formats readings in the viewer language', () => {
+    const h = fakeHass({
+      language: 'de',
+      states: { 'sensor.t_battery': bat('0', 'T'), 'sensor.t_temperature': temp('-327.7') },
+      entities: { 'sensor.t_battery': { device_id: 'd' }, 'sensor.t_temperature': { device_id: 'd' } },
+      devices: { d: { id: 'd', name: 'T' } },
+    });
+    expect(collectFaults(h, opts).faults[0].detail).toContain('-327,7 °C');
+  });
+
+  it('treats Zigbee2MQTT and Hue groups as light groups', () => {
+    const h = fakeHass({
+      states: {
+        'light.all_lights': st('on'),
+        'light.wohnzimmer_spots': st('on'),
+        'light.hue_room': st('on', { is_hue_group: true }),
+        'light.hue_lamp': st('on', { is_hue_group: false }),
+        'light.real': st('on'),
+      },
+      entities: { 'light.all_lights': { device_id: 'g1' }, 'light.wohnzimmer_spots': { device_id: 'g2' }, 'light.real': { device_id: 'r' } },
+      devices: { g1: { id: 'g1', model: 'Group' }, g2: { id: 'g2', model: 'group' }, r: { id: 'r', model: 'Bulb' } },
+    });
+    expect(isLightGroup(h, 'light.all_lights')).toBe(true);
+    expect(isLightGroup(h, 'light.wohnzimmer_spots')).toBe(true);
+    expect(isLightGroup(h, 'light.hue_room')).toBe(true);
+    expect(isLightGroup(h, 'light.hue_lamp')).toBe(false);
+    expect(lightStats(h)).toEqual({ on: 2, total: 2 });
+  });
+
+  it('allies rest at 50 percent unavailable, not at 49', () => {
+    const build = (platform: string, total: number, down: number) => {
+      const states: Record<string, ReturnType<typeof st>> = {};
+      const entities: Record<string, { platform: string }> = {};
+      for (let i = 0; i < total; i++) {
+        states[`sensor.${platform}_${i}`] = st(i < down ? 'unavailable' : '1');
+        entities[`sensor.${platform}_${i}`] = { platform };
+      }
+      return fakeHass({ states, entities });
+    };
+    expect(restingAllies(build('x', 4, 2), { ignore: [], minEntities: 1 })).toHaveLength(1);
+    expect(restingAllies(build('x', 100, 49), { ignore: [], minEntities: 1 })).toHaveLength(0);
+  });
+
+  it('breaks battery ties by name', () => {
+    const h = fakeHass({ states: { 'sensor.z_battery': bat('10', 'Zeta'), 'sensor.a_battery': bat('10', 'Alpha') } });
+    expect(batteries(h, { exclude: [], limit: 5 }).map((b) => b.name)).toEqual(['Alpha', 'Zeta']);
+  });
+
+  it('room battery state respects the threshold and bad sensors do not hide good ones', () => {
+    const mk = (battery: string) =>
+      fakeHass({
+        states: {
+          'sensor.a_bad': temp('99999'),
+          'sensor.b_good': temp('19'),
+          'sensor.c_bad': temp('-327.7'),
+          'sensor.c_battery': bat(battery, 'C'),
+        },
+        areas: AREAS,
+        entities: {
+          'sensor.a_bad': { area_id: 'wohnzimmer' },
+          'sensor.b_good': { area_id: 'wohnzimmer' },
+          'sensor.c_bad': { device_id: 'dc' },
+          'sensor.c_battery': { device_id: 'dc' },
+        },
+        devices: { dc: { id: 'dc', area_id: 'buro' } },
+      });
+    const rows = (b: string) => roomRows(mk(b), { areas: ['wohnzimmer', 'buro'], batteryThreshold: 20 });
+    expect(rows('20')[0]).toMatchObject({ temp: 19, tempState: 'ok' });
+    expect(rows('20')[1].tempState).toBe('battery');
+    expect(rows('21')[1].tempState).toBe('check');
   });
 });

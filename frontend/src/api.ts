@@ -23,6 +23,7 @@ export interface Quest {
   snoozedUntil: string | null;
   energy?: Energy;
 }
+export interface Sprint { id: string; playerId: string; minutes: number; startedAt: string; endedAt: string | null; logs: number; xp: number | null }
 export interface QuestLists { active: Quest[]; open: Quest[]; whenever: Quest[]; questOfDay?: string | null }
 export interface Summary {
   player: { id: string; name: string; xp: number; gold: number; restTokens: number; boostUntil: string | null };
@@ -123,6 +124,10 @@ export class CuestApi {
   done(questId: string, playerId: string) { return this.call<DoneResult>('POST', `cuest/quests/${encodeURIComponent(questId)}/done`, { playerId }); }
   dice(playerId: string, energy: Energy) { return this.call<DiceResult>('GET', `cuest/dice?playerId=${encodeURIComponent(playerId)}&energy=${energy}`); }
   acceptDice(playerId: string, suggestion: Suggestion) { return this.call<Quest>('POST', 'cuest/dice/accept', { playerId, suggestion }); }
+  sprint(playerId: string) { return this.call<{ sprint: Sprint | null }>('GET', `cuest/sprint?playerId=${encodeURIComponent(playerId)}`); }
+  sprintStart(playerId: string, minutes: number) { return this.call<Sprint>('POST', 'cuest/sprint/start', { playerId, minutes }); }
+  sprintLog(playerId: string, note: string) { return this.call<{ sprint: Sprint; xp: number }>('POST', 'cuest/sprint/log', { playerId, note }); }
+  sprintFinish(playerId: string) { return this.call<{ sprint: Sprint; xp: number }>('POST', 'cuest/sprint/finish', { playerId }); }
   later(questId: string) { return this.call<{ quest: Quest }>('POST', `cuest/quests/${encodeURIComponent(questId)}/later`, {}); }
   buy(playerId: string, itemId: string) { return this.call<BuyResult>('POST', 'cuest/shop/buy', { playerId, itemId }); }
   openChest(playerId: string) { return this.call<BuyResult>('POST', 'cuest/shop/open-chest', { playerId }); }

@@ -50,10 +50,10 @@ describe('Energy dice', () => {
     expect(q(el, '[data-act="sprint"]').textContent).toContain('Power sprint');
   });
 
-  it('power sprint opens a placeholder (filled by a later task) and can go back', async () => {
+  it('power sprint opens the sprint screen and can go back', async () => {
     const el = await mount(fakeHass().hass);
     q(el, '[data-act="sprint"]').click(); await settle(el);
-    expect(q(el, '[data-role="sprint-soon"]')).toBeTruthy();
+    expect(q(el, '[data-minutes="15"]')).toBeTruthy();
     q(el, '[data-go="village"]').click(); await settle(el);
     expect(q(el, '[data-act="dice"]')).toBeTruthy();
   });

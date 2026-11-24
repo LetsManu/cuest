@@ -1,5 +1,5 @@
 import { LitElement, css, html, nothing, unsafeCSS } from 'lit';
-import { CuestApi, toApiError, type BuyResult, type DiceResult, type Energy, type QuestLists, type Quest, type ShopItem, type ShopView, type Summary, type WhoAmI } from './api';
+import { CuestApi, toApiError, type BuyResult, type DiceResult, type Energy, type QuestLists, type Quest, type Sprint, type ShopItem, type ShopView, type Summary, type WhoAmI } from './api';
 import type { HomeAssistant } from './hass-types';
 import { COLORS, FONT_BODY, FONT_PIXEL } from './palette';
 import { cuestSignature, playersFromSensors } from './sensors';
@@ -11,6 +11,7 @@ import { diceStyles, diceView } from './views/dice';
 import { heroStyles, heroView } from './views/hero';
 import { questStyles, questView, rewardToast, toastStyles, type Reward } from './views/quest';
 import { clock24, noticeToast, shopStyles, shopView, type ShopTab } from './views/shop';
+import { MAX_LOGS, XP_PER_LOG, XP_PER_MINUTE, endsAtMs, sprintStyles, sprintView, type SprintSummary } from './views/sprint';
 import { villageStyles, villageView } from './views/village';
 
 type View = 'village' | 'shop' | 'hero' | 'quest' | 'dice' | 'sprint';
@@ -53,6 +54,9 @@ export class CuestPanel extends LitElement {
     _sound: { state: true },
     _energy: { state: true },
     _dice: { state: true },
+    _sprint: { state: true },
+    _sprintSummary: { state: true },
+    _sprintNote: { state: true },
     _rolling: { state: true },
   };
 
@@ -63,6 +67,7 @@ export class CuestPanel extends LitElement {
     toastStyles,
     shopStyles,
     diceStyles,
+    sprintStyles,
     css`
     :host{display:block;min-height:100%;background:${unsafeCSS(COLORS.parchment)};color:${unsafeCSS(COLORS.ink)};font-family:${unsafeCSS(FONT_BODY)};font-size:15px;box-sizing:border-box}
     *{box-sizing:border-box}
@@ -107,6 +112,9 @@ export class CuestPanel extends LitElement {
   declare _energy: Energy;
   declare _dice: DiceResult | null;
   declare _rolling: boolean;
+  declare _sprint: Sprint | null;
+  declare _sprintSummary: SprintSummary | null;
+  declare _sprintNote: string;
 
   /** Injectable clock (ms) so tests can drive the quest timer. */
   now: () => number = () => Date.now();
@@ -145,12 +153,15 @@ export class CuestPanel extends LitElement {
     this._energy = 'medium';
     this._dice = null;
     this._rolling = false;
+    this._sprint = null;
+    this._sprintSummary = null;
+    this._sprintNote = '';
   }
 
   connectedCallback() {
     super.connectedCallback();
     this._timer = setInterval(() => { if (typeof document === 'undefined' || !document.hidden) void this._refresh(); }, REFRESH_MS);
-    if (this._view === 'quest') this._armTick();
+    if (this._view === 'quest' || (this._view === 'sprint' && this._sprint)) this._armTick();
   }
 
   disconnectedCallback() {
@@ -161,14 +172,14 @@ export class CuestPanel extends LitElement {
   }
 
   protected updated(changed: Map<string, unknown>) {
-    if (!changed.has('_view')) return;
-    if (this._view === 'quest') {
-      this._armTick();
-    } else this._stopTick();
+    if (!changed.has('_view') && !changed.has('_sprint')) return;
+    // One 1s ticker serves the quest timer and the sprint countdown; it only runs while one is on screen.
+    if (this._view === 'quest' || (this._view === 'sprint' && this._sprint)) this._armTick();
+    else this._stopTick();
   }
 
   private _armTick() {
-    if (!this._qTimer) this._qTimer = setInterval(() => { this._tick++; }, 1000);
+    if (!this._qTimer) this._qTimer = setInterval(() => { this._tick++; if (this._view === 'sprint') this._sprintWatch(); }, 1000);
   }
 
   private _stopTick() {
@@ -190,7 +201,7 @@ export class CuestPanel extends LitElement {
     if (text) this._toastTimer = setTimeout(() => { this._notice = ''; }, 8000);
   }
 
-  private _finish = (q: Quest) => {
+  private _finish = (q: Quest, after: () => void = () => { this._view = 'village'; this._questId = null; }) => {
     const pid = this._playerId;
     const api = this._api;
     if (!pid || !api) return;
@@ -211,7 +222,7 @@ export class CuestPanel extends LitElement {
         lines: Array.isArray(r.lines) ? r.lines : [], loot: res.loot?.name ?? null, chestKey: !!res.chestKey, streak,
       });
       if (this._sound) playFanfare(up ? 'level' : res.loot ? 'loot' : 'done');
-    }, () => { this._view = 'village'; this._questId = null; });
+    }, after);
   };
 
   protected willUpdate(changed: Map<string, unknown>) {
@@ -455,6 +466,126 @@ export class CuestPanel extends LitElement {
     }, () => { this._view = 'quest'; });
   };
 
+  private _openSprint = () => {
+    this._sprintSummary = null;
+    this._sprintNote = '';
+    this._view = 'sprint';
+    void this._loadSprint();
+  };
+
+  /** Resume: ask the server for the current sprint (it owns startedAt), e.g. after a reload. */
+  private async _loadSprint() {
+    const pid = this._playerId;
+    const api = this._api;
+    if (!pid || !api) return;
+    try {
+      const { sprint } = await api.sprint(pid);
+      if (pid !== this._playerId) return;
+      this._sprintSettle(sprint);
+      this._error = '';
+      this._offline = false;
+    } catch (e) {
+      const err = toApiError(e);
+      if (err.offline) this._offline = true;
+      else this._error = err.message || STRINGS.sprintFailed;
+    }
+  }
+
+  /** Apply a fresh GET /sprint. If a sprint we were showing is gone, the server auto-finished it: show the result. */
+  private _sprintSettle(sprint: Sprint | null) {
+    const prev = this._sprint;
+    if (!sprint && prev && prev.id !== this._sprintSummaryId && Date.now() >= endsAtMs(prev) - 1000) {
+      const minutes = prev.minutes;
+      this._sprintSummary = { minutes, logs: prev.logs, xp: minutes * XP_PER_MINUTE + prev.logs * XP_PER_LOG };
+      this._sprintSummaryId = prev.id;
+      void this._refresh();
+    }
+    this._sprint = sprint;
+  }
+
+  private _sprintSummaryId = '';
+  private _sprintPolling = false;
+  private _sprintPolledAt = 0;
+
+  /** Called every second while on the sprint view: once the time is up, poll until the server has auto-finished. */
+  private _sprintWatch() {
+    const s = this._sprint;
+    if (!s || this._sprintPolling) return;
+    const t = this.now();
+    if (t < endsAtMs(s) || t - this._sprintPolledAt < 3000) return;
+    this._sprintPolling = true;
+    this._sprintPolledAt = t;
+    void this._loadSprint().finally(() => { this._sprintPolling = false; });
+  }
+
+  /** Run one sprint call under the synchronous 'sprint' busy flag (double-tap guard). */
+  private async _sprintAct(fn: () => Promise<void>) {
+    if (this._busy['sprint']) return;
+    this._busy = { ...this._busy, sprint: true };
+    try {
+      await fn();
+      this._error = '';
+      this._offline = false;
+    } catch (e) {
+      const err = toApiError(e);
+      if (err.offline) this._offline = true;
+      else {
+        // Already running (another device started one): just resume it, no scolding.
+        if (err.code === 'sprint_running') await this._loadSprint();
+        else this._error = err.message || STRINGS.sprintFailed;
+      }
+    }
+    const { sprint: _gone, ...rest } = this._busy;
+    this._busy = rest;
+  }
+
+  private _sprintStart = (minutes: number) => {
+    const pid = this._playerId;
+    const api = this._api;
+    if (!pid || !api || this._busy['sprint']) return;
+    if (this._sound) unlock();
+    this._sprintSummary = null;
+    void this._sprintAct(async () => {
+      this._sprint = await api.sprintStart(pid, minutes);
+      this._sprintPolledAt = 0;
+    });
+  };
+
+  private _sprintLog = () => {
+    const pid = this._playerId;
+    const api = this._api;
+    const note = this._sprintNote.trim();
+    if (!pid || !api || !note || this._busy['sprint'] || (this._sprint?.logs ?? 0) >= MAX_LOGS) return;
+    if (this._sound) unlock();
+    void this._sprintAct(async () => {
+      const r = await api.sprintLog(pid, note);
+      this._sprint = r.sprint;
+      this._sprintNote = '';
+      void this._refresh();
+    });
+  };
+
+  private _sprintFinish = () => {
+    const pid = this._playerId;
+    const api = this._api;
+    if (!pid || !api || this._busy['sprint']) return;
+    if (this._sound) unlock();
+    void this._sprintAct(async () => {
+      const r = await api.sprintFinish(pid);
+      const logs = r.sprint.logs;
+      this._sprintSummary = { minutes: Math.round(r.xp / XP_PER_MINUTE), logs, xp: r.xp + logs * XP_PER_LOG };
+      this._sprintSummaryId = r.sprint.id;
+      this._sprint = null;
+      if (this._sound) playFanfare('done');
+      void this._refresh();
+    });
+  };
+
+  private _sprintQuestDone = (q: Quest) => {
+    if (this._busy[q.id]) return;
+    this._finish(q, () => { /* stay in the sprint */ });
+  };
+
   private _toggleSound = () => {
     this._sound = !this._sound;
     setSoundOn(this._sound);
@@ -509,7 +640,7 @@ export class CuestPanel extends LitElement {
         onSound: this._toggleSound,
         onOpenChest: this._openChest,
         onDice: this._openDice,
-        onSprint: () => { this._view = 'sprint'; },
+        onSprint: this._openSprint,
       });
     }
     if (this._view === 'quest') {
@@ -542,8 +673,22 @@ export class CuestPanel extends LitElement {
       });
     }
     if (this._view === 'sprint') {
-      // Placeholder: the sprint screen itself arrives with the next task.
-      return html`<div class="centerbox"><h1>${STRINGS.sprintBtn}</h1><p data-role="sprint-soon">${STRINGS.sprintSoon}</p><button type="button" class="btn" data-go="village" @click=${() => { this._view = 'village'; }}>${STRINGS.back}</button></div>`;
+      const qs = this._quests ? [...this._quests.active, ...this._quests.open, ...this._quests.whenever] : [];
+      return sprintView({
+        sprint: this._sprint,
+        summary: this._sprintSummary,
+        nowMs: this.now(),
+        note: this._sprintNote,
+        quests: qs,
+        busy: !!this._busy['sprint'],
+        onStart: this._sprintStart,
+        onNote: (t) => { this._sprintNote = t; },
+        onLog: this._sprintLog,
+        onFinish: this._sprintFinish,
+        onQuestDone: this._sprintQuestDone,
+        onAgain: () => { this._sprintSummary = null; },
+        onBack: () => { this._view = 'village'; },
+      });
     }
     if (this._view === 'hero') {
       return heroView({

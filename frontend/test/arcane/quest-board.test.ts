@@ -175,6 +175,32 @@ describe('quest board add flow', () => {
     expect(h.callApi).toHaveBeenCalledTimes(2);
   });
 
+  it('shows the kind failure, never added, when hass has no callApi', async () => {
+    const h = house({ admin: true });
+    delete (h as Partial<FakeHass>).callApi;
+    const el = await mount(TAG, {}, h);
+    byText(el, 'Add to my Cuest quests')!.click();
+    await flush();
+    await (el as unknown as { updateComplete: Promise<boolean> }).updateComplete;
+    expect(text(el)).not.toContain('Added to your quests');
+    expect(text(el)).toContain('Cuest could not take it right now. Try again soon.');
+    expect(byText(el, 'Add to my Cuest quests')!.disabled).toBe(false);
+  });
+
+  it('with a limit that hides quests, shows how many more instead of the well-done footer', async () => {
+    const el = await mount(TAG, { limit: 2 }, house());
+    expect(root(el).querySelectorAll('.scroll')).toHaveLength(2);
+    expect(text(el)).not.toContain('Everything else is well');
+    expect(text(el)).toContain('+ 2 more on the board');
+    expect(text(el)).not.toContain('→');
+    const linked = await mount(TAG, { limit: 3, more_path: '/system-faults' }, house());
+    expect(byText(linked, '+ 1 more on the board →')).toBeDefined();
+    const all = await mount(TAG, { limit: 4 }, house());
+    expect(text(all)).toContain('Everything else is well');
+    expect(text(all)).not.toContain('more on the board');
+    expectClean(el);
+  });
+
   it('shows already and makes no call when the title is on the quest list', async () => {
     const h = house({ admin: true, quests: ['Change the Thermostat Büro battery'] });
     const el = await mount(TAG, {}, h);

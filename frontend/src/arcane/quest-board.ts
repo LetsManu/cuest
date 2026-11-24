@@ -126,7 +126,8 @@ export class CuestQuestBoard extends ArcaneCard<BoardConfig> {
         return;
       }
       this.requestUpdate();
-      await h.callApi?.('POST', 'cuest/quests', { title: f.title, energy: 'low', minutes: f.minutes, xp: f.xp });
+      if (!h.callApi) throw new Error('callApi is not available');
+      await h.callApi('POST', 'cuest/quests', { title: f.title, energy: 'low', minutes: f.minutes, xp: f.xp });
       this.results.set(f.id, 'added');
     } catch {
       this.results.set(f.id, 'failed');
@@ -213,6 +214,7 @@ export class CuestQuestBoard extends ArcaneCard<BoardConfig> {
   private full(h: HomeAssistant): TemplateResult {
     const m = this.model(h);
     const faults = this.shown(h);
+    const rest = m.faults.length - faults.length;
     const admin = !!h.user?.is_admin;
     return html`<div class="board">
       ${this.config.title ? html`<h2>${this.config.title}</h2>` : nothing}
@@ -220,7 +222,7 @@ export class CuestQuestBoard extends ArcaneCard<BoardConfig> {
       <h2>${C.quickQuests}</h2>
       ${faults.length === 0
         ? html`<div class="done">${C.boardEmpty}</div>`
-        : html`${faults.map((f, i) => this.questScroll(f, i === 0, admin, admin && this.config.allow_add))}<div class="done">${C.boardFooter}</div>`}
+        : html`${faults.map((f, i) => this.questScroll(f, i === 0, admin, admin && this.config.allow_add))}${rest > 0 ? this.moreLine(rest) : html`<div class="done">${C.boardFooter}</div>`}`}
     </div>`;
   }
 
@@ -252,7 +254,7 @@ export class CuestQuestBoard extends ArcaneCard<BoardConfig> {
     const faults = this.shown(h);
     const path = this.config.more_path;
     const rest = all.length - faults.length;
-    const go = path ? () => navigate(path) : undefined;
+    const go = this.goMore();
     return html`<div class="board">
       <div class="head">
         <h2>${this.config.title ?? C.boardTitle}</h2>
@@ -261,8 +263,21 @@ export class CuestQuestBoard extends ArcaneCard<BoardConfig> {
       ${faults.length === 0
         ? html`<div class="done">${C.boardEmpty}</div>`
         : faults.map((f) => this.row(f, go))}
-      ${rest > 0 ? (path ? html`<button type="button" class="link" @click=${go}>${withNums(fill(C.more, { n: rest }))}</button>` : html`<span class="moretext">${withNums(fill(C.moreText, { n: rest }))}</span>`) : nothing}
+      ${rest > 0 ? this.moreLine(rest) : nothing}
     </div>`;
+  }
+
+  private goMore(): (() => void) | undefined {
+    const path = this.config.more_path;
+    return path ? () => navigate(path) : undefined;
+  }
+
+  /** "+ N more on the board", a link when `more_path` is set. */
+  private moreLine(rest: number): TemplateResult {
+    const go = this.goMore();
+    return go
+      ? html`<button type="button" class="link" @click=${go}>${withNums(fill(C.more, { n: rest }))}</button>`
+      : html`<span class="moretext">${withNums(fill(C.moreText, { n: rest }))}</span>`;
   }
 
   private row(f: Fault, go?: () => void): TemplateResult {

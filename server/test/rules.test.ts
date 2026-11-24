@@ -159,3 +159,56 @@ describe('RuleEngine entities', () => {
     expect(engine.entities()).toEqual(['sensor.b', 'vacuum.a']);
   });
 });
+
+describe('RuleEngine normalize and running_stops', () => {
+  const add = (rule: import('../src/domain/types.js').Rule) =>
+    templates.create({ ...presetTemplates('washer_state', { entityId: 'x' })[0]!, rule }, clock.now());
+  const ev = (e: string, o: string | null, n: string, min: number) =>
+    engine.onState({ entityId: e, oldState: o, newState: n, at: at(min) });
+
+  it('normalized state rule matches "Program ended"', () => {
+    add({ type: 'state', entityId: 'sensor.m', to: ['program_ended'], normalize: true });
+    ev('sensor.m', 'In use', 'Program ended', 0);
+    expect(live()).toHaveLength(1);
+  });
+
+  const rs: import('../src/domain/types.js').Rule & { type: 'running_stops' } = { type: 'running_stops', entityId: 'binary_sensor.r', runningStates: ['running'], pauseStates: ['pause'], forMinutes: 2 };
+
+  it('fires after forMinutes stopped', () => {
+    add(rs);
+    ev('binary_sensor.r', null, 'on', 0);
+    ev('binary_sensor.r', 'on', 'off', 10);
+    engine.tick(at(11));
+    expect(live()).toHaveLength(0);
+    engine.tick(at(12));
+    expect(live()).toHaveLength(1);
+  });
+
+  it('pause does not count as stopped; unavailable ignored', () => {
+    add(rs);
+    ev('binary_sensor.r', null, 'running', 0);
+    ev('binary_sensor.r', 'running', 'pause', 5);
+    ev('binary_sensor.r', 'pause', 'unavailable', 6);
+    engine.tick(at(30));
+    expect(live()).toHaveLength(0);
+  });
+
+  it('numericAbove counts as running; resume cancels', () => {
+    add({ ...rs, entityId: 'sensor.n', numericAbove: 5 });
+    ev('sensor.n', null, '10', 0);
+    ev('sensor.n', '10', '1', 5);
+    ev('sensor.n', '1', '9', 6);
+    engine.tick(at(30));
+    expect(live()).toHaveLength(0);
+    ev('sensor.n', '9', '1', 31);
+    engine.tick(at(33));
+    expect(live()).toHaveLength(1);
+  });
+
+  it('never fires without having run', () => {
+    add(rs);
+    ev('binary_sensor.r', null, 'off', 0);
+    engine.tick(at(30));
+    expect(live()).toHaveLength(0);
+  });
+});

@@ -6,6 +6,7 @@ import type { Energy, Player, Quest } from '../domain/types.js';
 import type { LedgerRepo } from '../repos/ledger.js';
 import type { PlayersRepo } from '../repos/players.js';
 import type { QuestsRepo } from '../repos/quests.js';
+import type { StreakResult } from './daily.js';
 
 export type QuestErrorCode = 'not_found' | 'already_claimed' | 'already_done' | 'unknown_player';
 
@@ -34,6 +35,7 @@ export class QuestService {
   private clock: Clock;
   private tx: <T>(fn: () => T) => T;
   private isQuestOfDay: (questId: string, now: Date) => boolean;
+  private onDone: ((playerId: string, doneAt: Date) => StreakResult) | undefined;
 
   constructor(deps: {
     quests: QuestsRepo;
@@ -43,6 +45,8 @@ export class QuestService {
     clock: Clock;
     tx?: <T>(fn: () => T) => T;
     isQuestOfDay?: (questId: string, now: Date) => boolean;
+    /** Runs inside the done transaction so streak, rest tokens and rewards commit together. */
+    onDone?: (playerId: string, doneAt: Date) => StreakResult;
   }) {
     this.quests = deps.quests;
     this.players = deps.players;
@@ -51,6 +55,7 @@ export class QuestService {
     this.clock = deps.clock;
     this.tx = deps.tx ?? ((fn) => fn());
     this.isQuestOfDay = deps.isQuestOfDay ?? (() => false);
+    this.onDone = deps.onDone;
   }
 
   open(input: OpenInput): { quest: Quest; created: boolean } {
@@ -112,7 +117,7 @@ export class QuestService {
     return started;
   }
 
-  done(questId: string, playerId: string): { quest: Quest; reward: Reward; player: Player } {
+  done(questId: string, playerId: string): { quest: Quest; reward: Reward; player: Player; streak?: StreakResult } {
     const quest = this.requireQuest(questId);
     const doer = this.requirePlayer(playerId);
     if (quest.status === 'done') throw new QuestError('already_done');
@@ -137,6 +142,7 @@ export class QuestService {
         doneBy: playerId,
       });
       this.players.addRewards(playerId, reward.xp, reward.gold);
+      const streak = this.onDone?.(playerId, now);
       const player = this.players.setCombo(playerId, combo, now.toISOString());
       this.ledger.add({
         playerId,
@@ -147,7 +153,7 @@ export class QuestService {
         at: now.toISOString(),
         meta: { lines: reward.lines },
       });
-      return { quest: doneQuest, reward, player };
+      return { quest: doneQuest, reward, player, ...(streak ? { streak } : {}) };
     });
     this.bus.emit('quest:done', result);
     return result;

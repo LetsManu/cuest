@@ -14,6 +14,8 @@ export class Publisher {
   private readonly players: PlayersRepo;
   private readonly quests: QuestService;
   private readonly items: ItemsRepo;
+  private readonly clock: Clock;
+  private readonly questOfDay: (now: Date) => string | null;
 
   constructor(deps: {
     bus: Bus;
@@ -22,7 +24,10 @@ export class Publisher {
     quests: QuestService;
     items: ItemsRepo;
     clock: Clock;
+    questOfDay?: (now: Date) => string | null;
   }) {
+    this.clock = deps.clock;
+    this.questOfDay = deps.questOfDay ?? (() => null);
     this.hub = deps.hub;
     this.players = deps.players;
     this.quests = deps.quests;
@@ -87,6 +92,8 @@ export class Publisher {
         },
         decor: Object.keys(owned).filter((id) => (owned[id] ?? 0) > 0 && findItem(id)?.kind === 'decor'),
         restTokens: p.restTokens,
+        streak: p.streak,
+        bestStreak: p.bestStreak,
         boostUntil: p.boostUntil,
       };
     });
@@ -101,6 +108,6 @@ export class Publisher {
       templateId: q.templateId,
       createdAt: q.createdAt,
     }));
-    this.hub.send({ type: 'snapshot', players, quests });
+    this.hub.send({ type: 'snapshot', players, quests, questOfDay: this.questOfDay(this.clock.now()) });
   }
 }

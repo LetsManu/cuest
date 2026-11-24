@@ -43,6 +43,15 @@ export function registerPlayerRoutes(app: FastifyInstance, players: PlayersRepo,
     const player = players.get(req.params.id);
     if (!player) return reply.code(404).send({ error: 'not_found', message: copy.notFound });
     const { level, intoLevel, toNext } = levelForXp(player.xp);
-    return { player, level, title: titleForLevel(level), intoLevel, toNext };
+    return {
+      player,
+      level,
+      title: titleForLevel(level),
+      intoLevel,
+      toNext,
+      streak: player.streak,
+      bestStreak: player.bestStreak,
+      restTokens: player.restTokens,
+    };
   });
 }

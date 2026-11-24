@@ -81,7 +81,7 @@ describe('shop api and treats', () => {
     migrate(old);
     expect(new PlayersRepo(old).get('p1')?.gold).toBe(2);
     expect(new UnlocksRepo(old).list()).toEqual([]);
-    expect(old.prepare('SELECT version FROM schema_version').all()).toEqual([{ version: 4 }]);
+    expect(old.prepare('SELECT version FROM schema_version').all()).toEqual([{ version: 5 }]);
   });
 
   it('treat purchase calls turn_on on the entity and spends gold', async () => {

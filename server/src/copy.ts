@@ -15,6 +15,10 @@ export const copy = {
     questOfDay: 'Quest of the day',
     doubleXp: 'Double XP hour',
   },
+  streak: {
+    restarted: 'New streak started — welcome back!',
+    restUsed: 'Rest day used — your streak is safe.',
+  },
   newQuestTitle: (q: Quest): string => `New quest: ${q.title}`,
   newQuestMessage: (q: Quest): string => `A ${q.minutes}-minute quest is waiting. +${q.xp} XP.`,
   repeatMessage: (q: Quest, n: number): string => {

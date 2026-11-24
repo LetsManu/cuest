@@ -16,6 +16,7 @@ import { TemplatesRepo } from './repos/templates.js';
 import { Publisher } from './services/publisher.js';
 import type { EntityInfo } from './bridge/protocol.js';
 import { NudgeService } from './services/nudges.js';
+import { DailyService } from './services/daily.js';
 import { QuestService } from './services/quests.js';
 import { RecurringScheduler } from './services/recurring.js';
 import { RuleEngine } from './services/rules.js';
@@ -44,7 +45,18 @@ export async function createEngine(deps: {
   const items = new ItemsRepo(db);
   const unlocks = new UnlocksRepo(db);
   const bus = new Bus();
-  const quests = new QuestService({ quests: questsRepo, players, ledger, bus, clock, tx: (fn) => transaction(db, fn) });
+  const daily = new DailyService({ db, quests: questsRepo, players, clock, tz: config.tz });
+  const quests = new QuestService({
+    quests: questsRepo,
+    players,
+    ledger,
+    bus,
+    clock,
+    tx: (fn) => transaction(db, fn),
+    isQuestOfDay: (id, now) => daily.isQuestOfDay(id, now),
+    onDone: (playerId, doneAt) => daily.onQuestDone(playerId, doneAt),
+  });
+  bus.on('quest:opened', (q) => daily.onQuestOpened(q, clock.now()));
   const hub = new BridgeHub({ secret: config.bridgeSecret, log });
   const shop = new ShopService({ players, items, ledger, unlocks, hub, bus, clock, tx: (fn) => transaction(db, fn) });
   const rules = new RuleEngine({ templates, quests });
@@ -55,7 +67,7 @@ export async function createEngine(deps: {
   hub.onEntities((e) => {
     entities = e;
   });
-  const publisher = new Publisher({ bus, hub, players, quests, items, clock });
+  const publisher = new Publisher({ bus, hub, players, quests, items, clock, questOfDay: (now) => daily.questOfDay(now) });
 
   hub.onState((ev) => rules.onState(ev));
   hub.onNotificationAction((action) => nudges.handleAction(action));
@@ -74,6 +86,7 @@ export async function createEngine(deps: {
     const now = clock.now();
     guard('rules', () => rules.tick(now));
     guard('recurring', () => recurring.tick(now));
+    guard('daily', () => daily.tick(now));
     guard('sweep', () => quests.sweep(now));
     guard('nudges', () => nudges.tick(now));
   };
@@ -90,6 +103,7 @@ export async function createEngine(deps: {
     getEntities: () => entities,
     hub,
     clock,
+    questOfDay: (now) => daily.questOfDay(now),
     ...(deps.logger !== undefined ? { logger: deps.logger } : {}),
   });
   hub.setApiHandler(async ({ method, path, body }) => {

@@ -67,3 +67,30 @@ export function isQuiet(now: Date, tz: string, start: string, end: string): bool
 export function newId(): string {
   return randomUUID();
 }
+
+/** Local calendar day "YYYY-MM-DD" in the given time zone. */
+export function localDate(d: Date, tz: string): string {
+  const { y, m, d: day } = localParts(d, tz);
+  return `${String(y).padStart(4, '0')}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+/** Whole days since the epoch for a "YYYY-MM-DD" date (DST-free). */
+export function dayNumber(date: string): number {
+  const [y, m, d] = date.split('-').map(Number) as [number, number, number];
+  return Math.round(Date.UTC(y, m - 1, d) / 86_400_000);
+}
+
+export function addDays(date: string, n: number): string {
+  return new Date((dayNumber(date) + n) * 86_400_000).toISOString().slice(0, 10);
+}
+
+/** ISO-8601 week of a "YYYY-MM-DD" date as "YYYY-Www" (Monday-based, ISO week-year). */
+export function isoWeek(date: string): string {
+  const n = dayNumber(date);
+  const weekday = (((n + 3) % 7) + 7) % 7; // Monday = 0 (1970-01-01 was a Thursday)
+  const thursday = n - weekday + 3;
+  const year = new Date(thursday * 86_400_000).getUTCFullYear();
+  const jan1 = dayNumber(`${String(year).padStart(4, '0')}-01-01`);
+  const week = Math.floor((thursday - jan1) / 7) + 1;
+  return `${year}-W${String(week).padStart(2, '0')}`;
+}

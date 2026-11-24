@@ -14,6 +14,10 @@ interface Row {
   boost_until: string | null;
   combo_count: number;
   last_done_at: string | null;
+  streak: number;
+  best_streak: number;
+  last_streak_day: string | null;
+  rest_week: string | null;
   created_at: string;
 }
 
@@ -28,6 +32,10 @@ const toPlayer = (r: Row): Player => ({
   boostUntil: r.boost_until,
   comboCount: r.combo_count,
   lastDoneAt: r.last_done_at,
+  streak: r.streak,
+  bestStreak: r.best_streak,
+  lastStreakDay: r.last_streak_day,
+  restWeek: r.rest_week,
   createdAt: r.created_at,
 });
 
@@ -84,6 +92,20 @@ export class PlayersRepo {
   addRestTokens(id: string, n: number): Player {
     if (n < 0) throw new Error('tokens must not be negative');
     const res = this.db.prepare('UPDATE players SET rest_tokens = rest_tokens + ? WHERE id = ?').run(n, id);
+    if (res.changes === 0) throw new Error(`unknown player ${id}`);
+    return this.get(id) as Player;
+  }
+
+  /** Spends one rest token; never goes below zero. Returns false when none was left. */
+  consumeRestToken(id: string): boolean {
+    const res = this.db.prepare('UPDATE players SET rest_tokens = rest_tokens - 1 WHERE id = ? AND rest_tokens > 0').run(id);
+    return res.changes > 0;
+  }
+
+  setStreak(id: string, s: { streak: number; bestStreak: number; lastStreakDay: string; restWeek: string | null }): Player {
+    const res = this.db
+      .prepare('UPDATE players SET streak = ?, best_streak = ?, last_streak_day = ?, rest_week = ? WHERE id = ?')
+      .run(s.streak, s.bestStreak, s.lastStreakDay, s.restWeek, id);
     if (res.changes === 0) throw new Error(`unknown player ${id}`);
     return this.get(id) as Player;
   }

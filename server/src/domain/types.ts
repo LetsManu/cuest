@@ -33,6 +33,10 @@ export interface Player {
   boostUntil: string | null;
   comboCount: number;
   lastDoneAt: string | null;
+  streak: number;
+  bestStreak: number;
+  lastStreakDay: string | null;
+  restWeek: string | null;
   createdAt: string;
 }
 export interface QuestTemplate {

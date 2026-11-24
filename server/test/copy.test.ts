@@ -12,6 +12,7 @@ describe('copy', () => {
       copy.newQuestMessage(q),
       ...[1, 2, 3, 4, 5, 6].map((n) => copy.repeatMessage(q, n)),
       ...Object.values(copy.actions),
+      ...Object.values(copy.streak),
     ];
     for (const s of strings) expect(s).not.toMatch(/\b(overdue|late|failed|missed|penalty)\b/i);
   });

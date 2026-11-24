@@ -91,6 +91,16 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE players ADD COLUMN combo_count INTEGER NOT NULL DEFAULT 0;
   ALTER TABLE players ADD COLUMN last_done_at TEXT;
   `,
+  `
+  CREATE TABLE daily (
+    date TEXT PRIMARY KEY,
+    quest_id TEXT
+  );
+  ALTER TABLE players ADD COLUMN streak INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE players ADD COLUMN best_streak INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE players ADD COLUMN last_streak_day TEXT;
+  ALTER TABLE players ADD COLUMN rest_week TEXT;
+  `,
 ];
 
 export function migrate(db: DatabaseSync): void {

@@ -26,6 +26,7 @@ export interface AppDeps {
   onPlayersChanged?: () => void;
   getEntities?: () => EntityInfo[];
   hub?: BridgeHub;
+  questOfDay?: (now: Date) => string | null;
   clock?: Clock;
   /** false silences the request/error logger (tests). Default: warn level. */
   logger?: boolean;
@@ -37,7 +38,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   if (deps.hub) await registerBridgeRoute(app, deps.hub);
   app.get('/api/health', async () => ({ ok: true, bridge: deps.bridgeConnected() }));
   registerPlayerRoutes(app, deps.players, clock, deps.onPlayersChanged ?? (() => {}));
-  registerQuestRoutes(app, deps.quests);
+  registerQuestRoutes(app, deps.quests, () => deps.questOfDay?.(clock.now()) ?? null);
   registerShopRoutes(app, deps.shop);
   registerUnlockRoutes(app, deps.unlocks, clock);
   registerTemplateRoutes(app, deps.templates, deps.onTemplatesChanged, clock);

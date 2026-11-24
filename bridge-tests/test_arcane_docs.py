@@ -155,3 +155,33 @@ def test_reference_tables_agree_with_the_sources():
         for key in _required(tag):
             if key in documented and key not in ("name", "service", "area"):
                 assert documented[key].startswith("required"), (tag, key, documented[key])
+
+
+def _desktop_view() -> dict:
+    for b in _blocks():
+        data = parse_yaml(b)
+        if isinstance(data, dict):
+            for view in data.get("views", []):
+                if view.get("type") == "sections":
+                    return view
+    raise AssertionError("no sections view")
+
+
+def test_desktop_header_has_its_own_full_width_section():
+    view = _desktop_view()
+    first = view["sections"][0]
+    assert first.get("column_span") == view["max_columns"]
+    assert [c["type"] for c in first["cards"]] == ["custom:cuest-arcane-header"]
+    header = first["cards"][0]
+    assert header["variant"] == "wide"
+    assert header["grid_options"]["columns"] == "full"
+    for section in view["sections"][1:]:
+        assert all(c["type"] != "custom:cuest-arcane-header" for c in section["cards"])
+    assert "2024.9" in DOC.read_text(encoding="utf-8")
+
+
+def test_binary_battery_sensors_are_low_batteries():
+    text = DOC.read_text(encoding="utf-8")
+    rows = dict(re.findall(r"^\| (Critical battery|Low battery) \| ([^|]*) \|", text, re.M))
+    assert "binary_sensor" not in rows["Critical battery"]
+    assert "binary_sensor" in rows["Low battery"]

@@ -195,11 +195,11 @@ Everything that needs a hand, as small quests with XP, found by itself:
 
 | Quest | When | XP |
 |---|---|---|
-| Critical battery | `sensor` with `device_class: battery` and unit `%`, at or below 5 %; or a `binary_sensor` battery | 30 |
+| Critical battery | `sensor` with `device_class: battery` and unit `%`, at or below 5 % | 30 |
 | Problem | `binary_sensor` with `device_class: problem` that is `on`; two or more on devices of the same model become one scroll | 20 |
 | Impossible temperature | temperature sensor below -50 or above 100 degrees C (Fahrenheit is converted); merged into the device's battery scroll if it has one | 10 |
 | Update | an `update.*` entity that is `on` | 10 |
-| Low battery | at or below `battery_threshold` | 5 |
+| Low battery | a battery `sensor` at or below `battery_threshold`; or a `binary_sensor` with `device_class: battery` that is `on` | 5 |
 
 Order: critical battery, problem, temperature, low battery, update, then by
 name. Health is `100 * (checked - faulty) / checked`, where `checked` is the
@@ -585,9 +585,12 @@ views:
 
 ### Desktop overview
 
-View `desktop` of Cuest Home: a sections view with three columns. Add it as a
-second entry under `views:` of the Overview, or paste it alone while
-testing.
+View `desktop` of Cuest Home: a sections view with three columns. The wide
+header sits in its own first section that spans all three columns
+(`column_span: 3`, Home Assistant 2024.9 or newer), so it runs the full width of
+the view; the other cards follow in three column sections below it. On a narrow
+screen the sections stack. Add it as a second entry under `views:` of the
+Overview, or paste it alone while testing.
 
 ```yaml
 title: Cuest Home
@@ -601,6 +604,7 @@ views:
     background: "#14172A"
     sections:
       - type: grid
+        column_span: 3
         cards:
           - type: custom:cuest-arcane-header
             variant: wide
@@ -612,6 +616,8 @@ views:
               - preset: lights
             grid_options:
               columns: full
+      - type: grid
+        cards:
           - type: custom:cuest-hero-card
           - type: custom:cuest-rooms-card
             heading: inside

@@ -19,11 +19,11 @@ async def test_get_proxied_with_status_and_query(cuest, hass_client) -> None:
 
 async def test_status_passthrough(cuest, hass_client) -> None:
     _, client, _ = cuest
-    client.api_result = (409, {"error": "already_owned"})
+    client.api_result = (404, {"error": "not_found"})
     http = await hass_client()
-    resp = await http.get("/api/cuest/shop/buy")
-    assert resp.status == 409
-    assert await resp.json() == {"error": "already_owned"}
+    resp = await http.get("/api/cuest/quests/zzz")
+    assert resp.status == 404
+    assert await resp.json() == {"error": "not_found"}
 
 
 async def test_post_body_forwarded(cuest, hass_client) -> None:
@@ -79,6 +79,8 @@ async def test_non_json_server_body_wrapped(cuest, hass_client) -> None:
         "quests/a%00b",
         "quests/a%0ab",
         "quests/a b",
+        "quests//x",
+        "quests/",
     ],
 )
 async def test_bad_paths_rejected(cuest, hass_client, path) -> None:
@@ -89,7 +91,7 @@ async def test_bad_paths_rejected(cuest, hass_client, path) -> None:
     assert client.api_calls == []
 
 
-@pytest.mark.parametrize("query", ["a=%0d%0ab", "a=b%5cc", "a=%00"])
+@pytest.mark.parametrize("query", ["a=%0d%0ab", "a=b%5cc", "a=%00", "a=%5C"])
 async def test_bad_query_rejected(cuest, hass_client, query) -> None:
     _, client, _ = cuest
     http = await hass_client()
@@ -183,3 +185,78 @@ async def test_whoami_no_entry(cuest, hass_client) -> None:
     http = await hass_client()
     resp = await http.get("/api/cuest_whoami")
     assert resp.status == 503
+
+
+async def test_empty_body_forwarded_as_none(cuest, hass_client) -> None:
+    _, client, _ = cuest
+    http = await hass_client()
+    resp = await http.post("/api/cuest/quests/q1/later")
+    assert resp.status == 200
+    assert client.api_calls == [("POST", "/api/quests/q1/later", None)]
+
+
+async def test_body_too_large_413(cuest, hass_client) -> None:
+    _, client, _ = cuest
+    http = await hass_client()
+    resp = await http.post(
+        "/api/cuest/quests", data=b'{"a":"' + b"x" * 70000 + b'"}',
+        headers={"Content-Type": "application/json"},
+    )
+    assert resp.status == 413
+    assert await resp.json() == {"error": "too_large"}
+    assert client.api_calls == []
+
+
+async def test_put_405(cuest, hass_client) -> None:
+    http = await hass_client()
+    resp = await http.put("/api/cuest/quests/q1", json={})
+    assert resp.status == 405
+
+
+async def test_non_admin_may_play(cuest, hass_client, hass_read_only_access_token) -> None:
+    _, client, _ = cuest
+    http = await hass_client(hass_read_only_access_token)
+    assert (await http.get("/api/cuest/quests")).status == 200
+    for p in ("quests/q1/start", "quests/q1/done", "quests/q1/later", "shop/buy", "shop/equip"):
+        assert (await http.post("/api/cuest/" + p, json={})).status == 200
+    assert len(client.api_calls) == 6
+
+
+@pytest.mark.parametrize(
+    "method,path",
+    [
+        ("patch", "unlocks/u1"),
+        ("delete", "quests/q1"),
+        ("post", "templates"),
+        ("post", "players"),
+        ("post", "suggestions"),
+        ("post", "quests/q1/done/x"),
+    ],
+)
+async def test_non_admin_writes_403(
+    cuest, hass_client, hass_read_only_access_token, method, path
+) -> None:
+    _, client, _ = cuest
+    http = await hass_client(hass_read_only_access_token)
+    resp = await getattr(http, method)("/api/cuest/" + path)
+    assert resp.status == 403
+    assert await resp.json() == {"error": "admin_only"}
+    assert client.api_calls == []
+
+
+async def test_admin_patch_unlocks_forwarded(cuest, hass_client) -> None:
+    _, client, _ = cuest
+    http = await hass_client()
+    resp = await http.patch("/api/cuest/unlocks/u1", json={"cost": 5})
+    assert resp.status == 200
+    assert client.api_calls == [("PATCH", "/api/unlocks/u1", {"cost": 5})]
+
+
+@pytest.mark.parametrize("q", ["a=%2e%2e", "a=%2E", "a=%2f", "a=%2F"])
+def test_query_encoded_dots_slashes_rejected(q) -> None:
+    from aiohttp.test_utils import make_mocked_request
+
+    from custom_components.cuest.http import _valid_query
+
+    assert not _valid_query(make_mocked_request("GET", "/api/cuest/x?" + q))
+    assert _valid_query(make_mocked_request("GET", "/api/cuest/x?a=b&c=d"))

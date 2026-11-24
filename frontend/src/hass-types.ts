@@ -10,4 +10,5 @@ export interface HomeAssistant {
   entities?: Record<string, { platform?: string }>;
   callWS<T = unknown>(msg: Record<string, unknown>): Promise<T>;
   callService(domain: string, service: string, data?: Record<string, unknown>): Promise<unknown>;
+  callApi?<T = unknown>(method: string, path: string, parameters?: Record<string, unknown>): Promise<T>;
 }

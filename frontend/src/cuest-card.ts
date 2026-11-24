@@ -2,6 +2,7 @@ import { LitElement, css, html, nothing, unsafeCSS } from 'lit';
 import type { HassState, HomeAssistant } from './hass-types';
 import { COLORS, FONT_BODY } from './palette';
 import { SPRITE_H, SPRITE_W, spriteShadow, stageForLevel, type Palette } from './sprite';
+import { playersFromSensors, questsSignature } from './sensors';
 import { STRINGS } from './strings';
 
 interface TodoItem { uid: string; summary: string; status?: string }
@@ -74,10 +75,7 @@ export class CuestCard extends LitElement {
     this._hass = hass;
     const todoId = this._findTodo();
     const todo = todoId ? hass.states[todoId] : undefined;
-    const oq = Object.keys(hass.states)
-      .filter((id) => id.startsWith('sensor.') && hass.entities?.[id]?.platform === 'cuest' && Array.isArray(hass.states[id].attributes?.quests))
-      .map((id) => JSON.stringify(hass.states[id].attributes.quests))
-      .join('|');
+    const oq = questsSignature(hass);
     const stamp = todo ? `${todo.last_changed}|${todo.state}|${oq}` : null;
     if (todoId !== this._todoId || stamp !== this._todoStamp) {
       this._todoId = todoId;
@@ -110,18 +108,7 @@ export class CuestCard extends LitElement {
   private _player(): CardPlayer | null {
     const h = this._hass;
     if (!h) return null;
-    const players: Record<string, CardPlayer & Record<string, unknown>> = {};
-    for (const id of Object.keys(h.states)) {
-      if (!id.startsWith('sensor.') || h.entities?.[id]?.platform !== 'cuest') continue;
-      const a = h.states[id].attributes ?? {};
-      const pid = a.cuest_player_id as string | undefined;
-      const kind = a.cuest_kind as string | undefined;
-      if (!pid || !kind) continue;
-      const p = players[pid] ?? (players[pid] = { id: pid, person: null });
-      p.person = (a.ha_person as string | undefined) ?? null;
-      p[kind] = h.states[id];
-    }
-    const list = Object.values(players);
+    const list = playersFromSensors(h) as unknown as CardPlayer[];
     if (!list.length) return null;
     const want = this._config.person;
     return (want && list.find((p) => p.person === want)) || list[0];

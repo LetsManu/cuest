@@ -1,11 +1,252 @@
-import { LitElement, css, html } from 'lit';
+import { LitElement, css, html, nothing, unsafeCSS } from 'lit';
+import { CuestApi, toApiError, type QuestLists, type Quest, type Summary, type WhoAmI } from './api';
+import type { HomeAssistant } from './hass-types';
+import { COLORS, FONT_BODY, FONT_PIXEL } from './palette';
+import { cuestSignature, playersFromSensors } from './sensors';
+import type { Palette } from './sprite';
 import { STRINGS } from './strings';
+import { villageStyles, villageView } from './views/village';
 
-/** Placeholder until the full panel lands. */
+type View = 'village' | 'shop' | 'hero' | 'quest';
+const STORE_KEY = 'cuest.player';
+const REFRESH_MS = 30_000;
+
+function readStored(): string | null {
+  try { return localStorage.getItem(STORE_KEY); } catch { return null; }
+}
+function writeStored(id: string) {
+  try { localStorage.setItem(STORE_KEY, id); } catch { /* private mode: just don't remember */ }
+}
+
 export class CuestPanel extends LitElement {
-  static styles = css`:host{display:block;padding:16px}`;
-  render() {
-    return html`<p>${STRINGS.panelPlaceholder}</p>`;
+  static properties = {
+    hass: { attribute: false },
+    narrow: { type: Boolean },
+    route: { attribute: false },
+    panel: { attribute: false },
+    _who: { state: true },
+    _playerId: { state: true },
+    _summary: { state: true },
+    _quests: { state: true },
+    _view: { state: true },
+    _questId: { state: true },
+    _offline: { state: true },
+    _error: { state: true },
+    _busy: { state: true },
+    _poolOpen: { state: true },
+    _loaded: { state: true },
+  };
+
+  static styles = [
+    villageStyles,
+    css`
+    :host{display:block;min-height:100%;background:${unsafeCSS(COLORS.parchment)};color:${unsafeCSS(COLORS.ink)};font-family:${unsafeCSS(FONT_BODY)};font-size:15px;box-sizing:border-box}
+    *{box-sizing:border-box}
+    .shell{max-width:720px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+    main{flex:1;padding:18px 16px 24px;display:flex;flex-direction:column;gap:14px}
+    .menu{display:flex;align-items:center;min-height:44px}
+    .banner{background:#F6E2B8;border:2px solid ${unsafeCSS(COLORS.amber)};border-radius:12px;padding:10px 12px;font-weight:700;color:#4A3A1A}
+    .error{background:${unsafeCSS(COLORS.card)};border:2px solid ${unsafeCSS(COLORS.line)};border-radius:12px;padding:10px 12px}
+    .centerbox{background:${unsafeCSS(COLORS.card)};border:2px solid ${unsafeCSS(COLORS.line)};border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:10px;line-height:1.45}
+    h1,h2{font-family:${unsafeCSS(FONT_PIXEL)};margin:0;color:${unsafeCSS(COLORS.forest)}}
+    .pick{display:flex;flex-direction:column;gap:8px}
+    .pick button{min-height:44px;border-radius:12px;border:2px solid ${unsafeCSS(COLORS.line)};background:${unsafeCSS(COLORS.parchment)};font:inherit;font-weight:800;color:${unsafeCSS(COLORS.ink)};cursor:pointer}
+    nav{position:sticky;bottom:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));background:${unsafeCSS(COLORS.card)};border-top:2px solid ${unsafeCSS(COLORS.line)}}
+    nav button{background:none;border:none;min-height:54px;font:inherit;font-weight:700;color:${unsafeCSS(COLORS.muted)};font-size:14px;cursor:pointer}
+    nav button[aria-current="page"]{color:${unsafeCSS(COLORS.forest)};font-weight:800;box-shadow:inset 0 3px 0 ${unsafeCSS(COLORS.forest)}}
+    button:focus-visible{outline:3px solid ${unsafeCSS(COLORS.amber)};outline-offset:2px}
+    .btn{border-radius:12px;min-height:44px;padding:0 14px;font:inherit;font-weight:800;border:2px solid #C9B791;background:transparent;color:#4A4033;cursor:pointer;align-self:flex-start}
+  `];
+
+  declare hass: HomeAssistant;
+  declare narrow: boolean;
+  declare route: unknown;
+  declare panel: unknown;
+  declare _who: WhoAmI | null;
+  declare _playerId: string | null;
+  declare _summary: Summary | null;
+  declare _quests: QuestLists | null;
+  declare _view: View;
+  declare _questId: string | null;
+  declare _offline: boolean;
+  declare _error: string;
+  declare _busy: Record<string, boolean>;
+  declare _poolOpen: boolean;
+  declare _loaded: boolean;
+
+  private _api: CuestApi | null = null;
+  private _sig: string | null = null;
+  private _timer: ReturnType<typeof setInterval> | undefined;
+  private _loading = false;
+
+  constructor() {
+    super();
+    this.narrow = false;
+    this._who = null;
+    this._playerId = null;
+    this._summary = null;
+    this._quests = null;
+    this._view = 'village';
+    this._questId = null;
+    this._offline = false;
+    this._error = '';
+    this._busy = {};
+    this._poolOpen = false;
+    this._loaded = false;
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    this._timer = setInterval(() => { if (typeof document === 'undefined' || !document.hidden) void this._refresh(); }, REFRESH_MS);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    clearInterval(this._timer);
+  }
+
+  protected willUpdate(changed: Map<string, unknown>) {
+    if (!changed.has('hass') || !this.hass) return;
+    if (this._api) this._api.setHass(this.hass);
+    else this._api = new CuestApi(this.hass);
+    const sig = cuestSignature(this.hass);
+    const first = this._sig === null;
+    if (first || sig !== this._sig) {
+      this._sig = sig;
+      void this._refresh();
+    }
+  }
+
+  private async _refresh() {
+    if (!this._api || this._loading) return;
+    this._loading = true;
+    try {
+      if (!this._who || !this._playerId) {
+        this._who = await this._api.whoami();
+        if (!this._playerId) this._playerId = this._choosePlayer(this._who);
+      }
+      this._offline = false;
+      if (this._playerId) {
+        const [summary, quests] = await Promise.all([this._api.summary(this._playerId), this._api.quests()]);
+        this._summary = summary;
+        this._quests = quests;
+      }
+      this._error = '';
+    } catch (e) {
+      const err = toApiError(e);
+      if (err.offline) this._offline = true;
+      else this._error = err.message;
+    } finally {
+      this._loaded = true;
+      this._loading = false;
+    }
+  }
+
+  private _choosePlayer(who: WhoAmI): string | null {
+    if (who.playerId) return who.playerId;
+    const stored = readStored();
+    return stored && who.players.some((p) => p.id === stored) ? stored : null;
+  }
+
+  private _pick(id: string) {
+    writeStored(id);
+    this._playerId = id;
+    void this._refresh();
+  }
+
+  private async _act(q: Quest, fn: () => Promise<unknown>, after?: () => void) {
+    this._busy = { ...this._busy, [q.id]: true };
+    let failure = '';
+    try {
+      await fn();
+      this._error = '';
+      this._offline = false;
+      after?.();
+    } catch (e) {
+      const err = toApiError(e);
+      if (err.offline) this._offline = true;
+      else failure = err.message;
+    }
+    const { [q.id]: _gone, ...rest } = this._busy;
+    this._busy = rest;
+    await this._refresh();
+    if (failure) this._error = failure;
+  }
+
+  private _start = (q: Quest) => {
+    const pid = this._playerId;
+    if (!pid || !this._api) return;
+    const api = this._api;
+    // An already-running quest just opens; otherwise start it first.
+    if (q.status === 'active') { this._questId = q.id; this._view = 'quest'; return; }
+    void this._act(q, () => api.start(q.id, pid), () => { this._questId = q.id; this._view = 'quest'; });
+  };
+
+  private _later = (q: Quest) => {
+    const api = this._api;
+    if (api) void this._act(q, () => api.later(q.id));
+  };
+
+  private _palette(): Palette {
+    const p = this._sensorPlayer();
+    const a = (p?.level as { attributes?: Record<string, unknown> } | undefined)?.attributes ?? {};
+    return (a.outfit_palette as Palette | undefined) ?? {};
+  }
+
+  private _decor(): string[] {
+    const p = this._sensorPlayer();
+    const a = (p?.level as { attributes?: Record<string, unknown> } | undefined)?.attributes ?? {};
+    return Array.isArray(a.decor) ? (a.decor as string[]) : [];
+  }
+
+  private _sensorPlayer() {
+    if (!this.hass) return undefined;
+    return playersFromSensors(this.hass).find((p) => p.id === this._playerId);
+  }
+
+  private _body() {
+    if (!this._who) {
+      return this._loaded ? nothing : html`<div class="centerbox">${STRINGS.loading}</div>`;
+    }
+    if (!this._playerId) {
+      if (!this._who.players.length) {
+        return html`<div class="centerbox"><h1>${STRINGS.onboardTitle}</h1><p>${STRINGS.onboardBody}</p></div>`;
+      }
+      return html`<div class="centerbox"><h1>${STRINGS.whoTitle}</h1><p>${STRINGS.whoHint}</p>
+        <div class="pick">${this._who.players.map((p) => html`<button type="button" data-player="${p.id}" @click=${() => this._pick(p.id)}>${p.name}</button>`)}</div></div>`;
+    }
+    if (this._view === 'village') {
+      return villageView({
+        summary: this._summary,
+        quests: this._quests,
+        palette: this._palette(),
+        decor: this._decor(),
+        busy: this._busy,
+        poolOpen: this._poolOpen,
+        onStart: this._start,
+        onLater: this._later,
+        onTogglePool: () => { this._poolOpen = !this._poolOpen; },
+      });
+    }
+    if (this._view === 'quest') {
+      return html`<div class="centerbox"><h2>${this._quests && [...this._quests.active, ...this._quests.open, ...this._quests.whenever].find((q) => q.id === this._questId)?.title || ''}</h2>
+        <p>${STRINGS.questPlaceholder}</p><button type="button" class="btn" data-go="village" @click=${() => { this._view = 'village'; }}>${STRINGS.back}</button></div>`;
+    }
+    return html`<div class="centerbox"><h2>${this._view === 'shop' ? STRINGS.navShop : STRINGS.navHero}</h2><p>${STRINGS.comingNext}</p></div>`;
+  }
+
+  protected render() {
+    const nav = this._who && this._playerId && this._view !== 'quest';
+    const item = (v: View, label: string) => html`<button type="button" data-go="${v}" aria-current=${this._view === v ? 'page' : nothing} @click=${() => { this._view = v; }}>${label}</button>`;
+    return html`<div class="shell">
+      <main>
+        ${this.narrow ? html`<div class="menu"><ha-menu-button .hass=${this.hass} .narrow=${this.narrow}></ha-menu-button></div>` : nothing}
+        ${this._offline ? html`<div class="banner" role="status">${STRINGS.offlineBanner}</div>` : nothing}
+        ${this._error ? html`<div class="error" role="alert">${this._error}</div>` : nothing}
+        ${this._body()}
+      </main>
+      ${nav ? html`<nav aria-label="${STRINGS.navLabel}">${item('village', STRINGS.navVillage)}${item('shop', STRINGS.navShop)}${item('hero', STRINGS.navHero)}</nav>` : nothing}
+    </div>`;
   }
 }
 

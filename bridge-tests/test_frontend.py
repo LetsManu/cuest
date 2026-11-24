@@ -38,3 +38,35 @@ async def test_reload_does_not_register_card_twice(cuest):
     assert await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
     assert list(hass.data[DATA_EXTRA_MODULE_URL].urls).count("/cuest/cuest-card.js") == 1
+
+
+async def test_panel_served(cuest, hass_client):
+    client = await hass_client()
+    resp = await client.get("/cuest/cuest-panel.js")
+    assert resp.status == 200
+    assert "cuest-panel" in await resp.text()
+
+
+async def test_panel_registered_once_and_removed_on_last_unload(cuest):
+    hass, _, entry = cuest
+    panels = hass.data["frontend_panels"]
+    assert "cuest" in panels
+    panel = panels["cuest"]
+    assert panel.frontend_url_path == "cuest"
+    assert panel.sidebar_title == "Cuest"
+    assert panel.sidebar_icon == "mdi:sword"
+    assert panel.require_admin is False
+    assert panel.config["_panel_custom"] == {
+        "name": "cuest-panel",
+        "module_url": "/cuest/cuest-panel.js",
+        "embed_iframe": False,
+        "trust_external": False,
+    }
+
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert "cuest" in hass.data["frontend_panels"]
+
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert "cuest" not in hass.data["frontend_panels"]

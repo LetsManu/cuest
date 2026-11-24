@@ -14,6 +14,7 @@ from .const import CONF_SECRET, CONF_URL, DOMAIN
 from .coordinator import CuestData
 from .entities_export import EntityExporter
 from .forwarder import Forwarder
+from .http import async_register_http
 from .services import async_register_services, async_remove_services
 
 PLATFORMS = ["sensor", "todo"]
@@ -37,6 +38,7 @@ async def _async_register_card(hass: HomeAssistant) -> None:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Cuest from a config entry."""
     await _async_register_card(hass)
+    async_register_http(hass)
     client = CuestClient(hass, entry.data[CONF_URL], entry.data[CONF_SECRET])
     forwarder = Forwarder(hass, client)
     exporter = EntityExporter(hass, client)

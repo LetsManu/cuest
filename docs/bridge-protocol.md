@@ -80,5 +80,5 @@ The first message must be `hello` with the shared secret, within 5 seconds. Othe
 - `cuest_level_up`: `player_id`, `player_name`, `level`, `title`
 
 ```json
-{ "type": "fire_event", "event": "cuest_level_up", "data": { "player_id": "b71d09", "player_name": "Ada", "level": 4, "title": "Squire" } }
+{ "type": "fire_event", "event": "cuest_level_up", "data": { "player_id": "b71d09", "player_name": "Ada", "level": 4, "title": "Hearthkeeper" } }
 ```

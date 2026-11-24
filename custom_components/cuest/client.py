@@ -20,6 +20,7 @@ from .const import DOMAIN, ISSUE_BAD_SECRET, VERSION
 _LOGGER = logging.getLogger(__name__)
 
 CLOSE_BAD_AUTH = 4001
+CLOSE_REPLACED = 4002
 HANDSHAKE_TIMEOUT = 10
 
 
@@ -49,6 +50,8 @@ class CuestClient:
         self._pending: dict[str, asyncio.Future[tuple[int, Any]]] = {}
         self._callbacks: dict[str, list[Callable[[dict], None]]] = {}
         self._bad_secret_logged = False
+        self._unreachable_logged = False
+        self._sleep = asyncio.sleep
         self.connected = False
 
     def on_message(self, type: str, cb: Callable[[dict], None]) -> None:
@@ -114,9 +117,9 @@ class CuestClient:
         backoff = self._initial_backoff
         while True:
             welcomed = False
-            bad_auth = False
+            close_code: int | None = None
             try:
-                welcomed, bad_auth = await self._connect_once()
+                welcomed, close_code = await self._connect_once()
             except asyncio.CancelledError:
                 raise
             except (aiohttp.ClientError, TimeoutError, OSError) as err:
@@ -128,16 +131,18 @@ class CuestClient:
                 self._ws = None
                 self._fail_pending()
 
-            if welcomed:
-                backoff = self._initial_backoff
-            if bad_auth:
+            if close_code == CLOSE_BAD_AUTH:
                 self._report_bad_secret()
                 backoff = self._max_backoff
-            await asyncio.sleep(backoff)
+            else:
+                self._log_unreachable()
+                if welcomed and close_code != CLOSE_REPLACED:
+                    backoff = self._initial_backoff
+            await self._sleep(backoff)
             backoff = min(backoff * 2, self._max_backoff)
 
-    async def _connect_once(self) -> tuple[bool, bool]:
-        """Run one connection. Returns (welcomed, bad_auth)."""
+    async def _connect_once(self) -> tuple[bool, int | None]:
+        """Run one connection. Returns (welcomed, close_code)."""
         session = aiohttp_client.async_get_clientsession(self._hass)
         welcomed = False
         async with session.ws_connect(self._ws_url, heartbeat=30) as ws:
@@ -158,15 +163,24 @@ class CuestClient:
             if welcomed:
                 self.connected = True
                 self._on_welcome()
+                self._dispatch({"type": "welcome"})
                 async for msg in ws:
                     if msg.type is not aiohttp.WSMsgType.TEXT:
                         break
                     data = _parse(msg.data)
                     if data is not None:
                         self._dispatch(data)
-            return welcomed, ws.close_code == CLOSE_BAD_AUTH
+            return welcomed, ws.close_code
+
+    def _log_unreachable(self) -> None:
+        if not self._unreachable_logged:
+            self._unreachable_logged = True
+            _LOGGER.warning("Cuest server is unreachable; retrying in the background")
 
     def _on_welcome(self) -> None:
+        if self._unreachable_logged:
+            _LOGGER.info("Connected to the Cuest server")
+        self._unreachable_logged = False
         self._bad_secret_logged = False
         ir.async_delete_issue(self._hass, DOMAIN, ISSUE_BAD_SECRET)
 
@@ -189,7 +203,8 @@ class CuestClient:
     def _dispatch(self, data: dict) -> None:
         msg_type = data.get("type")
         if msg_type == "api_result":
-            future = self._pending.get(data.get("id"))
+            msg_id = data.get("id")
+            future = self._pending.get(msg_id) if isinstance(msg_id, str) else None
             if future is not None and not future.done():
                 future.set_result((data.get("status", 500), data.get("body")))
             return
@@ -203,6 +218,7 @@ class CuestClient:
         for future in self._pending.values():
             if not future.done():
                 future.set_exception(CuestNotConnected())
+                future.exception()  # mark retrieved; api() may no longer await it
         self._pending.clear()
 
 

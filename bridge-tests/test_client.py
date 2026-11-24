@@ -174,3 +174,89 @@ async def test_stop_cancels_reconnect_loop(hass: HomeAssistant, server) -> None:
     # only tasks owned by the test server's handlers may remain
     assert not [t for t in leftover if "bridge client" in (t.get_name() or "")]
     assert client._task is None
+
+
+def _record_sleeps(client: CuestClient) -> list[float]:
+    sleeps: list[float] = []
+    real = asyncio.sleep
+
+    async def fake(delay: float) -> None:
+        sleeps.append(delay)
+        await real(0.005)
+
+    client._sleep = fake
+    return sleeps
+
+
+async def test_welcome_callback_fires_on_each_connect(hass: HomeAssistant, server) -> None:
+    client = _client(hass, server)
+    welcomes: list[dict] = []
+    client.on_message("welcome", welcomes.append)
+    await client.start()
+    await _wait_for(lambda: len(welcomes) == 1 and client.connected)
+    await server.sockets[0].close()
+    await _wait_for(lambda: len(welcomes) == 2)
+    await client.stop()
+
+
+async def test_backoff_doubles_and_caps(hass: HomeAssistant, caplog, socket_enabled) -> None:
+    # nothing listens on this port, so every attempt fails
+    srv = FakeServer()
+    url = await srv.start()
+    await srv.stop()
+    client = CuestClient(hass, url, SECRET, initial_backoff=1, max_backoff=4)
+    sleeps = _record_sleeps(client)
+    await client.start()
+    await _wait_for(lambda: len(sleeps) >= 5)
+    assert sleeps[:5] == [1, 2, 4, 4, 4]
+    assert len([r for r in caplog.records if r.levelname == "WARNING" and "unreachable" in r.message]) == 1
+    await client.stop()
+
+
+async def test_backoff_resets_after_welcome(hass: HomeAssistant, server, caplog) -> None:
+    client = CuestClient(hass, server.url, SECRET, initial_backoff=1, max_backoff=4)
+    sleeps = _record_sleeps(client)
+    await client.start()
+    await _wait_for(lambda: client.connected)
+    await server.sockets[0].close()
+    await _wait_for(lambda: len(sleeps) >= 1 and len(server.hellos) == 2)
+    assert sleeps[0] == 1
+    await _wait_for(lambda: client.connected)
+    await client.stop()
+
+
+async def test_replaced_close_does_not_reset_backoff(hass: HomeAssistant, server) -> None:
+    client = CuestClient(hass, server.url, SECRET, initial_backoff=1, max_backoff=8)
+    sleeps = _record_sleeps(client)
+    await client.start()
+    await _wait_for(lambda: client.connected)
+    await server.sockets[0].close(code=4002)
+    await _wait_for(lambda: len(server.hellos) == 2 and client.connected)
+    await server.sockets[1].close(code=4002)
+    await _wait_for(lambda: len(sleeps) >= 2)
+    assert sleeps[:2] == [1, 2]
+    await client.stop()
+
+
+async def test_bad_secret_retries_at_max_backoff_and_logs_once(
+    hass: HomeAssistant, server, caplog
+) -> None:
+    client = CuestClient(hass, server.url, "wrong", initial_backoff=1, max_backoff=4)
+    sleeps = _record_sleeps(client)
+    await client.start()
+    await _wait_for(lambda: len(sleeps) >= 3)
+    assert sleeps[:3] == [4, 4, 4]
+    errors = [r for r in caplog.records if r.levelname == "ERROR"]
+    assert len(errors) == 1
+    await client.stop()
+
+
+async def test_non_string_api_result_id_is_ignored(hass: HomeAssistant, server) -> None:
+    client = _client(hass, server)
+    await client.start()
+    await _wait_for(lambda: client.connected)
+    await server.sockets[0].send_json({"type": "api_result", "id": ["x"], "status": 200})
+    await server.sockets[0].send_json({"type": "api_result", "id": {"a": 1}, "status": 200})
+    assert await client.api("GET", "/api/players") == (200, [{"id": "p1"}])
+    assert len(server.hellos) == 1
+    await client.stop()

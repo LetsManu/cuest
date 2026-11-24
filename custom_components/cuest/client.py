@@ -28,6 +28,42 @@ class CuestNotConnected(Exception):
     """Raised when the bridge is not connected to the Cuest server."""
 
 
+class CannotConnect(Exception):
+    """Raised when the Cuest server cannot be reached."""
+
+
+class InvalidAuth(Exception):
+    """Raised when the Cuest server rejects the secret."""
+
+
+async def async_validate(hass: HomeAssistant, url: str, secret: str) -> None:
+    """Open a temporary connection and complete hello/welcome, then close it."""
+    session = aiohttp_client.async_get_clientsession(hass)
+    try:
+        async with asyncio.timeout(HANDSHAKE_TIMEOUT):
+            async with session.ws_connect(_bridge_url(url)) as ws:
+                await ws.send_str(
+                    json.dumps(
+                        {"type": "hello", "secret": secret, "version": VERSION}
+                    )
+                )
+                async for msg in ws:
+                    if msg.type is not aiohttp.WSMsgType.TEXT:
+                        break
+                    data = _parse(msg.data)
+                    if data is None:
+                        continue
+                    if data.get("type") == "welcome":
+                        return
+                    if data.get("type") == "error":
+                        raise InvalidAuth
+                if ws.close_code == CLOSE_BAD_AUTH:
+                    raise InvalidAuth
+    except (aiohttp.ClientError, TimeoutError, OSError, ValueError) as err:
+        raise CannotConnect from err
+    raise CannotConnect
+
+
 class CuestClient:
     """Maintains the bridge connection and tunnels API calls."""
 

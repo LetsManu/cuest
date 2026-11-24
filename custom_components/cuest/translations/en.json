@@ -2,14 +2,70 @@
   "config": {
     "step": {
       "user": {
-        "title": "Cuest"
+        "title": "Connect to Cuest",
+        "description": "Enter where your Cuest server runs and its secret.",
+        "data": {
+          "url": "Cuest server address",
+          "secret": "Bridge secret"
+        },
+        "data_description": {
+          "url": "For example http://homeassistant-nas.local:8787",
+          "secret": "Shown in the Cuest server logs or in /data/bridge-secret"
+        }
       }
+    },
+    "error": {
+      "cannot_connect": "Could not reach the Cuest server. Check the address and that the server is running.",
+      "invalid_auth": "The secret was not accepted. Copy it again from the Cuest server."
+    },
+    "abort": {
+      "already_configured": "This Cuest server is already set up."
     }
   },
   "issues": {
     "bad_secret": {
       "title": "The Cuest secret does not match",
       "description": "The Cuest server rejected the shared secret. Remove the Cuest integration and add it again with the secret that is set on the Cuest server."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Cuest settings",
+        "description": "What would you like to set up?",
+        "menu_options": {
+          "people": "People and their phones",
+          "devices": "Devices found in your home"
+        }
+      },
+      "people": {
+        "title": "Who plays?",
+        "description": "Pick the people who take part in quests.",
+        "data": {
+          "persons": "People"
+        }
+      },
+      "people_phone": {
+        "title": "Phone for {person}",
+        "description": "Choose the phone that should get quest notifications for {person}. Leave empty for no phone.",
+        "data": {
+          "notify_service": "Phone"
+        }
+      },
+      "devices": {
+        "title": "Devices found in your home",
+        "description": "Cuest found these devices. Pick the ones that should create quests.",
+        "data": {
+          "suggestions": "Devices"
+        }
+      },
+      "no_devices": {
+        "title": "No new devices found",
+        "description": "No new devices found. Cuest keeps looking, so check back later."
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not reach the Cuest server. Check the address and that the server is running."
     }
   }
 }

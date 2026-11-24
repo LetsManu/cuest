@@ -11,7 +11,13 @@ import pytest
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import issue_registry as ir
 
-from custom_components.cuest.client import CuestClient, CuestNotConnected
+from custom_components.cuest.client import (
+    CannotConnect,
+    CuestClient,
+    CuestNotConnected,
+    InvalidAuth,
+    async_validate,
+)
 from custom_components.cuest.const import DOMAIN
 
 SECRET = "s3cret"
@@ -260,3 +266,18 @@ async def test_non_string_api_result_id_is_ignored(hass: HomeAssistant, server) 
     assert await client.api("GET", "/api/players") == (200, [{"id": "p1"}])
     assert len(server.hellos) == 1
     await client.stop()
+
+
+async def test_validate_accepts_good_secret(hass: HomeAssistant, server) -> None:
+    await async_validate(hass, server.url, SECRET)
+    assert server.hellos[0]["secret"] == SECRET
+
+
+async def test_validate_rejects_bad_secret(hass: HomeAssistant, server) -> None:
+    with pytest.raises(InvalidAuth):
+        await async_validate(hass, server.url, "wrong")
+
+
+async def test_validate_unreachable(hass: HomeAssistant, socket_enabled) -> None:
+    with pytest.raises(CannotConnect):
+        await async_validate(hass, "http://127.0.0.1:1", SECRET)

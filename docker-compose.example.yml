@@ -7,7 +7,10 @@ services:
     ports:
       - "8787:8787"
     volumes:
-      - ./cuest-data:/data
+      - cuest-data:/data
     environment:
       CUEST_TZ: Europe/Amsterdam # change to your own time zone
     restart: unless-stopped
+
+volumes:
+  cuest-data: {}

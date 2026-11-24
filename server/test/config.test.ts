@@ -16,7 +16,13 @@ describe('loadConfig', () => {
   it('applies defaults', () => {
     const fs = fakeFs();
     const c = loadConfig({ CUEST_BRIDGE_SECRET: 's' }, fs, () => {});
-    expect(c).toEqual({ port: 8787, dataDir: '/data', bridgeSecret: 's', tz: process.env.TZ || 'UTC', tickSeconds: 30 });
+    expect(c).toEqual({ port: 8787, dataDir: '/data', bridgeSecret: 's', tz: 'UTC', tickSeconds: 30 });
+  });
+
+  it('falls back to TZ, and CUEST_TZ wins over it', () => {
+    const fs = fakeFs();
+    expect(loadConfig({ CUEST_BRIDGE_SECRET: 's', TZ: 'Asia/Tokyo' }, fs, () => {}).tz).toBe('Asia/Tokyo');
+    expect(loadConfig({ CUEST_BRIDGE_SECRET: 's', TZ: 'Asia/Tokyo', CUEST_TZ: 'Europe/Paris' }, fs, () => {}).tz).toBe('Europe/Paris');
   });
 
   it('reads env overrides', () => {

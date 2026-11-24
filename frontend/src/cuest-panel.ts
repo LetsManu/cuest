@@ -5,7 +5,7 @@ import { COLORS, FONT_BODY, FONT_PIXEL } from './palette';
 import { cuestSignature, playersFromSensors } from './sensors';
 import type { Palette } from './sprite';
 import { STRINGS } from './strings';
-import { isSoundOn, playFanfare, setSoundOn } from './sound';
+import { isSoundOn, playFanfare, setSoundOn, unlock } from './sound';
 import { levelForXp, titleForLevel } from './levels';
 import { heroStyles, heroView } from './views/hero';
 import { questStyles, questView, rewardToast, toastStyles, type Reward } from './views/quest';
@@ -181,6 +181,7 @@ export class CuestPanel extends LitElement {
     const pid = this._playerId;
     const api = this._api;
     if (!pid || !api) return;
+    if (this._sound) unlock();
     void this._act(q, async () => {
       const res = await api.done(q.id, pid);
       const r = res.reward as { xp: number; gold: number; lines?: { label: string; xp: number }[] };
@@ -388,6 +389,7 @@ export class CuestPanel extends LitElement {
     const pid = this._playerId;
     const api = this._api;
     if (!pid || !api) return;
+    if (this._sound) unlock();
     void this._shopAct('chest', async () => {
       const r = (await api.openChest(pid)).result;
       if (this._sound) playFanfare('loot');
@@ -398,6 +400,7 @@ export class CuestPanel extends LitElement {
   private _toggleSound = () => {
     this._sound = !this._sound;
     setSoundOn(this._sound);
+    if (this._sound) unlock();
   };
 
   private _buyMessage(item: ShopItem, r: BuyResult['result']): string {

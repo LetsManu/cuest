@@ -154,7 +154,7 @@ export function villageView(p: VillageProps): TemplateResult {
         <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}"><i style="width:${pct}%"></i></div></div>
     </section>
     <div class="actions">${(s?.chestKeys ?? 0) > 0 ? html`<button type="button" class="btn amber" data-act="open-chest" ?disabled=${!!p.busy['chest']} @click=${p.onOpenChest}>${STRINGS.openChest} (${s?.chestKeys})</button>` : nothing}
-      <button type="button" class="btn ghost" data-act="sound" aria-pressed="${p.soundOn}" @click=${p.onSound}>${p.soundOn ? STRINGS.soundOff : STRINGS.soundOn}</button></div>
+      <button type="button" class="btn ghost" data-act="sound" aria-pressed="${p.soundOn}" @click=${p.onSound}>${STRINGS.sound}</button></div>
     <div class="h2row"><h2>${STRINGS.houseNeedsYou}</h2><span>${open.length} ${open.length === 1 ? STRINGS.questOne : STRINGS.questMany}</span></div>
     ${q && !open.length ? html`<div class="empty"><strong>${STRINGS.allQuiet}</strong>${STRINGS.allQuietBody}</div>` : nothing}
     ${open.map((x) => (claimedByOther(p, x) ? otherCard(x) : questCard(p, x)))}

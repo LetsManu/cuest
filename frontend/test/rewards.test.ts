@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import '../src/cuest-panel';
 import type { HomeAssistant } from '../src/hass-types';
-import { isSoundOn, playFanfare, setSoundOn } from '../src/sound';
+import * as sound from '../src/sound';
+const { isSoundOn, playFanfare, setSoundOn, unlock } = sound;
 
 const T0 = Date.parse('2026-11-24T10:00:00Z');
 const Q = (id: string, over: Record<string, unknown> = {}) => ({
@@ -9,13 +10,14 @@ const Q = (id: string, over: Record<string, unknown> = {}) => ({
   startedAt: null, claimedBy: null, templateId: null, snoozedUntil: null, ...over,
 });
 
-interface Opts { streak?: number; restTokens?: number; chestKeys?: number; questOfDay?: string | null; done?: Record<string, unknown>; chest?: unknown }
+interface Opts { chestError?: unknown; streak?: number; restTokens?: number; chestKeys?: number; questOfDay?: string | null; done?: Record<string, unknown>; chest?: unknown }
 function fakeHass(o: Opts = {}) {
   const callApi = vi.fn(async (_m: string, path: string) => {
     if (path === 'cuest_whoami') return { playerId: 'p1', isAdmin: false, players: [{ id: 'p1', name: 'Ada' }] };
     if (path === 'cuest/quests') return { active: [Q('q1', { status: 'active', startedAt: new Date(T0).toISOString() })], open: [Q('q2')], whenever: [], questOfDay: o.questOfDay === undefined ? 'q2' : o.questOfDay };
     if (path.endsWith('/summary')) return { player: { id: 'p1', name: 'Ada', xp: 130, gold: 215, restTokens: o.restTokens ?? 1, boostUntil: null }, level: 4, title: 'Hearthkeeper', intoLevel: 30, toNext: 70, streak: o.streak ?? 6, bestStreak: 9, restTokens: o.restTokens ?? 1, chestKeys: o.chestKeys ?? 0 };
     if (path.endsWith('/done')) return { quest: Q('q1', { status: 'done' }), reward: { xp: 52, gold: 3, lines: [{ label: 'Quest', xp: 12, gold: 3 }, { label: 'Kept going', xp: 25, gold: 0 }, { label: 'Combo ×3', xp: 15, gold: 0 }] }, player: { xp: 300 }, streak: { streak: 6, restarted: false, usedRest: null }, loot: null, chestKey: false, ...o.done };
+    if (path === 'cuest/shop/open-chest') { if (o.chestError) throw o.chestError; }
     if (path === 'cuest/shop/open-chest') return { player: {}, result: o.chest ?? { kind: 'chest', gold: 40 } };
     return {};
   });
@@ -114,15 +116,47 @@ describe('rewards in the panel', () => {
     expect(q(el, '[data-role="toast"]').textContent).toContain('40 gold');
   });
 
+  it('a 409 no_chest_key toasts the server message and refreshes without crashing', async () => {
+    const f = fakeHass({ chestKeys: 1, chestError: { status_code: 409, body: JSON.stringify({ error: 'no_chest_key', message: 'No chest key right now.' }) } });
+    const el = await mount(f.hass);
+    const before = f.callApi.mock.calls.filter((c) => String(c[1]).endsWith('/summary')).length;
+    q(el, '[data-act="open-chest"]').click();
+    await settle(el);
+    expect(q(el, '[data-role="toast"]').textContent).toContain('No chest key right now.');
+    expect(f.callApi.mock.calls.filter((c) => String(c[1]).endsWith('/summary')).length).toBeGreaterThan(before);
+    expect(q(el, '.banner')).toBeNull();
+  });
+
+  it('unlocks audio before the awaited request when sound is on', async () => {
+    setSoundOn(true);
+    const order: string[] = [];
+    const spy = vi.spyOn(sound, 'unlock').mockImplementation(() => { order.push('unlock'); });
+    const f = fakeHass({ chestKeys: 1 });
+    (f.callApi as any).mockImplementation(async (_m: string, path: string) => {
+      if (path === 'cuest/shop/open-chest') { order.push('request'); return { player: {}, result: { kind: 'chest', gold: 5 } }; }
+      if (path === 'cuest_whoami') return { playerId: 'p1', isAdmin: false, players: [{ id: 'p1', name: 'Ada' }] };
+      if (path === 'cuest/quests') return { active: [], open: [], whenever: [] };
+      if (path.endsWith('/summary')) return { player: { id: 'p1', name: 'Ada', xp: 1, gold: 1, restTokens: 0, boostUntil: null }, level: 1, title: 'Apprentice', intoLevel: 0, toNext: 10, chestKeys: 1 };
+      return {};
+    });
+    const el = await mount(f.hass);
+    q(el, '[data-act="open-chest"]').click();
+    await settle(el);
+    expect(order.slice(0, 2)).toEqual(['unlock', 'request']);
+    spy.mockRestore();
+  });
+
   it('sound is off until the player taps Sound on', async () => {
     const el = await mount(fakeHass().hass);
     expect(isSoundOn()).toBe(false);
     const b = q(el, '[data-act="sound"]');
-    expect(b.textContent).toContain('Sound on');
+    expect(b.textContent!.trim()).toBe('Sound');
+    expect(b.getAttribute('aria-pressed')).toBe('false');
     b.click();
     await settle(el);
     expect(isSoundOn()).toBe(true);
-    expect(q(el, '[data-act="sound"]').textContent).toContain('Sound off');
+    expect(q(el, '[data-act="sound"]').textContent!.trim()).toBe('Sound');
+    expect(q(el, '[data-act="sound"]').getAttribute('aria-pressed')).toBe('true');
   });
 });
 
@@ -136,6 +170,24 @@ describe('sound', () => {
     expect(() => playFanfare('level')).not.toThrow();
     setSoundOn(false);
     expect(isSoundOn()).toBe(false);
+  });
+  it('reuses one AudioContext across fanfares and unlock', () => {
+    let made = 0;
+    const resume = vi.fn(async () => {});
+    class FakeCtx {
+      state = 'suspended'; currentTime = 0; destination = {}; resume = resume;
+      constructor() { made++; }
+      createOscillator() { return { type: '', frequency: { value: 0 }, connect: (n: unknown) => n, start() {}, stop() {} }; }
+      createGain() { return { gain: { setValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect: (n: unknown) => n }; }
+    }
+    (globalThis as any).AudioContext = FakeCtx;
+    try {
+      unlock();
+      playFanfare('done');
+      playFanfare('level');
+      expect(made).toBe(1);
+      expect(resume).toHaveBeenCalled();
+    } finally { delete (globalThis as any).AudioContext; }
   });
   it('survives a throwing localStorage', () => {
     const spy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('x'); });

@@ -17,13 +17,34 @@ const NOTES: Record<Fanfare, number[]> = {
   level: [523.25, 659.25, 783.99, 1046.5, 1318.51],
 };
 
-/** A short square-wave arpeggio. Never throws, even where AudioContext is missing. */
+let shared: AudioContext | null = null;
+
+function context(): AudioContext | null {
+  if (shared) return shared;
+  const g = globalThis as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext };
+  const AC = g.AudioContext ?? g.webkitAudioContext;
+  if (!AC) return null;
+  shared = new AC();
+  return shared;
+}
+
+/**
+ * Create the one shared AudioContext and resume it. iOS Safari only allows this synchronously
+ * inside a user gesture, so call it at the start of tap handlers, before any await.
+ */
+export function unlock(): void {
+  try {
+    const ctx = context();
+    if (ctx && ctx.state !== 'running') void Promise.resolve(ctx.resume()).catch(() => {});
+  } catch { /* sound is a nicety only */ }
+}
+
+/** A short square-wave arpeggio on the shared context. Never throws, even without AudioContext. */
 export function playFanfare(kind: Fanfare): void {
   try {
-    const Ctx = (globalThis as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext });
-    const AC = Ctx.AudioContext ?? Ctx.webkitAudioContext;
-    if (!AC) return;
-    const ctx = new AC();
+    const ctx = context();
+    if (!ctx) return;
+    if (ctx.state !== 'running') void Promise.resolve(ctx.resume()).catch(() => {});
     const t0 = ctx.currentTime;
     NOTES[kind].forEach((freq, i) => {
       const osc = ctx.createOscillator();
@@ -38,6 +59,5 @@ export function playFanfare(kind: Fanfare): void {
       osc.start(start);
       osc.stop(start + 0.22);
     });
-    setTimeout(() => { void ctx.close().catch(() => {}); }, 1500);
   } catch { /* sound is a nicety only */ }
 }

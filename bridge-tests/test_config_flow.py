@@ -113,15 +113,15 @@ async def test_options_people_creates_player(hass: HomeAssistant, entry_and_clie
     assert result["step_id"] == "people_phone"
     assert result["description_placeholders"] == {"person": "Manu"}
     options = result["data_schema"].schema["notify_service"].config["options"]
-    assert options == ["mobile_app_manus_iphone"]
+    assert [o["value"] for o in options] == ["none", "mobile_app_manus_iphone"]
 
-    client.api.side_effect = [(200, []), (201, {"id": "p1"})]
+    client.api.side_effect = [(201, {"id": "p1"})]
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], {"notify_service": "mobile_app_manus_iphone"}
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert dict(entry.options) == {"keep": 1}
-    client.api.assert_any_await("GET", "/api/players")
+    assert client.api.await_args_list[0].args == ("GET", "/api/players")
     client.api.assert_awaited_with(
         "POST",
         "/api/players",
@@ -151,7 +151,9 @@ async def test_options_people_updates_existing_and_allows_no_phone(
     )
     assert result["step_id"] == "people_phone"
     assert result["description_placeholders"] == {"person": "person.anna"}
-    result = await hass.config_entries.options.async_configure(result["flow_id"], {})
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"notify_service": "none"}
+    )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert client.api.await_args_list[1].args == (
         "PATCH",
@@ -173,8 +175,8 @@ async def test_options_people_server_down(hass: HomeAssistant, entry_and_client)
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], {"persons": ["person.manu"]}
     )
-    result = await hass.config_entries.options.async_configure(result["flow_id"], {})
     assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "people"
     assert result["errors"] == {"base": "cannot_connect"}
     assert dict(entry.options) == {"keep": 1}
 
@@ -233,6 +235,76 @@ async def test_options_devices_server_down(hass: HomeAssistant, entry_and_client
     entry, client = entry_and_client
     client.api.side_effect = TimeoutError
     result = await _menu(hass, entry, "devices")
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "cannot_connect"
+    assert dict(entry.options) == {"keep": 1}
+
+
+@pytest.mark.parametrize("url", ["http://host:abc", "http://host:99999", "cuest.local:8787", "ftp://x", ""])
+async def test_user_flow_invalid_url(hass: HomeAssistant, url: str) -> None:
+    result, validate = await _start(hass, url)
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "invalid_url"}
+    validate.assert_not_awaited()
+
+
+@pytest.mark.parametrize("status", [400, 404])
+async def test_options_people_server_rejects(
+    hass: HomeAssistant, entry_and_client, status
+) -> None:
+    entry, client = entry_and_client
+    hass.states.async_set("person.manu", "home", {"friendly_name": "Manu"})
+    client.api.side_effect = [(200, []), (status, {"error": "x"})]
+    result = await _menu(hass, entry, "people")
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"persons": ["person.manu"]}
+    )
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {})
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "people_phone"
+    assert result["errors"] == {"base": "server_rejected"}
+
+
+async def test_options_people_keeps_existing_phone_by_default(
+    hass: HomeAssistant, entry_and_client
+) -> None:
+    entry, client = entry_and_client
+    hass.states.async_set("person.manu", "home", {"friendly_name": "Manu"})
+    hass.services.async_register("notify", "mobile_app_manus_iphone", AsyncMock())
+    client.api.side_effect = [
+        (200, [{"id": "p9", "haPerson": "person.manu", "notifyService": "mobile_app_manus_iphone"}]),
+        (200, {"id": "p9"}),
+    ]
+    result = await _menu(hass, entry, "people")
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"persons": ["person.manu"]}
+    )
+    assert result["data_schema"]({}) == {"notify_service": "mobile_app_manus_iphone"}
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {})
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert client.api.await_args_list[1].args[2] == {
+        "notifyService": "mobile_app_manus_iphone"
+    }
+
+
+async def test_options_people_none_available(hass: HomeAssistant, entry_and_client) -> None:
+    entry, _ = entry_and_client
+    result = await _menu(hass, entry, "people")
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "no_people"
+
+
+async def test_options_devices_accept_fails_shows_form_error(
+    hass: HomeAssistant, entry_and_client
+) -> None:
+    entry, client = entry_and_client
+    client.api.side_effect = [
+        (200, {"suggestions": [{"key": "a", "deviceName": "W", "templates": [{"title": "T"}]}]}),
+        CuestNotConnected,
+    ]
+    result = await _menu(hass, entry, "devices")
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"suggestions": ["a"]}
+    )
     assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {"base": "cannot_connect"}
-    assert dict(entry.options) == {"keep": 1}

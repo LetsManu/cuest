@@ -36,16 +36,27 @@ CONF_SUGGESTIONS = "suggestions"
 MOBILE_APP_PREFIX = "mobile_app_"
 
 
+NO_PHONE = "none"
+
+
+class CuestRejected(Exception):
+    """The Cuest server answered with an HTTP error."""
+
+
 def normalize_url(url: str) -> str:
-    """Lower-case scheme and host, drop trailing slashes."""
+    """Lower-case scheme and host, drop trailing slashes.
+
+    Raises ValueError when the address is not a usable http(s) URL.
+    """
     parts = urlsplit(url.strip())
-    if not parts.scheme or not parts.hostname:
-        return url.strip().rstrip("/")
+    scheme = parts.scheme.lower()
+    if scheme not in ("http", "https") or not parts.hostname:
+        raise ValueError("not an http(s) address")
     host = parts.hostname.lower()
     if ":" in host:
         host = f"[{host}]"
-    port = f":{parts.port}" if parts.port else ""
-    return f"{parts.scheme.lower()}://{host}{port}{parts.path.rstrip('/')}"
+    port = f":{parts.port}" if parts.port else ""  # raises ValueError if bad
+    return f"{scheme}://{host}{port}{parts.path.rstrip('/')}"
 
 
 class CuestConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -59,20 +70,24 @@ class CuestConfigFlow(ConfigFlow, domain=DOMAIN):
         """Ask for the server address and the shared secret."""
         errors: dict[str, str] = {}
         if user_input is not None:
-            url = normalize_url(user_input[CONF_URL])
             secret = user_input[CONF_SECRET]
-            await self.async_set_unique_id(url)
-            self._abort_if_unique_id_configured()
             try:
-                await async_validate(self.hass, url, secret)
-            except InvalidAuth:
-                errors["base"] = "invalid_auth"
-            except CannotConnect:
-                errors["base"] = "cannot_connect"
+                url = normalize_url(user_input[CONF_URL])
+            except ValueError:
+                errors["base"] = "invalid_url"
             else:
-                return self.async_create_entry(
-                    title="Cuest", data={CONF_URL: url, CONF_SECRET: secret}
-                )
+                await self.async_set_unique_id(url)
+                self._abort_if_unique_id_configured()
+                try:
+                    await async_validate(self.hass, url, secret)
+                except InvalidAuth:
+                    errors["base"] = "invalid_auth"
+                except CannotConnect:
+                    errors["base"] = "cannot_connect"
+                else:
+                    return self.async_create_entry(
+                        title="Cuest", data={CONF_URL: url, CONF_SECRET: secret}
+                    )
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
@@ -100,6 +115,7 @@ class CuestOptionsFlow(OptionsFlow):
     def __init__(self) -> None:
         self._persons: list[str] = []
         self._phones: dict[str, str | None] = {}
+        self._players: dict[str, dict] = {}
 
     def _client(self) -> CuestClient:
         try:
@@ -119,7 +135,7 @@ class CuestOptionsFlow(OptionsFlow):
         except (CuestNotConnected, TimeoutError) as err:
             raise CuestNotConnected from err
         if status >= 400:
-            raise CuestNotConnected
+            raise CuestRejected
         return data
 
     def _finish(self) -> ConfigFlowResult:
@@ -137,10 +153,21 @@ class CuestOptionsFlow(OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Choose which people play."""
+        errors: dict[str, str] = {}
         if user_input is not None and user_input.get(CONF_PERSONS):
-            self._persons = list(user_input[CONF_PERSONS])
-            self._phones = {}
-            return await self.async_step_people_phone()
+            try:
+                players = await self._api("GET", "/api/players")
+            except CuestNotConnected:
+                errors["base"] = "cannot_connect"
+            except CuestRejected:
+                errors["base"] = "server_rejected"
+            else:
+                self._players = {
+                    p.get("haPerson"): p for p in players if isinstance(p, dict)
+                }
+                self._persons = list(user_input[CONF_PERSONS])
+                self._phones = {}
+                return await self.async_step_people_phone()
         options = [
             SelectOptionDict(
                 value=state.entity_id,
@@ -148,6 +175,8 @@ class CuestOptionsFlow(OptionsFlow):
             )
             for state in self.hass.states.async_all("person")
         ]
+        if not options:
+            return self.async_abort(reason="no_people")
         return self.async_show_form(
             step_id="people",
             data_schema=vol.Schema(
@@ -157,6 +186,7 @@ class CuestOptionsFlow(OptionsFlow):
                     )
                 }
             ),
+            errors=errors,
         )
 
     def _person_name(self, entity_id: str) -> str:
@@ -170,29 +200,42 @@ class CuestOptionsFlow(OptionsFlow):
         errors: dict[str, str] = {}
         if user_input is not None:
             person = self._persons[len(self._phones)]
-            self._phones[person] = user_input.get(CONF_NOTIFY_SERVICE)
+            choice = user_input.get(CONF_NOTIFY_SERVICE, NO_PHONE)
+            self._phones[person] = None if choice == NO_PHONE else choice
             if len(self._phones) == len(self._persons):
                 try:
                     await self._save_players()
-                except CuestNotConnected:
+                except (CuestNotConnected, CuestRejected) as err:
                     # Show the last person again so the form can be resubmitted.
                     self._phones.pop(person)
-                    errors["base"] = "cannot_connect"
+                    errors["base"] = (
+                        "server_rejected"
+                        if isinstance(err, CuestRejected)
+                        else "cannot_connect"
+                    )
                 else:
                     return self._finish()
         person = self._persons[len(self._phones)]
-        services = sorted(
+        current = (self._players.get(person) or {}).get("notifyService")
+        services = {
             name
             for name in self.hass.services.async_services().get("notify", {})
             if name.startswith(MOBILE_APP_PREFIX)
-        )
+        }
+        if current:
+            services.add(current)
+        options = [SelectOptionDict(value=NO_PHONE, label="No phone")] + [
+            SelectOptionDict(value=name, label=name) for name in sorted(services)
+        ]
         return self.async_show_form(
             step_id="people_phone",
             data_schema=vol.Schema(
                 {
-                    vol.Optional(CONF_NOTIFY_SERVICE): SelectSelector(
+                    vol.Required(
+                        CONF_NOTIFY_SERVICE, default=current or NO_PHONE
+                    ): SelectSelector(
                         SelectSelectorConfig(
-                            options=services, mode=SelectSelectorMode.DROPDOWN
+                            options=options, mode=SelectSelectorMode.DROPDOWN
                         )
                     )
                 }
@@ -202,10 +245,8 @@ class CuestOptionsFlow(OptionsFlow):
         )
 
     async def _save_players(self) -> None:
-        players = await self._api("GET", "/api/players")
-        by_person = {p.get("haPerson"): p for p in players if isinstance(p, dict)}
         for person, service in self._phones.items():
-            existing = by_person.get(person)
+            existing = self._players.get(person)
             if existing is not None:
                 await self._api(
                     "PATCH", f"/api/players/{existing['id']}", {"notifyService": service}
@@ -238,14 +279,18 @@ class CuestOptionsFlow(OptionsFlow):
                 return self.async_show_form(
                     step_id="devices", errors={"base": "cannot_connect"}
                 )
+            except CuestRejected:
+                return self.async_show_form(
+                    step_id="devices", errors={"base": "server_rejected"}
+                )
             return self._finish()
 
         try:
             data = await self._api("GET", "/api/suggestions")
         except CuestNotConnected:
-            return self.async_show_form(
-                step_id="devices", errors={"base": "cannot_connect"}
-            )
+            return self.async_abort(reason="cannot_connect")
+        except CuestRejected:
+            return self.async_abort(reason="server_rejected")
         options = [
             SelectOptionDict(
                 value=s["key"],

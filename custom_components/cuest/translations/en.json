@@ -16,7 +16,8 @@
     },
     "error": {
       "cannot_connect": "Could not reach the Cuest server. Check the address and that the server is running.",
-      "invalid_auth": "The secret was not accepted. Copy it again from the Cuest server."
+      "invalid_auth": "The secret was not accepted. Copy it again from the Cuest server.",
+      "invalid_url": "That address doesn't look right. Example: http://192.168.1.20:8787"
     },
     "abort": {
       "already_configured": "This Cuest server is already set up."
@@ -47,7 +48,7 @@
       },
       "people_phone": {
         "title": "Phone for {person}",
-        "description": "Choose the phone that should get quest notifications for {person}. Leave empty for no phone.",
+        "description": "Choose the phone that should get quest notifications for {person}, or pick No phone.",
         "data": {
           "notify_service": "Phone"
         }
@@ -65,7 +66,13 @@
       }
     },
     "error": {
-      "cannot_connect": "Could not reach the Cuest server. Check the address and that the server is running."
+      "cannot_connect": "Could not reach the Cuest server. Check the address and that the server is running.",
+      "server_rejected": "The Cuest server didn't accept this change. Please try again."
+    },
+    "abort": {
+      "cannot_connect": "Could not reach the Cuest server. Check the address and that the server is running.",
+      "server_rejected": "The Cuest server didn't accept this change. Please try again.",
+      "no_people": "No people found. Add people in Settings → People first."
     }
   }
 }

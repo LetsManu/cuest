@@ -92,7 +92,7 @@ async def entry_and_client(hass: HomeAssistant):
 async def _menu(hass, entry, choice):
     result = await hass.config_entries.options.async_init(entry.entry_id)
     assert result["type"] is FlowResultType.MENU
-    assert result["menu_options"] == ["people", "devices"]
+    assert result["menu_options"] == ["people", "devices", "treats"]
     return await hass.config_entries.options.async_configure(
         result["flow_id"], {"next_step_id": choice}
     )
@@ -328,3 +328,111 @@ async def test_user_flow_strips_whitespace(hass: HomeAssistant) -> None:
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["data"] == {CONF_URL: "http://cuest.local:8787", CONF_SECRET: "s3cret"}
     validate.assert_awaited_once_with(hass, "http://cuest.local:8787", "s3cret")
+
+
+# ---- house treats ----
+
+
+def _unlock(uid, entity, name="Old", cost=30, enabled=True):
+    return {"id": uid, "name": name, "cost": cost, "entityId": entity, "enabled": enabled}
+
+
+async def test_options_treats_creates_unlocks_and_stores_allowlist(
+    hass: HomeAssistant, entry_and_client
+) -> None:
+    entry, client = entry_and_client
+    hass.states.async_set("script.gaming_pc", "off", {"friendly_name": "Gaming PC"})
+    hass.states.async_set("scene.movie", "off")
+    client.api.side_effect = None
+    client.api.return_value = (200, [])
+
+    result = await _menu(hass, entry, "treats")
+    assert result["step_id"] == "treats"
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"entities": ["script.gaming_pc", "scene.movie"]}
+    )
+    assert result["step_id"] == "treats_item"
+    assert result["description_placeholders"] == {"entity": "Gaming PC"}
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"name": "Gaming PC for 1 hour", "cost": 60}
+    )
+    assert result["step_id"] == "treats_item"
+    assert result["description_placeholders"] == {"entity": "scene.movie"}
+    client.api.return_value = (201, {"id": "u"})
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"name": "scene.movie", "cost": 50}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert dict(entry.options) == {"keep": 1, "treats": ["script.gaming_pc", "scene.movie"]}
+    calls = [c.args for c in client.api.await_args_list]
+    assert ("GET", "/api/unlocks") in calls
+    assert (
+        "POST",
+        "/api/unlocks",
+        {"name": "Gaming PC for 1 hour", "cost": 60, "entityId": "script.gaming_pc"},
+    ) in calls
+    assert (
+        "POST",
+        "/api/unlocks",
+        {"name": "scene.movie", "cost": 50, "entityId": "scene.movie"},
+    ) in calls
+
+
+async def test_options_treats_updates_reenables_and_disables_removed(
+    hass: HomeAssistant, entry_and_client
+) -> None:
+    entry, client = entry_and_client
+    hass.config_entries.async_update_entry(
+        entry, options={"keep": 1, "treats": ["script.a", "script.b"]}
+    )
+    client.api.side_effect = None
+    client.api.return_value = (
+        200,
+        [
+            _unlock("u1", "script.a", "Old A", 40),
+            _unlock("u2", "script.b"),
+            _unlock("u3", "scene.c", enabled=False),
+        ],
+    )
+    result = await _menu(hass, entry, "treats")
+    schema_default = [k for k in result["data_schema"].schema if k == "entities"][0].default()
+    assert schema_default == ["script.a", "script.b"]
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"entities": ["script.a", "scene.c"]}
+    )
+    # existing unlock values pre-fill the form
+    key = {str(k): k for k in result["data_schema"].schema}
+    assert key["name"].default() == "Old A"
+    assert key["cost"].default() == 40
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"name": "Movie A", "cost": 45}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"name": "Scene C", "cost": 100}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert dict(entry.options) == {"keep": 1, "treats": ["script.a", "scene.c"]}
+    calls = [c.args for c in client.api.await_args_list]
+    assert ("PATCH", "/api/unlocks/u1", {"name": "Movie A", "cost": 45, "enabled": True}) in calls
+    assert ("PATCH", "/api/unlocks/u3", {"name": "Scene C", "cost": 100, "enabled": True}) in calls
+    assert ("DELETE", "/api/unlocks/u2") in calls
+    assert not any(c[0] == "POST" for c in calls)
+
+
+async def test_options_treats_server_down(hass: HomeAssistant, entry_and_client) -> None:
+    entry, client = entry_and_client
+    hass.states.async_set("script.a", "off")
+    client.api.side_effect = CuestNotConnected
+    result = await _menu(hass, entry, "treats")
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"entities": ["script.a"]}
+    )
+    assert result["step_id"] == "treats"
+    assert result["errors"] == {"base": "cannot_connect"}
+    client.api.side_effect = None
+    client.api.return_value = (500, {})
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"entities": ["script.a"]}
+    )
+    assert result["errors"] == {"base": "server_rejected"}
+    assert "treats" not in entry.options

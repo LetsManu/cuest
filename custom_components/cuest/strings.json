@@ -37,7 +37,8 @@
         "description": "What would you like to set up?",
         "menu_options": {
           "people": "People and their phones",
-          "devices": "Devices found in your home"
+          "devices": "Devices found in your home",
+          "treats": "House treats"
         }
       },
       "people": {
@@ -64,6 +65,21 @@
       "no_devices": {
         "title": "No new devices found",
         "description": "No new devices found. Cuest keeps looking, so check back later."
+      },
+      "treats": {
+        "title": "House treats",
+        "description": "Pick the scenes, scripts or switches Cuest may switch on as treats. Tip: for 'gaming PC for 1 hour', make a script in Home Assistant that turns it on and off again after an hour.",
+        "data": {
+          "entities": "Treats"
+        }
+      },
+      "treats_item": {
+        "title": "Treat: {entity}",
+        "description": "Give this treat a name and a price in gold.",
+        "data": {
+          "name": "Name",
+          "cost": "Price (gold)"
+        }
       }
     },
     "error": {

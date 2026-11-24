@@ -57,7 +57,7 @@ The first message must be `hello` with the shared secret, within 5 seconds. Othe
 ```json
 { "type": "call_service", "id": "7c1e...", "domain": "notify", "service": "mobile_app_phone", "data": { "message": "Quest ready" }, "target": { "entity_id": "light.hall" } }
 ```
-`target` is optional. The bridge should only execute service calls in the allowed domains `notify` and `light`, and report anything else back as a failed `result`. Plan 2 may extend this list.
+`target` is optional. The bridge executes service calls in the fixed domains `notify` and `light`. It also executes `turn_on` for a `scene`, `script`, `switch` or `input_boolean` entity, but only when `target.entity_id` is a single string that is on the owner's treat list (chosen in the integration options, read on every call). Anything else is reported back as a failed `result` with `error: "not_allowed"`.
 
 `error` (sent before closing the socket)
 ```json

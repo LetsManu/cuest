@@ -40,7 +40,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await _async_register_card(hass)
     async_register_http(hass)
     client = CuestClient(hass, entry.data[CONF_URL], entry.data[CONF_SECRET])
-    forwarder = Forwarder(hass, client)
+    forwarder = Forwarder(hass, client, entry)
     exporter = EntityExporter(hass, client)
     data = CuestData(hass, client)
     data.async_start()

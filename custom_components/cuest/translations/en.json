@@ -10,7 +10,7 @@
         },
         "data_description": {
           "url": "For example http://homeassistant-nas.local:8787",
-          "secret": "Shown in the Cuest server logs or in /data/bridge-secret"
+          "secret": "Find it with: docker compose exec cuest cat /data/bridge-secret"
         }
       }
     },
@@ -68,11 +68,11 @@
     },
     "error": {
       "cannot_connect": "Could not reach the Cuest server. Check the address and that the server is running.",
-      "server_rejected": "The Cuest server didn't accept this change. Please try again."
+      "server_rejected": "The Cuest server couldn't handle this request. Please try again."
     },
     "abort": {
       "cannot_connect": "Could not reach the Cuest server. Check the address and that the server is running.",
-      "server_rejected": "The Cuest server didn't accept this change. Please try again.",
+      "server_rejected": "The Cuest server couldn't handle this request. Please try again.",
       "no_people": "No people found. Add people in Settings → People first."
     }
   },

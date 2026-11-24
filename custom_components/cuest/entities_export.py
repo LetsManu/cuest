@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable
 import json
 import logging
@@ -40,6 +41,8 @@ def build_entity_infos(hass: HomeAssistant) -> list[dict]:
         if entry.domain not in EXPORT_DOMAINS:
             continue
         seen.add(entry.entity_id)
+        if entry.disabled_by is not None:
+            continue
         state = hass.states.get(entry.entity_id)
         attrs = state.attributes if state is not None else {}
         device = dev_reg.async_get(entry.device_id) if entry.device_id else None
@@ -103,8 +106,15 @@ def chunk_entity_infos(
     chunks: list[list[dict]] = []
     current: list[dict] = []
     size = _ENVELOPE_BYTES
+    limit = max_bytes - _ENVELOPE_BYTES - 2
     for info in infos:
         info_size = len(json.dumps(info)) + 2  # ", " separator
+        if info_size > limit and info.get("options") is not None:
+            info = {**info, "options": None}
+            info_size = len(json.dumps(info)) + 2
+        if info_size > limit:
+            _LOGGER.debug("Skipping oversized entity %s", info.get("entityId"))
+            continue
         if current and size + info_size >= max_bytes:
             chunks.append(current)
             current = []
@@ -115,21 +125,29 @@ def chunk_entity_infos(
     return chunks
 
 
+_LOCK_KEY = "cuest_export_lock"
+
+
 async def async_send_entities(hass: HomeAssistant, client: CuestClient) -> None:
-    """Send all exported entities to the server in chunks."""
-    chunks = chunk_entity_infos(build_entity_infos(hass))
-    try:
-        for index, chunk in enumerate(chunks):
-            await client.send(
-                {
-                    "type": "entities",
-                    "chunk": index,
-                    "last": index == len(chunks) - 1,
-                    "entities": chunk,
-                }
-            )
-    except CuestNotConnected:
-        _LOGGER.debug("Not sending entities: not connected")
+    """Send all exported entities to the server in chunks.
+
+    Sends are serialized so chunks of two sets never interleave.
+    """
+    lock = hass.data.setdefault(_LOCK_KEY, asyncio.Lock())
+    async with lock:
+        chunks = chunk_entity_infos(build_entity_infos(hass))
+        try:
+            for index, chunk in enumerate(chunks):
+                await client.send(
+                    {
+                        "type": "entities",
+                        "chunk": index,
+                        "last": index == len(chunks) - 1,
+                        "entities": chunk,
+                    }
+                )
+        except CuestNotConnected:
+            _LOGGER.debug("Not sending entities: not connected")
 
 
 class EntityExporter:

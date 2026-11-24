@@ -70,9 +70,9 @@ class CuestConfigFlow(ConfigFlow, domain=DOMAIN):
         """Ask for the server address and the shared secret."""
         errors: dict[str, str] = {}
         if user_input is not None:
-            secret = user_input[CONF_SECRET]
+            secret = user_input[CONF_SECRET].strip()
             try:
-                url = normalize_url(user_input[CONF_URL])
+                url = normalize_url(user_input[CONF_URL].strip())
             except ValueError:
                 errors["base"] = "invalid_url"
             else:
@@ -276,15 +276,14 @@ class CuestOptionsFlow(OptionsFlow):
                     {"keys": list(user_input[CONF_SUGGESTIONS])},
                 )
             except CuestNotConnected:
-                return self.async_show_form(
-                    step_id="devices", errors={"base": "cannot_connect"}
-                )
+                return await self._show_devices("cannot_connect")
             except CuestRejected:
-                return self.async_show_form(
-                    step_id="devices", errors={"base": "server_rejected"}
-                )
+                return await self._show_devices("server_rejected")
             return self._finish()
+        return await self._show_devices(None)
 
+    async def _show_devices(self, error: str | None) -> ConfigFlowResult:
+        """Fetch suggestions and show the list, optionally with an error."""
         try:
             data = await self._api("GET", "/api/suggestions")
         except CuestNotConnected:
@@ -311,6 +310,7 @@ class CuestOptionsFlow(OptionsFlow):
                     )
                 }
             ),
+            errors={"base": error} if error else None,
         )
 
     async def async_step_no_devices(

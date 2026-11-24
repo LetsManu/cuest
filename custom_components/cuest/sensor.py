@@ -153,5 +153,5 @@ class CuestXpSensor(CuestPlayerSensor):
 class CuestGoldSensor(CuestPlayerSensor):
     _key = "gold"
     _attr_translation_key = "gold"
-    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+    _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = "gold"

@@ -293,17 +293,38 @@ async def test_options_people_none_available(hass: HomeAssistant, entry_and_clie
     assert result["reason"] == "no_people"
 
 
-async def test_options_devices_accept_fails_shows_form_error(
+async def test_options_devices_accept_fails_reshows_list_with_error(
     hass: HomeAssistant, entry_and_client
 ) -> None:
     entry, client = entry_and_client
-    client.api.side_effect = [
-        (200, {"suggestions": [{"key": "a", "deviceName": "W", "templates": [{"title": "T"}]}]}),
-        CuestNotConnected,
-    ]
+    sugg = {"suggestions": [{"key": "a", "deviceName": "W", "templates": [{"title": "T"}]}]}
+    client.api.side_effect = [(200, sugg), CuestNotConnected, (200, sugg)]
     result = await _menu(hass, entry, "devices")
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], {"suggestions": ["a"]}
     )
     assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "devices"
     assert result["errors"] == {"base": "cannot_connect"}
+    assert "suggestions" in result["data_schema"].schema
+
+
+async def test_options_devices_accept_fails_then_refetch_fails_aborts(
+    hass: HomeAssistant, entry_and_client
+) -> None:
+    entry, client = entry_and_client
+    sugg = {"suggestions": [{"key": "a", "deviceName": "W", "templates": [{"title": "T"}]}]}
+    client.api.side_effect = [(200, sugg), (500, {}), CuestNotConnected]
+    result = await _menu(hass, entry, "devices")
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"suggestions": ["a"]}
+    )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "cannot_connect"
+
+
+async def test_user_flow_strips_whitespace(hass: HomeAssistant) -> None:
+    result, validate = await _start(hass, "http://cuest.local:8787 ", " s3cret ")
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"] == {CONF_URL: "http://cuest.local:8787", CONF_SECRET: "s3cret"}
+    validate.assert_awaited_once_with(hass, "http://cuest.local:8787", "s3cret")

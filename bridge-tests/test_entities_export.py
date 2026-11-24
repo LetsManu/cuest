@@ -1,5 +1,6 @@
 """Tests for the Cuest entity export."""
 
+import asyncio
 from collections.abc import Callable
 from datetime import timedelta
 import json
@@ -166,3 +167,50 @@ async def test_stop_cancels_pending(exporter) -> None:
     async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=30))
     await hass.async_block_till_done()
     assert client.sent == []
+
+
+async def test_disabled_entries_skipped(hass: HomeAssistant) -> None:
+    entry = MockConfigEntry(domain="miele")
+    entry.add_to_hass(hass)
+    er.async_get(hass).async_get_or_create(
+        "sensor",
+        "miele",
+        "off",
+        config_entry=entry,
+        suggested_object_id="off",
+        disabled_by=er.RegistryEntryDisabler.USER,
+    )
+    hass.states.async_set("sensor.off", "1")
+    assert "sensor.off" not in {i["entityId"] for i in build_entity_infos(hass)}
+
+
+class SlowClient(FakeClient):
+    async def send(self, msg: dict) -> None:
+        await asyncio.sleep(0)
+        await super().send(msg)
+        await asyncio.sleep(0)
+
+
+async def test_overlapping_sends_do_not_interleave(hass: HomeAssistant) -> None:
+    for i in range(3000):
+        hass.states.async_set(f"sensor.s{i}", "x" * 20, {"friendly_name": "n" * 20})
+    client = SlowClient()
+    await asyncio.gather(
+        async_send_entities(hass, client), async_send_entities(hass, client)
+    )
+    chunks = [m["chunk"] for m in client.sent]
+    n = len(chunks) // 2
+    assert n > 1
+    assert chunks == list(range(n)) * 2
+    assert [m["last"] for m in client.sent].count(True) == 2
+    assert [m["chunk"] for m in client.sent if m["last"]] == [n - 1, n - 1]
+
+
+def test_oversized_info_drops_options_then_skipped() -> None:
+    big_opts = {"entityId": "sensor.a", "options": ["o" * 100] * 50}
+    big_name = {"entityId": "sensor.b", "name": "n" * 1500, "options": None}
+    ok = {"entityId": "sensor.c", "options": None}
+    chunks = chunk_entity_infos([big_opts, big_name, ok], max_bytes=1000)
+    flat = [e for c in chunks for e in c]
+    assert [e["entityId"] for e in flat] == ["sensor.a", "sensor.c"]
+    assert flat[0]["options"] is None

@@ -36,6 +36,7 @@ export const ARCANE_COPY = {
   problemGroup: 'Check {n} {model} devices',
   /** Compact teaser rows: "{models}" is the plural model name ("thermostat valves"). */
   problemGroupShort: 'Check {n} {models}',
+  problemGroupShortDevices: 'Check {n} devices',
   problemDetail: '{places} report a small problem',
   problemDetailOne: '{places} reports a small problem',
   problemDetailNoArea: 'Reports a small problem',

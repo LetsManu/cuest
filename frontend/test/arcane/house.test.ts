@@ -299,6 +299,28 @@ describe('collectFaults short forms for the compact teaser', () => {
     expect(mk('Valve', [undefined, undefined]).short).toEqual({ title: 'Check 2 valves', detail: 'Reports a small problem' });
   });
 
+  it('product-code models fall back to plain words', () => {
+    const one = (model: string) => {
+      const h = fakeHass({
+        states: {
+          'sensor.x_battery': bat('3'),
+          'binary_sensor.p1': st('on', { device_class: 'problem' }),
+          'binary_sensor.p2': st('on', { device_class: 'problem' }),
+        },
+        entities: { 'sensor.x_battery': { device_id: 'b' }, 'binary_sensor.p1': { device_id: 'p1' }, 'binary_sensor.p2': { device_id: 'p2' } },
+        devices: { b: { id: 'b', name: 'Hall', model }, p1: { id: 'p1', model, area_id: 'kuche' }, p2: { id: 'p2', model, area_id: 'kuche' } },
+        areas: AREAS,
+      });
+      const f = collectFaults(h, opts).faults;
+      return [f.find((x) => x.kind === 'battery_critical')!.short.detail, f.find((x) => x.kind === 'problem')!.short.title];
+    };
+    for (const code of ['TS0601', 'lumi.sensor_ht', 'SNZB-02D', 'Thermostat radiator valve X', 'TRV_2']) {
+      expect(one(code), code).toEqual(['Battery at 3 %', 'Check 2 devices']);
+    }
+    expect(one('Smoke-detector')).toEqual(['Smoke-detector at 3 %', 'Check 2 smoke-detectors']);
+    expect(one('Heizkörperthermostat')).toEqual(['Heizkörperthermostat at 3 %', 'Check 2 heizkörperthermostats']);
+  });
+
   it('other quests keep their full wording', () => {
     const h = fakeHass({
       states: {

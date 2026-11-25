@@ -219,9 +219,11 @@ Everything that needs a hand, as small quests with XP, found by itself:
 
 Order: critical battery, problem, temperature, low battery, update, then by
 name. The compact teaser uses shorter wording: a battery quest reads
-"{device model} at {n} %" (for example "Thermostat at 0 %", or "Battery at 14 %"
-without a model) and a group of problems reads "Check 3 thermostat valves" with
-just the rooms underneath; the full board keeps the long wording. Health is `100 * (checked - faulty) / checked`, where `checked` is the
+"{device model} at {n} %" (for example "Thermostat at 0 %") and a group of
+problems reads "Check 3 thermostat valves" with just the rooms underneath. A
+model that is a product code (digits, dots or underscores, or longer than 20
+characters, such as TS0601) is left out: "Battery at 14 %", "Check 3 devices".
+The full board keeps the long wording. Health is `100 * (checked - faulty) / checked`, where `checked` is the
 number of battery, problem, temperature and update entities inspected after
 `exclude`, and `faulty` the distinct entities among them that have a quest.
 

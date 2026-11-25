@@ -142,12 +142,18 @@ function fault(kind: FaultKind, f: Omit<Fault, 'kind' | 'xp' | 'minutes' | 'shor
   return { ...rest, kind, xp: XP[kind], minutes: MINUTES[kind], short: { title: short?.title ?? f.title, detail: short?.detail ?? f.detail } };
 }
 
+/** A model that reads like a word ("Thermostat", "Smoke-detector"), not a product code like TS0601 or lumi.sensor_ht. */
+export function wordyModel(model: string | null | undefined): string | null {
+  const m = (model ?? '').trim();
+  return m.length > 0 && m.length <= 20 && /^\p{L}[\p{L} -]*$/u.test(m) ? m : null;
+}
+
 /** "Thermostat valve" -> "thermostat valves", "Switch" -> "switches", "Battery" -> "batteries"; codes like "TRVZB" keep their case. */
 export function pluralModel(model: string): string {
   const words = model
     .trim()
     .split(/\s+/)
-    .map((w) => (/^[A-Z][a-z]+$/.test(w) ? w.toLowerCase() : w));
+    .map((w) => (/^\p{Lu}[\p{Ll}-]+$/u.test(w) ? w.toLowerCase() : w));
   const last = words[words.length - 1] ?? '';
   words[words.length - 1] = /[^aeiou]y$/i.test(last) ? `${last.slice(0, -1)}ies` : /(s|x|z|ch|sh)$/i.test(last) ? `${last}es` : `${last}s`;
   return words.join(' ');
@@ -191,7 +197,7 @@ function findFaults(h: HomeAssistant, opts: { batteryThreshold: number; exclude:
         title: fill(kind === 'battery_critical' ? C.batteryCritical : C.batteryLow, { name: displayName(h, id) }),
         detail: fill(C.batteryDetail, { n: fmtNumber(v, l, 0) }),
         entityIds: [id],
-        short: { detail: fill(C.batteryShort, { device: deviceOf(h, id)?.model?.trim() || C.batteryShortDevice, n: fmtNumber(v, l, 0) }) },
+        short: { detail: fill(C.batteryShort, { device: wordyModel(deviceOf(h, id)?.model) ?? C.batteryShortDevice, n: fmtNumber(v, l, 0) }) },
       });
       faults.push(f);
       const did = h.entities?.[id]?.device_id;
@@ -282,7 +288,10 @@ function findFaults(h: HomeAssistant, opts: { batteryThreshold: number; exclude:
         title: fill(C.problemGroup, { n: ids.length, model }),
         detail: problemDetail(p, false),
         entityIds: ids,
-        short: { title: fill(C.problemGroupShort, { n: ids.length, models: pluralModel(model) }), detail: p || C.problemDetailNoArea },
+        short: {
+          title: wordyModel(model) ? fill(C.problemGroupShort, { n: ids.length, models: pluralModel(model) }) : fill(C.problemGroupShortDevices, { n: ids.length }),
+          detail: p || C.problemDetailNoArea,
+        },
       }),
     );
   }

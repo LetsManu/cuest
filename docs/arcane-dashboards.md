@@ -161,7 +161,10 @@ orbs:
 
 A line chart of one or two sensors from the Home Assistant history. The
 history is fetched when the card loads and then at most once every 5 minutes.
-The chart is resampled to at most 48 points. Both lines share one scale.
+The chart is resampled to at most 48 points. With two sensors each line gets
+its own scale by default: the main sensor in the upper part of the chart, the
+second one in a strip below it, as in the mockup (`scale: shared` puts both on
+one scale over the full height).
 
 | Option | Default | Notes |
 |---|---|---|
@@ -169,6 +172,7 @@ The chart is resampled to at most 48 points. Both lines share one scale.
 | `entity2` | none | Second sensor (dashed blue line). |
 | `name`, `name2` | friendly names | Legend names. |
 | `hours` | `24` | Span, 1 to 168. |
+| `scale` | `separate` | `separate` (each line on its own range, main above, second below) or `shared` (one range for both lines). Only matters with `entity2`. |
 | `title` | `Warmth trail` | Heading. |
 
 ```yaml

@@ -236,6 +236,36 @@ describe('trail theme css', () => {
   });
 });
 
+describe('trail scales', () => {
+  const ys = (el: HTMLElement) =>
+    Array.from(root(el).querySelectorAll('polyline')).map((p) => p.getAttribute('points')!.split(' ').map((q) => Number(q.split(',')[1])));
+  const range = (a: number[]) => [Math.min(...a), Math.max(...a)];
+
+  it('two sensors draw in separate bands by default, like the mockup', async () => {
+    const el = await mount(TAG, cfg, fakeHass({ states: states(), history: history() }));
+    await flush(el);
+    const [inside, outside] = ys(el);
+    expect(range(inside)).toEqual([5.72, 65.78]);
+    expect(range(outside)).toEqual([81.66, 107.54]);
+    expect(root(el).querySelector('svg.graph')!.getAttribute('aria-label')).toBe('Wohnzimmer over the last 24 hours, between 20 and 22.3 °C');
+    expect(text(el)).toContain('Wohnzimmer 21.5°');
+    expect(text(el)).toContain('outside -0.7°');
+  });
+
+  it('scale: shared keeps one range for both lines', async () => {
+    const el = await mount(TAG, { ...cfg, scale: 'shared' }, fakeHass({ states: states(), history: history() }));
+    await flush(el);
+    const [inside, outside] = ys(el);
+    expect(Math.min(...inside)).toBe(8.8);
+    expect(Math.max(...outside)).toBe(101.2);
+  });
+
+  it('rejects an unknown scale', () => {
+    const c = document.createElement(TAG) as unknown as { setConfig(c: unknown): void };
+    expect(() => c.setConfig({ ...cfg, scale: 'log' })).toThrow(/cuest-trail-card: "scale" must be one of separate, shared/);
+  });
+});
+
 describe('trail config', () => {
   const card = () => document.createElement(TAG) as unknown as { setConfig(c: unknown): void; getCardSize(): number; getGridOptions(): unknown; constructor: { getStubConfig(h: unknown): unknown } };
   it('rejects bad hours and a missing entity', () => {

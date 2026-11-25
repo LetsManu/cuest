@@ -3,7 +3,7 @@ import type { HomeAssistant } from '../hass-types';
 import { ArcaneCard, registerCard, stubEntity, v } from './base';
 import { ARCANE_COPY, fill } from './copy';
 import { fmtNumber, fmtTemp, num } from './format';
-import { fetchHistory, resample, trailGeometry, type Sample } from './history';
+import { fetchHistory, resample, trailGeometry, type Sample, type TrailScale } from './history';
 import { ARCANE, FONT_PIXEL } from './theme';
 
 const C = ARCANE_COPY;
@@ -22,7 +22,10 @@ interface TrailConfig {
   title: string;
   name?: string;
   name2?: string;
+  scale: TrailScale;
 }
+
+const SCALES: readonly TrailScale[] = ['separate', 'shared'];
 
 interface Loaded {
   start: number;
@@ -71,6 +74,7 @@ export class CuestTrailCard extends ArcaneCard<TrailConfig> {
       entity,
       hours: v.num(raw, 'hours', TAG, { def: 24, min: 1, max: 168 }),
       title: v.str(raw, 'title', TAG) ?? C.trailTitle,
+      scale: v.oneOf(raw, 'scale', TAG, SCALES, 'separate'),
     };
     const entity2 = v.entity(raw, 'entity2', TAG);
     if (entity2) cfg.entity2 = entity2;
@@ -161,7 +165,7 @@ export class CuestTrailCard extends ArcaneCard<TrailConfig> {
       if (pts.length && now !== null) pts[pts.length - 1] = now;
       return pts;
     });
-    const geo = trailGeometry(series, W, H);
+    const geo = trailGeometry(series, W, H, 0.08, cfg.scale);
     const name1 = this.nameOf(h, cfg.entity, cfg.name);
     const name2 = cfg.entity2 ? this.nameOf(h, cfg.entity2, cfg.name2) : '';
     const cur = (id: string): string => (geo ? fmtTemp(liveNum(h, id), lang) : '—');

@@ -45,7 +45,6 @@ const GRADIENT: Record<OrbColor, [string, string]> = {
   health: [A.healthFrom, A.healthTo],
   glow: [A.glowFrom, A.glowTo],
 };
-const BACK_WAVE: Record<OrbColor, string> = { mana: A.manaBack, health: A.healthTo, glow: A.glowTo };
 
 export function validateOrb(raw: unknown, tag: string): OrbItem {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) throw new ConfigError(`${tag}: each orb must be an object`);
@@ -150,9 +149,9 @@ export function renderOrb(v: OrbValue, color: OrbColor, index: number, size: num
       <linearGradient id="${grad}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${from}"/><stop offset="1" stop-color="${to}"/></linearGradient></defs>
     <circle cx="60" cy="60" r="52" fill="${A.well}"/>
     <g clip-path="url(#${clip})">
-      <g data-wave="back" transform="translate(0,${back})"><g class="wave2"><path d="${wave(20)}" fill="${BACK_WAVE[color]}" opacity="0.7"/></g></g>
+      ${color === 'mana' ? svg`<g data-wave="back" transform="translate(0,${back})"><g class="wave2"><path d="${wave(20)}" fill="${A.manaBack}" opacity="0.7"/></g></g>` : ''}
       <g data-wave="front" transform="translate(0,${t})"><g class="wave"><path d="${wave(18)}" fill="url(#${grad})"/></g></g>
-      ${small ? '' : svg`<ellipse cx="42" cy="38" rx="14" ry="8" fill="#FFFFFF" opacity="0.18"/>`}
+      ${size < 96 ? '' : svg`<ellipse cx="42" cy="38" rx="14" ry="8" fill="#FFFFFF" opacity="0.18"/>`}
     </g>
     <circle cx="60" cy="60" r="54" fill="none" stroke="${A.gold}" stroke-width="${small ? 5 : 4}"/>
     ${opts.ring ? svg`<circle class="spin" cx="60" cy="60" r="58" fill="none" stroke="${A.gold}" stroke-width="1.5" stroke-dasharray="3 9" opacity="0.7"/>` : ''}
@@ -205,7 +204,7 @@ export class CuestOrbCard extends ArcaneCard<OrbCardConfig> {
   }
 
   getGridOptions() {
-    return { columns: 12, rows: 3 };
+    return { columns: 12, rows: 'auto' as const };
   }
 
   protected render(): TemplateResult | typeof nothing {

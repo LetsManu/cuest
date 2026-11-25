@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { expectClean, fakeHass, mount, st, text } from './fake-hass';
-import { CuestOrbCard, validateOrb } from '../../src/arcane/orb';
+import { render } from 'lit';
+import { CuestOrbCard, renderOrb, validateOrb } from '../../src/arcane/orb';
 import '../../src/arcane/orb';
 
 const TAG = 'cuest-orb-card';
@@ -35,6 +36,24 @@ describe('orb presets', () => {
     const svg = root(el).querySelector('svg[role="img"]')!;
     expect(svg.getAttribute('aria-label')).toBe('Mana: 72 percent');
     expectClean(el);
+  });
+
+  it('draws the second, slower back wave only in mana orbs, as in the mockup', async () => {
+    const h = fakeHass({ states: { 'sensor.p': st('50') } });
+    const el = await mount(TAG, { orbs: [{ preset: 'percent', entity: 'sensor.p' }, { preset: 'percent', entity: 'sensor.p', color: 'health' }, { preset: 'percent', entity: 'sensor.p', color: 'glow' }] }, h);
+    const orbs = Array.from(root(el).querySelectorAll('svg.orb'));
+    expect(orbs.map((o) => o.querySelectorAll('[data-wave="back"]').length)).toEqual([1, 0, 0]);
+    expect(orbs.map((o) => o.querySelectorAll('[data-wave="front"]').length)).toEqual([1, 1, 1]);
+  });
+
+  it('draws the glass highlight only on the big 96px orbs, as in the mockups', async () => {
+    const val = { p: 0.5, text: '50%', label: 'Health', sublabel: '', aria: 'Health: 50 percent' };
+    const at = (size: number) => {
+      const d = document.createElement('div');
+      render(renderOrb(val, 'health', 0, size, { ring: false }), d);
+      return d.querySelectorAll('ellipse').length;
+    };
+    expect([at(72), at(80), at(96)]).toEqual([0, 0, 1]);
   });
 
   it('unavailable percent shows a dash and an empty orb', async () => {
@@ -192,7 +211,7 @@ describe('orb row', () => {
   it('exposes grid options, card size and stub config', async () => {
     const C = customElements.get(TAG) as unknown as { getStubConfig(): object; new (): HTMLElement & { getGridOptions(): unknown; getCardSize(): number } };
     const el = new C();
-    expect(el.getGridOptions()).toEqual({ columns: 12, rows: 3 });
+    expect(el.getGridOptions()).toEqual({ columns: 12, rows: 'auto' });
     expect(el.getCardSize()).toBe(3);
     expect(C.getStubConfig()).toEqual({ preset: 'online' });
   });

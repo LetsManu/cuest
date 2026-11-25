@@ -45,7 +45,6 @@ export class CuestTrailCard extends ArcaneCard<TrailConfig> {
     css`
       .trail{display:flex;flex-direction:column;gap:8px}
       .head{display:flex;justify-content:space-between;align-items:baseline}
-      h2{margin:0;font-family:${u(FONT_PIXEL)};font-size:18px;font-weight:400;color:${u(A.goldText)}}
       .hours{font-size:12px;color:${u(A.muted)}}
       .plot{position:relative}
       svg.graph{display:block;width:100%;height:110px}
@@ -112,7 +111,7 @@ export class CuestTrailCard extends ArcaneCard<TrailConfig> {
   }
 
   getGridOptions() {
-    return { columns: 12, rows: 3 };
+    return { columns: 12, rows: 'auto' as const };
   }
 
   private maybeFetch(h: HomeAssistant): void {

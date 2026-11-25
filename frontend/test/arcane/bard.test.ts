@@ -439,10 +439,14 @@ describe('full bard', () => {
   it('grid options and stub', () => {
     const full = document.createElement(TAG) as unknown as CuestBardCard;
     full.setConfig({ entity: ID });
-    expect(full.getGridOptions()).toEqual({ columns: 12, rows: 5 });
+    expect(full.getGridOptions()).toEqual({ columns: 12, rows: 'auto' });
     const compact = document.createElement(TAG) as unknown as CuestBardCard;
     compact.setConfig({ entity: ID, variant: 'compact' });
-    expect(compact.getGridOptions()).toEqual({ columns: 12, rows: 2 });
+    expect(compact.getGridOptions()).toEqual({ columns: 12, rows: 'auto' });
+    // Without motion a playing bard shows full bars like the mockup; an idle one keeps them low.
+    expect(css()).toMatch(/\.bars\.big i\.eq\{transform:none\}/);
+    // Like the mockup, the compact play button has no rim.
+    expect(css()).toMatch(/\.compact \.main\{[^}]*width:48px[^}]*border:0\}/);
     const h = fakeHass({ states: { 'light.a': st('on'), 'media_player.tv': st('off'), 'media_player.b': st('on') } });
     expect(CuestBardCard.getStubConfig(h)).toEqual({ entity: 'media_player.tv' });
     expect(CuestBardCard.getStubConfig()).toEqual({ entity: 'media_player.living_room' });

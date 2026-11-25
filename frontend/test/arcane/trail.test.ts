@@ -248,7 +248,7 @@ describe('trail config', () => {
   it('reports size, grid and a temperature stub', () => {
     const c = card();
     expect(c.getCardSize()).toBe(3);
-    expect(c.getGridOptions()).toEqual({ columns: 12, rows: 3 });
+    expect(c.getGridOptions()).toEqual({ columns: 12, rows: 'auto' });
     const stub = c.constructor.getStubConfig({
       states: { 'light.a': st('on'), 'sensor.hum': st('5', { device_class: 'humidity' }), 'sensor.t': st('5', { device_class: 'temperature' }) },
     });

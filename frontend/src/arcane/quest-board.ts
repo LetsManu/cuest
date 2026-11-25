@@ -289,7 +289,7 @@ export class CuestQuestBoard extends ArcaneCard<BoardConfig> {
   private row(f: Fault, go?: () => void): TemplateResult {
     const isUpdate = f.kind === 'update';
     const inner = html`<span class="badge ${isUpdate ? 'up' : ''}" aria-hidden="true">${isUpdate ? '↑' : '!'}</span>
-      <span class="body"><span class="title">${f.title}</span><span class="detail">${f.detail}</span></span>
+      <span class="body"><span class="title">${f.short.title}</span><span class="detail">${f.short.detail}</span></span>
       <span class="xp">${withNums(fill(C.xp, { n: f.xp }))}</span>`;
     return go ? html`<button type="button" class="row" @click=${go}>${inner}</button>` : html`<div class="row">${inner}</div>`;
   }

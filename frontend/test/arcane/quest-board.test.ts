@@ -295,6 +295,21 @@ describe('quest board compact', () => {
     window.removeEventListener('location-changed', seen);
   });
 
+  it('compact rows use the short mockup wording; the full board keeps the long one', async () => {
+    const h = house();
+    h.devices!.d1 = { id: 'd1', name: 'Büro', model: 'Thermostat' };
+    const compact = await mount(TAG, { variant: 'compact', limit: 2 }, h);
+    const rows = Array.from(root(compact).querySelectorAll('.row')).map((r) => [r.querySelector('.title')!.textContent, r.querySelector('.detail')!.textContent]);
+    expect(rows).toEqual([
+      ['Change the Büro battery', 'Thermostat at 0 %'],
+      ['Check 2 valves', 'Wohnzimmer ×2'],
+    ]);
+    const full = await mount(TAG, { variant: 'full' }, h);
+    expect(text(full)).toContain('Battery 0 % · it reads -327.7 °C until then');
+    expect(text(full)).toContain('Check 2 Valve devices');
+    expect(text(full)).toContain('Wohnzimmer ×2 report a small problem');
+  });
+
   it('has no link and no more line without more_path or remaining faults', async () => {
     const el = await mount(TAG, { variant: 'compact', limit: 5 }, five());
     expect(root(el).querySelectorAll('.row')).toHaveLength(5);

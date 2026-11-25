@@ -218,7 +218,10 @@ Everything that needs a hand, as small quests with XP, found by itself:
 | Low battery | a battery `sensor` at or below `battery_threshold`; or a `binary_sensor` with `device_class: battery` that is `on` | 5 |
 
 Order: critical battery, problem, temperature, low battery, update, then by
-name. Health is `100 * (checked - faulty) / checked`, where `checked` is the
+name. The compact teaser uses shorter wording: a battery quest reads
+"{device model} at {n} %" (for example "Thermostat at 0 %", or "Battery at 14 %"
+without a model) and a group of problems reads "Check 3 thermostat valves" with
+just the rooms underneath; the full board keeps the long wording. Health is `100 * (checked - faulty) / checked`, where `checked` is the
 number of battery, problem, temperature and update entities inspected after
 `exclude`, and `faulty` the distinct entities among them that have a quest.
 

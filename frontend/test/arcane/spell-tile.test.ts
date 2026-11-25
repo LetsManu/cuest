@@ -340,6 +340,25 @@ describe('look', () => {
     expect(shape.namespaceURI).toBe('http://www.w3.org/2000/svg');
   });
 
+  it('wide and scene tiles are text only like the mockup unless an icon is configured', async () => {
+    for (const variant of ['wide', 'scene']) {
+      const plain = await mount(TAG, { entity: 'light.a', variant }, one('light.a'));
+      expect(root(plain).querySelector('.glyph'), variant).toBeNull();
+      const withIcon = await mount(TAG, { entity: 'light.a', variant, icon: 'bulb' }, one('light.a'));
+      expect(root(withIcon).querySelector('.glyph svg'), variant).not.toBeNull();
+    }
+    const icon = await mount(TAG, { entity: 'light.a' }, one('light.a'));
+    expect(root(icon).querySelector('.glyph svg')).not.toBeNull();
+  });
+
+  it('wide and scene tiles follow the mockup sizes', () => {
+    expect(css()).toMatch(/\.tile\.wide\{min-height:80px;[^}]*padding:12px;text-align:left/);
+    expect(css()).toMatch(/\.wide \.name\{font-size:15px;font-weight:700;color:#ECE4D2\}/);
+    expect(css()).toMatch(/\.state\{[^}]*font-size:13px;font-weight:400;color:#A9A3BE\}/);
+    expect(css()).toMatch(/\.lit \.name,\.lit \.state\{color:#FFE7A8\}/);
+    expect(css()).toMatch(/\.tile\.scene\{min-height:56px;[^}]*border-radius:12px;font-size:13px\}/);
+  });
+
   it('every variant has a min-height of at least 56px on its own rule', async () => {
     for (const variant of ['icon', 'wide', 'scene']) {
       const el = await mount(TAG, { entity: 'light.a', variant }, one('light.a'));
@@ -394,10 +413,10 @@ describe('updates and config', () => {
       el.setConfig(c);
       return el.getGridOptions();
     };
-    expect(g({ entity: 'light.a' })).toEqual({ columns: 3, rows: 2 });
-    expect(g({ entity: 'light.a', variant: 'icon' })).toEqual({ columns: 3, rows: 2 });
-    expect(g({ entity: 'light.a', variant: 'wide' })).toEqual({ columns: 6, rows: 2 });
-    expect(g({ entity: 'scene.a', variant: 'scene' })).toEqual({ columns: 4, rows: 1 });
+    expect(g({ entity: 'light.a' })).toEqual({ columns: 3, rows: 'auto' });
+    expect(g({ entity: 'light.a', variant: 'icon' })).toEqual({ columns: 3, rows: 'auto' });
+    expect(g({ entity: 'light.a', variant: 'wide' })).toEqual({ columns: 6, rows: 'auto' });
+    expect(g({ entity: 'scene.a', variant: 'scene' })).toEqual({ columns: 4, rows: 'auto' });
     const h = fakeHass({ states: { 'switch.s': st('on'), 'light.l': st('on') } });
     expect(CuestSpellTile.getStubConfig(h)).toEqual({ entity: 'light.l' });
     expect(CuestSpellTile.getStubConfig()).toEqual({ entity: 'light.living_room' });

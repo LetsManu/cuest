@@ -18,7 +18,7 @@ function fakeHass(o: { gold?: number; buy?: (body: any) => unknown; boostUntil?:
   const callApi = vi.fn(async (_m: string, path: string, body?: any) => {
     if (path === 'cuest_whoami') return { playerId: 'p1', isAdmin: false, players: [{ id: 'p1', name: 'Ada' }] };
     if (path === 'cuest/quests') return { active: [], open: [], whenever: [] };
-    if (path.endsWith('/summary')) return { player: { id: 'p1', name: 'Ada', xp: 130, gold: state.gold, restTokens: 0, boostUntil: state.boostUntil }, level: 4, title: 'Hearthkeeper', intoLevel: 30, toNext: 70 };
+    if (path.endsWith('/summary')) return { player: { id: 'p1', name: 'Ada', xp: 130, gold: state.gold, restTokens: 0, boostUntil: state.boostUntil }, level: 4, title: 'Hearthkeeper', intoLevel: 30, toNext: 400 };
     if (path.startsWith('cuest/shop?')) return { gold: state.gold, restTokens: 0, boostUntil: state.boostUntil, owned: { cat: 1, hood_night: 1 }, equipped: state.equipped, catalog: state.catalog };
     if (path === 'cuest/shop/buy') { if (o.buy) return o.buy(body); return { player: {}, result: { kind: 'item', itemId: body.itemId } }; }
     if (path === 'cuest/shop/equip') { if (body.itemId) state.equipped[body.slot] = body.itemId; else delete state.equipped[body.slot]; return {}; }

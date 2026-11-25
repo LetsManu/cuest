@@ -12,7 +12,7 @@ function fakeHass(o: { roll?: (energy: string) => unknown; accept?: (body: any) 
   const callApi = vi.fn(async (m: string, path: string, body?: any) => {
     if (path === 'cuest_whoami') return { playerId: 'p1', isAdmin: false, players: [{ id: 'p1', name: 'Ada' }] };
     if (path === 'cuest/quests') return lists;
-    if (path.endsWith('/summary')) return { player: { id: 'p1', name: 'Ada', xp: 130, gold: 5, restTokens: 0, boostUntil: null }, level: 4, title: 'Hearthkeeper', intoLevel: 30, toNext: 70 };
+    if (path.endsWith('/summary')) return { player: { id: 'p1', name: 'Ada', xp: 130, gold: 5, restTokens: 0, boostUntil: null }, level: 4, title: 'Hearthkeeper', intoLevel: 30, toNext: 400 };
     if (path.startsWith('cuest/shop?')) return { gold: 5, restTokens: 0, boostUntil: null, owned: {}, equipped: {}, catalog: [] };
     if (path.startsWith('cuest/dice?')) return (o.roll ?? (() => ({ quest: QUEST })))(new URL('http://x/' + path).searchParams.get('energy')!);
     if (path === 'cuest/dice/accept') return (o.accept ?? (() => ({ ...QUEST, id: 'n1', title: SUGGESTION.title, status: 'active', startedAt: '2026-11-24T10:00:00Z' })))(body);

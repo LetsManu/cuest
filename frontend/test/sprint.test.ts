@@ -13,7 +13,7 @@ function fakeHass(o: Opts = {}) {
   const callApi = vi.fn(async (m: string, path: string, body?: any) => {
     if (path === 'cuest_whoami') return { playerId: 'p1', isAdmin: false, players: [{ id: 'p1', name: 'Ada' }] };
     if (path === 'cuest/quests') return lists;
-    if (path.endsWith('/summary')) return { player: { id: 'p1', name: 'Ada', xp: 130, gold: 5, restTokens: 0, boostUntil: null }, level: 4, title: 'Hearthkeeper', intoLevel: 30, toNext: 70 };
+    if (path.endsWith('/summary')) return { player: { id: 'p1', name: 'Ada', xp: 130, gold: 5, restTokens: 0, boostUntil: null }, level: 4, title: 'Hearthkeeper', intoLevel: 30, toNext: 400 };
     if (path.startsWith('cuest/shop?')) return { gold: 5, restTokens: 0, boostUntil: null, owned: {}, equipped: {}, catalog: [] };
     if (path.startsWith('cuest/sprint?')) { const snap = sprint; if (o.getGate) { const g = o.getGate; o.getGate = undefined; await g(); } return { sprint: snap }; }
     if (path === 'cuest/sprint/start') {

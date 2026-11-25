@@ -26,7 +26,7 @@ async def test_snapshot_creates_and_updates_sensors(cuest) -> None:
     assert level.state == "3"
     assert level.attributes["title"] == "Squire"
     assert level.attributes["into_level"] == 20
-    assert level.attributes["to_next"] == 80
+    assert level.attributes["to_next"] == 300
     assert level.attributes["player_name"] == "Ada"
     assert level.attributes["cuest_player_id"] == "p1"
     assert level.attributes["cuest_kind"] == "level"

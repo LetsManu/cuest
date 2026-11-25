@@ -3,6 +3,7 @@ import type { HassState, HomeAssistant } from '../hass-types';
 import { ArcaneCard, ConfigError, callSafely, registerCard, stubEntity, v } from './base';
 import { ARCANE_COPY, fill } from './copy';
 import { fmtNumber, fmtTemp, num } from './format';
+import { plausibleCelsius } from './house';
 import { ARCANE, FONT_BODY } from './theme';
 
 const C = ARCANE_COPY;
@@ -43,6 +44,8 @@ export interface RuneView {
 const clamp = (n: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, n));
 const frac = (x: number | null, min: number, max: number): number => (x === null || !(max > min) ? 0 : clamp((x - min) / (max - min), 0, 1));
 const unavailable = (s: HassState): boolean => s.state === 'unavailable' || s.state === 'unknown';
+/** An impossible reading (a sensor's -327.7 error value) is not shown; same rule as the house scans. */
+const honest = (x: number | null, unit: unknown): number | null => (x === null ? null : plausibleCelsius(x, unit) === null ? null : x);
 const unitOf = (s: HassState): string => (typeof s.attributes.unit_of_measurement === 'string' ? s.attributes.unit_of_measurement : '');
 
 function climateView(s: HassState, cfg: RuneConfig, target: number | null): RuneView {
@@ -53,13 +56,13 @@ function climateView(s: HassState, cfg: RuneConfig, target: number | null): Rune
   let max = num(a.max_temp) ?? 35;
   if (!(max > min)) [min, max] = [7, 35];
   const step = num(a.target_temp_step) || 0.5;
-  const cur = num(a.current_temperature);
+  const cur = honest(num(a.current_temperature), unitOf(s));
   const resting = fill(C.runeResting, { Rune: rn });
   if (unavailable(s)) return { rune, p: 0, centre: '—', sub: '', label: resting, adjust: null };
   if (s.state === 'off') return { rune, p: 0, centre: fmtTemp(cur), sub: '', label: resting, adjust: null };
   const action = typeof a.hvac_action === 'string' && a.hvac_action ? a.hvac_action : 'idle';
   const title = fill(C.runeTitle, { Rune: rn, action });
-  const now = cur === null ? '' : fill(C.runeNow, { v: fmtTemp(cur) });
+  const now = fill(C.runeNow, { v: fmtTemp(cur) });
   const tgt = target ?? num(a.temperature);
   if (tgt === null) {
     const lo = num(a.target_temp_low);
@@ -81,7 +84,9 @@ function sensorView(s: HassState, cfg: RuneConfig): RuneView {
   const name = cfg.name ?? fn;
   const min = cfg.min ?? 0;
   const max = cfg.max ?? 100;
-  const x = num(s.state);
+  const raw = num(s.state);
+  const temp = s.attributes.device_class === 'temperature' || unitOf(s) === '°C' || unitOf(s) === '°F';
+  const x = temp ? honest(raw, unitOf(s)) : raw;
   if (x === null) return { rune, p: 0, centre: '—', sub: '', label: fill(C.runeResting, { Rune: rn }), adjust: null };
   return { rune, p: frac(x, min, max), centre: `${fmtNumber(x)}${unitOf(s)}`, sub: '', label: fill(C.runeTitle, { Rune: rn, action: name }).replace(/ · $/, ''), adjust: null };
 }

@@ -189,7 +189,9 @@ buttons; for a sensor it shows the value. Taps are debounced for 800 ms and
 send one `climate.set_temperature` with the final target. The step is the
 thermostat's `target_temp_step` (default 0.5); the range is its `min_temp` and
 `max_temp` (default 7 to 35). Thermostats in `heat_cool` mode show their range
-without buttons.
+without buttons. An impossible reading (below -50 or above 100 °C, such as a
+thermostat reporting -327.7) shows as "—" instead of a number: the current
+temperature is left out, and a sensor rune shows "—" with an empty arc.
 
 | Option | Default | Notes |
 |---|---|---|
@@ -720,8 +722,11 @@ orbs work them out from your entities. You can delete the helpers later.
 
 ## 5. Notes
 
-- Area names are matched by name or by id and ignoring case, so `Büro` and
-  `buero` both work.
+- Area names are matched by name or by id, ignoring case and umlauts (`ä` is
+  `ae`, `ö` is `oe`, `ü` is `ue`, `ß` is `ss`; other accents are dropped), so
+  `Büro` and `buero` both work, whichever way the area is spelled in Home
+  Assistant. For example, `- Büro` in a rooms card finds an area named `Buero`
+  (id `buero`), and `- Küche` finds `Küche`, `Kueche` or an id of `kuche`.
 - Light groups never count twice: a group helper, a Zigbee2MQTT group and a Hue
   group are skipped by Glow, the header windows and the rooms' lit counts.
 - Adding a quest from the quest board needs a Home Assistant admin. Other

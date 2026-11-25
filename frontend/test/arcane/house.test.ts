@@ -429,6 +429,22 @@ describe('roomRows', () => {
     expect(rows[1]).toMatchObject({ temp: null, tempState: 'check', lit: 2 });
     expect(rows[2]).toMatchObject({ temp: null, tempState: 'battery', lit: 0 });
   });
+  it('matches umlaut and transliterated names both ways, and by id', () => {
+    const mk = (areas: Record<string, { area_id: string; name: string }>) => fakeHass({ states: {}, areas });
+    const buero = mk({ buero: { area_id: 'buero', name: 'Buero' } });
+    expect(roomRows(buero, { batteryThreshold: 20, areas: ['Büro'] }).map((r) => r.areaId)).toEqual(['buero']);
+    const buro = mk({ x: { area_id: 'x', name: 'Büro' } });
+    expect(roomRows(buro, { batteryThreshold: 20, areas: ['buero'] }).map((r) => r.areaId)).toEqual(['x']);
+    expect(roomRows(buro, { batteryThreshold: 20, areas: ['  BÜRO '] }).map((r) => r.areaId)).toEqual(['x']);
+    for (const id of ['kuche', 'kueche']) {
+      const k = mk({ [id]: { area_id: id, name: 'Kitchen' } });
+      expect(roomRows(k, { batteryThreshold: 20, areas: ['Küche'] }).map((r) => r.areaId)).toEqual([id]);
+    }
+    const cafe = mk({ c: { area_id: 'c', name: 'Café' } });
+    expect(roomRows(cafe, { batteryThreshold: 20, areas: ['cafe'] }).map((r) => r.areaId)).toEqual(['c']);
+    const strasse = mk({ s: { area_id: 's', name: 'Straße' } });
+    expect(roomRows(strasse, { batteryThreshold: 20, areas: ['strasse'] }).map((r) => r.areaId)).toEqual(['s']);
+  });
   it('defaults to all areas by name and reports rooms without a sensor', () => {
     const rows = roomRows(h, opts);
     expect(rows.map((r) => r.name)).toEqual(['Büro', 'Küche', 'Schlafzimmer', 'Wohnzimmer']);

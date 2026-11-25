@@ -63,6 +63,7 @@ export class CuestArcaneHeader extends ArcaneCard<HeaderConfig> {
   static styles = [
     ...ArcaneCard.styles,
     css`
+      :host{container-type:inline-size}
       .sky{position:relative;overflow:hidden;background:linear-gradient(${u(A.skyTop)},${u(A.skyBottom)});border-bottom:3px solid ${u(A.rim)};border-radius:var(--arc-radius)}
       .sky.phone{height:210px}
       .titles{display:flex;flex-direction:column;gap:4px}
@@ -89,6 +90,13 @@ export class CuestArcaneHeader extends ArcaneCard<HeaderConfig> {
       .orbitem{display:flex;align-items:center;gap:10px}
       .orbitem .val{font-family:${u(FONT_BODY)};font-weight:700;font-variant-numeric:tabular-nums;font-size:18px}
       .orbitem .what{font-size:12px;color:${u(A.muted)}}
+      @container (max-width:600px){
+        .inner{padding:16px;gap:12px}
+        .orbrow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;width:100%}
+        .orbitem{flex-direction:column;text-align:center;gap:4px}
+        .orbitem svg.orb{width:56px;height:56px}
+        .orbitem .val{font-size:16px}
+      }
       @media (prefers-reduced-motion: reduce){.win.lit{animation:none}}
     `,
   ];

@@ -116,6 +116,8 @@ describe('stamina card', () => {
     const el = await mount(TAG, { title: 'Kraft' }, house());
     expect(root(el).querySelector('h2')!.textContent).toBe('Kraft');
     expect(root(el).querySelectorAll('span div')).toHaveLength(0);
+    // The heading sits on the card's own dusk plate, so it stays readable on a light theme.
+    expect(root(el).firstElementChild!.classList.contains('plate')).toBe(true);
   });
 
   it('row, name and percent widths follow the design by rule', async () => {

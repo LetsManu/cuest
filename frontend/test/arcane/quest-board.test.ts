@@ -316,6 +316,37 @@ describe('quest board compact', () => {
   });
 });
 
+describe('quest board mockup parity', () => {
+  const css = () => (customElements.get(TAG) as unknown as { elementStyles: { cssText: string }[] }).elementStyles.map((s) => s.cssText).join('\n');
+
+  it('puts an admin Install in the top row of the update scroll instead of the XP', async () => {
+    const el = await mount(TAG, { variant: 'full' }, house({ admin: true }));
+    const upd = Array.from(root(el).querySelectorAll('.scroll')).find((s) => s.textContent!.includes('Core Update'))!;
+    const top = upd.querySelector('.top')!;
+    expect(top.classList.contains('inline')).toBe(true);
+    expect(top.querySelector('button.btn')!.textContent).toBe('Install');
+    expect(top.querySelector('.xp')).toBeNull();
+    const other = Array.from(root(el).querySelectorAll('.scroll')).find((s) => !s.textContent!.includes('Core Update'))!;
+    expect(other.querySelector('.top button')).toBeNull();
+    expect(other.querySelector('.top .xp')).not.toBeNull();
+  });
+
+  it('paints its own dusk plate so headings stay readable on any theme', async () => {
+    const full = await mount(TAG, { variant: 'full' }, house({ admin: true }));
+    const compact = await mount(TAG, { variant: 'compact', more_path: '/x' }, house({ admin: true }));
+    expect(root(full).querySelector('.board')!.classList.contains('plate')).toBe(true);
+    expect(root(compact).querySelector('.board')!.classList.contains('plate')).toBe(true);
+    expect(css()).toMatch(/\.plate\{background:#14172A;border-radius:var\(--arc-radius\)\}/);
+  });
+
+  it('styles compact rows and links like the mockup', () => {
+    expect(css()).toMatch(/\.row \.title\{font-size:14px\}/);
+    expect(css()).toMatch(/\.row \.detail\{[^}]*white-space:nowrap[^}]*text-overflow:ellipsis/);
+    expect(css()).toMatch(/\.link\{[^}]*min-height:44px[^}]*text-align:left;text-decoration:underline/);
+    expect(css()).toMatch(/\.board\.compact\{gap:8px\}/);
+  });
+});
+
 describe('quest board fix round 1', () => {
   const upd = (el: HTMLElement) => Array.from(root(el).querySelectorAll('.scroll')).find((s) => s.textContent!.includes('Core Update'))!;
   const settle = async (el: HTMLElement) => {

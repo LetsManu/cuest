@@ -130,6 +130,14 @@ describe('rooms card', () => {
     expect(root(el).querySelector('button')!.classList.contains('row')).toBe(true);
   });
 
+  it('mockup parity: dusk plate, inside heading as a 17px header row', async () => {
+    const el = await mount(TAG, { areas: AREAS }, house());
+    expect(root(el).firstElementChild!.classList.contains('plate')).toBe(true);
+    const css = (customElements.get(TAG) as unknown as { elementStyles: { cssText: string }[] }).elementStyles.map((s) => s.cssText).join('\n');
+    expect(css).toMatch(/\.plate\{background:#14172A;border-radius:var\(--arc-radius\)\}/);
+    expect(css).toMatch(/\.panel\.list h2\{padding:12px 16px;border-bottom:1px solid #2C3256;font-size:17px;font-weight:500\}/);
+  });
+
   it('has no div inside a span or button', async () => {
     const el = await mount(TAG, { areas: AREAS, path: '/x' }, house());
     expect(root(el).querySelectorAll('span div, button div')).toHaveLength(0);

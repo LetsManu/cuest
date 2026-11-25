@@ -29,7 +29,7 @@ export class CuestRoomsCard extends ArcaneCard<RoomsConfig> {
     css`
       .rooms{display:flex;flex-direction:column;gap:8px}
       .panel.list{padding:0;overflow:hidden}
-      .panel.list h2{padding:13px 16px 4px}
+      .panel.list h2{padding:12px 16px;border-bottom:1px solid ${u(A.track)};font-size:17px;font-weight:500}
       .row{display:flex;align-items:center;gap:12px;width:100%;min-height:44px;box-sizing:border-box;padding:13px 16px;margin:0;background:none;border:0;border-bottom:1px solid ${u(A.track)};color:${u(A.text)};font:inherit;text-align:left}
       .row:last-child{border-bottom:0}
       button.row{cursor:pointer}
@@ -94,7 +94,7 @@ export class CuestRoomsCard extends ArcaneCard<RoomsConfig> {
     const heading = this.config.title === null ? nothing : html`<h2>${this.config.title}</h2>`;
     const inside = this.config.heading === 'inside';
     const lang = h.locale?.language ?? 'en';
-    return html`<div class="rooms">
+    return html`<div class="plate rooms">
       ${inside ? nothing : heading}
       <div class="panel list">
         ${inside ? heading : nothing}

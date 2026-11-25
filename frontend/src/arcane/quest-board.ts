@@ -40,8 +40,10 @@ export class CuestQuestBoard extends ArcaneCard<BoardConfig> {
     ...ArcaneCard.styles,
     css`
       .board{display:flex;flex-direction:column;gap:12px}
+      .board.compact{gap:8px}
       .head{display:flex;justify-content:space-between;align-items:center;gap:8px}
-      .link{background:none;border:0;padding:0 2px;min-height:44px;color:${u(A.goldText)};font:600 14px ${u(FONT_BODY)};cursor:pointer}
+      .link{align-self:flex-start;background:none;border:0;padding:0 2px;min-height:44px;color:${u(A.goldText)};font:600 14px ${u(FONT_BODY)};text-align:left;text-decoration:underline;cursor:pointer}
+      .head .link{font-size:13px}
       .link:hover{color:${u(A.lantern)}}
       .summary{display:flex;align-items:center;gap:14px}
       .summary .info{flex:1;display:flex;flex-direction:column;gap:6px;min-width:0}
@@ -51,6 +53,8 @@ export class CuestQuestBoard extends ArcaneCard<BoardConfig> {
       .chip{background:#2A2F48;border-radius:999px;padding:3px 9px;font-size:11px}
       .scroll{background:${u(A.parchment)};border:2px solid ${u(A.parchmentBorder)};border-radius:6px;box-shadow:3px 3px 0 ${u(A.parchmentShadow)};padding:12px;color:${u(A.ink)};display:flex;flex-direction:column;gap:10px}
       .top{display:flex;gap:10px;align-items:flex-start}
+      .top.inline{align-items:center}
+      .top .btn{align-self:center;padding:0 12px}
       .badge{font-family:${u(FONT_PIXEL)};background:${u(A.scrollBang)};border-radius:4px;padding:2px 7px;font-size:13px;color:${u(A.ink)}}
       .badge.up{background:${u(A.scrollUpdate)}}
       .body{flex:1;min-width:0}
@@ -62,11 +66,13 @@ export class CuestQuestBoard extends ArcaneCard<BoardConfig> {
       .note{font-size:13px;font-weight:600;color:${u(A.xpBadgeText)}}
       .note.soft{color:${u(A.inkDetail)}}
       .row{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;min-height:44px;text-align:left;background:${u(A.parchment)};border:2px solid ${u(A.parchmentBorder)};border-radius:6px;box-shadow:3px 3px 0 ${u(A.parchmentShadow)};padding:10px 12px;color:${u(A.ink)};font-family:${u(FONT_BODY)}}
-      .moretext{font-size:14px;font-weight:600;color:${u(A.goldText)};padding:2px;text-align:center}
+      .moretext{font-size:14px;font-weight:600;color:${u(A.goldText)};padding:2px;text-align:left}
       button.row{cursor:pointer}
       .row .detail,.body .detail{display:block}
       .row .body{font-size:14px}
-      .row .detail{font-size:12px}
+      .row .title{font-size:14px}
+      .row .detail{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      .row .badge{padding:2px 6px}
     `,
   ];
 
@@ -215,7 +221,7 @@ export class CuestQuestBoard extends ArcaneCard<BoardConfig> {
     const faults = this.shown(h);
     const rest = m.faults.length - faults.length;
     const admin = !!h.user?.is_admin;
-    return html`<div class="board">
+    return html`<div class="plate board">
       ${this.config.title ? html`<h2>${this.config.title}</h2>` : nothing}
       ${this.config.show_summary ? this.summary(h, m) : nothing}
       <h2>${C.quickQuests}</h2>
@@ -237,14 +243,15 @@ export class CuestQuestBoard extends ArcaneCard<BoardConfig> {
       action = html`<button type="button" class="btn" ?disabled=${busy} @click=${() => this.add(f)}>${C.add}</button>`;
     }
     const note = res === 'added' ? html`<span class="note" role="status">${C.added}</span>` : res === 'already' ? html`<span class="note soft" role="status">${C.already}</span>` : res === 'failed' ? html`<span class="note soft" role="status">${C.addFailed}</span>` : res === 'installFailed' ? html`<span class="note soft" role="status">${C.installFailed}</span>` : nothing;
-    const showXp = !(admin && isUpdate);
+    // An admin's Install sits in the scroll's top row where the XP would be, as in the mockup.
+    const inline = admin && isUpdate;
     return html`<div class="scroll">
-      <div class="top">
+      <div class="top ${inline ? 'inline' : ''}">
         <span class="badge ${isUpdate ? 'up' : ''} ${first ? 'pulse' : ''}" aria-hidden="true">${isUpdate ? '↑' : '!'}</span>
         <div class="body"><span class="title">${f.title}</span><span class="detail">${f.detail}</span></div>
-        ${showXp ? html`<span class="xp">${withNums(fill(C.xp, { n: f.xp }))}</span>` : nothing}
+        ${inline ? action : html`<span class="xp">${withNums(fill(C.xp, { n: f.xp }))}</span>`}
       </div>
-      ${action}${note}
+      ${inline ? nothing : action}${note}
     </div>`;
   }
 
@@ -254,7 +261,7 @@ export class CuestQuestBoard extends ArcaneCard<BoardConfig> {
     const path = this.config.more_path;
     const rest = all.length - faults.length;
     const go = this.goMore();
-    return html`<div class="board">
+    return html`<div class="plate board compact">
       <div class="head">
         <h2>${this.config.title ?? C.boardTitle}</h2>
         ${path ? html`<button type="button" class="link" @click=${go}>${withNums(fill(C.allLink, { n: all.length }))}</button>` : nothing}

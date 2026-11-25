@@ -39,8 +39,12 @@ restart Home Assistant, then add the integration **Cuest** as above.
 
 ## 2. Theme
 
-The cards bring their own colours. The theme below makes the rest of Home
-Assistant (sidebar, built-in cards, headings) match. Add it once in
+The cards bring their own colours: panels, and a night background behind
+headings and quest scrolls, so they look the same on Home Assistant's light and
+dark themes. The dashboards in section 4 also set the view background
+(`background: "#14172A"`), so the page around the cards is the night sky of the
+mockups; keep that line. The theme below makes the rest of Home Assistant
+(sidebar, toolbar, built-in cards) match. Add it once in
 `configuration.yaml` (skip this if you already have a `frontend:` block; just
 add the `themes:` line to it):
 
@@ -94,7 +98,14 @@ Entity ids in the options always look like `domain.name`.
 The pixel-art house under a night sky. Lit windows follow the lights that are
 on: none on gives none lit, otherwise at least 1 and at most 5 lit. The clock
 uses Home Assistant's time zone, or the browser's when your profile's time
-zone setting says so. Both variants show `outside` and `inside`.
+zone setting says so. The `phone` and `wide` variants show `outside` and `inside`.
+
+The same card also draws page titles (`variant: title`, 28 px, for example
+"Spells") and section headings (`variant: section`, 18 px, for example
+"Scenes") in the Arcane look. Use them instead of Home Assistant's `heading`
+card: they paint their own night background, so they read the same on a light
+or dark Home Assistant theme. These two variants need `title`, take an optional
+`link`, and have no village, clock or orbs.
 
 | Option | Default | Notes |
 |---|---|---|
@@ -102,8 +113,9 @@ zone setting says so. Both variants show `outside` and `inside`.
 | `mood` | `the house is happy` | Line under the heading. |
 | `outside` | none | Temperature entity (`sensor.*` or `climate.*`). Shown as "{t} outside". The line is left out when the entity is missing or has no number. |
 | `inside` | none | Same, shown as "{t} inside". |
-| `variant` | `phone` | `phone` (210 px tall village) or `wide` (heading and orbs side by side). |
+| `variant` | `phone` | `phone` (210 px tall village), `wide` (heading and orbs side by side), `title` (page title) or `section` (section heading). |
 | `orbs` | none | Only with `variant: wide`. Up to 4 orb items, same options as in `cuest-orb-card`. |
+| `link` | none | Only with `variant: title` or `section`: `name` and `path`, shown as a link on the right, for example `{ name: Home, path: /system-ok/ok }`. |
 
 ```yaml
 type: custom:cuest-arcane-header
@@ -396,7 +408,7 @@ views:
         entity: sensor.climate_sensor_temperature
         entity2: sensor.cuest_outside_temperature
         name: Wohnzimmer
-        name2: Outside
+        name2: outside
       - type: custom:cuest-rooms-card
         areas:
           - Wohnzimmer
@@ -422,19 +434,29 @@ views:
     type: masonry
     background: "#14172A"
     cards:
+      - type: custom:cuest-arcane-header
+        variant: title
+        title: Quest board
+        link:
+          name: Home
+          path: /system-ok/ok
       - type: custom:cuest-quest-board
         variant: full
         show_summary: true
       - type: custom:cuest-allies-card
         ignore:
           - ibeacon
-      - type: custom:cuest-stamina-card
 ```
+
+Want the weakest batteries too? Add `- type: custom:cuest-stamina-card` at the
+end (the mockup leaves it out; the battery quests are on the board already).
 
 ### Home control
 
-Dashboard at `/home-control`, view `control`: four spell tiles, the bard, one
-block per room, and scenes.
+Dashboard at `/home-control`, view `control`: the page title, four spell
+tiles, the bard, one block per room, and scenes. Headings are
+`cuest-arcane-header` cards with `variant: section`, so they look the same on
+every Home Assistant theme.
 
 ```yaml
 title: Spells
@@ -445,6 +467,9 @@ views:
     type: masonry
     background: "#14172A"
     cards:
+      - type: custom:cuest-arcane-header
+        variant: title
+        title: Spells
       - type: grid
         columns: 4
         square: false
@@ -485,8 +510,9 @@ views:
             service: script.turn_on  # replace entity id
             data:
               entity_id: script.friendflix  # replace entity id
-      - type: heading
-        heading: Wohnzimmer
+      - type: custom:cuest-arcane-header
+        variant: section
+        title: Wohnzimmer
       - type: grid
         columns: 2
         square: false
@@ -515,8 +541,9 @@ views:
       - type: custom:cuest-rune-gauge
         entity: climate.0x54ef4410009a9a50
         name: Wohnzimmer
-      - type: heading
-        heading: Schlafzimmer
+      - type: custom:cuest-arcane-header
+        variant: section
+        title: Schlafzimmer
       - type: grid
         columns: 2
         square: false
@@ -525,13 +552,15 @@ views:
             variant: wide
             entity: light.schlafzimmer_lichter
             name: Lights
-      - type: heading
-        heading: Küche
+      - type: custom:cuest-arcane-header
+        variant: section
+        title: Küche
       - type: custom:cuest-rune-gauge
         entity: climate.0x54ef441000a5b789
         name: Küche
-      - type: heading
-        heading: Büro
+      - type: custom:cuest-arcane-header
+        variant: section
+        title: Büro
       - type: grid
         columns: 2
         square: false
@@ -543,8 +572,9 @@ views:
       - type: custom:cuest-rune-gauge
         entity: climate.thermostat_buero
         name: Büro
-      - type: heading
-        heading: Bad
+      - type: custom:cuest-arcane-header
+        variant: section
+        title: Bad
       - type: grid
         columns: 2
         square: false
@@ -553,8 +583,9 @@ views:
             variant: wide
             entity: light.bad  # replace entity id
             name: Lights
-      - type: heading
-        heading: Vorhaus
+      - type: custom:cuest-arcane-header
+        variant: section
+        title: Vorhaus
       - type: grid
         columns: 2
         square: false
@@ -563,8 +594,9 @@ views:
             variant: wide
             entity: light.vorhaus  # replace entity id
             name: Lights
-      - type: heading
-        heading: Scenes
+      - type: custom:cuest-arcane-header
+        variant: section
+        title: Scenes
       - type: grid
         columns: 3
         square: false
@@ -609,7 +641,6 @@ views:
           - type: custom:cuest-arcane-header
             variant: wide
             outside: sensor.cuest_outside_temperature
-            inside: sensor.climate_sensor_temperature
             orbs:
               - preset: online
               - preset: health
@@ -632,6 +663,8 @@ views:
           - type: custom:cuest-trail-card
             entity: sensor.climate_sensor_temperature
             entity2: sensor.cuest_outside_temperature
+            name: Wohnzimmer
+            name2: outside
           - type: custom:cuest-rune-gauge
             entity: climate.0x54ef441000a5b789
             rune: fire

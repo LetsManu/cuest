@@ -148,6 +148,40 @@ describe('climate rune', () => {
   });
 });
 
+describe('impossible readings', () => {
+  it('shows a dash for an impossible current temperature and keeps the arc on the target', async () => {
+    const hass = fakeHass({ states: { 'climate.b': heater({ current_temperature: -327.7, temperature: 20 }) } });
+    const el = await mount(TAG, { entity: 'climate.b' }, hass);
+    expect(text(el)).not.toContain('-327');
+    expect(text(el)).toContain('now —');
+    expect(arc(el).getAttribute('stroke-dasharray')).toBe(`${Number((277 * (20 - 7) / 23).toFixed(1))} 277`);
+    expect(root(el).querySelector('svg')!.getAttribute('aria-label')).not.toContain('-327');
+  });
+  it('treats 150 degrees and converts Fahrenheit', async () => {
+    const hot = await mount(TAG, { entity: 'climate.b' }, fakeHass({ states: { 'climate.b': heater({ current_temperature: 150 }) } }));
+    expect(text(hot)).toContain('now —');
+    const f = await mount(TAG, { entity: 'climate.b' }, fakeHass({ states: { 'climate.b': heater({ current_temperature: 70, temperature: 72 }) } }));
+    expect(text(f)).toContain('now 70°');
+  });
+  it('shows a dash in the centre when controls are off and the reading is impossible', async () => {
+    const el = await mount(TAG, { entity: 'climate.b', controls: false }, fakeHass({ states: { 'climate.b': heater({ current_temperature: -327.7 }) } }));
+    expect(root(el).querySelector('svg text.num')!.textContent).toBe('—');
+    const off = await mount(TAG, { entity: 'climate.b' }, fakeHass({ states: { 'climate.b': heater({ current_temperature: -327.7 }, 'off') } }));
+    expect(root(off).querySelector('svg text.num')!.textContent).toBe('—');
+  });
+  it('sensor mode shows a dash and an empty arc', async () => {
+    const el = await mount(TAG, { entity: 'sensor.t' }, fakeHass({ states: { 'sensor.t': st('-327.7', { device_class: 'temperature', unit_of_measurement: '°C', friendly_name: 'T' }) } }));
+    expect(root(el).querySelector('svg text.num')!.textContent).toBe('—');
+    expect(arc(el).getAttribute('stroke-dasharray')).toBe('0 277');
+    const ok = await mount(TAG, { entity: 'sensor.t', min: 0, max: 40 }, fakeHass({ states: { 'sensor.t': st('20', { device_class: 'temperature', unit_of_measurement: '°C', friendly_name: 'T' }) } }));
+    expect(root(ok).querySelector('svg text.num')!.textContent).toBe('20°C');
+  });
+  it('does not blank non-temperature sensors', async () => {
+    const el = await mount(TAG, { entity: 'sensor.d' }, fakeHass({ states: { 'sensor.d': st('-300', { unit_of_measurement: 'dBm', friendly_name: 'D' }) } }));
+    expect(root(el).querySelector('svg text.num')!.textContent).toBe('-300dBm');
+  });
+});
+
 describe('sensor rune', () => {
   it('shows a water rune for humidity', async () => {
     const s = st('38', { device_class: 'humidity', unit_of_measurement: '%', friendly_name: 'Air' });

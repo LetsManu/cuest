@@ -118,6 +118,17 @@ describe('header phone', () => {
     expect(root(el).querySelector('.sky')).not.toBeNull();
   });
 
+  it('keeps the wide orbs in a compact row of three on narrow cards', async () => {
+    const css = CuestArcaneHeader.styles.map((s) => (s as { cssText: string }).cssText).join('\n');
+    expect(css).toMatch(/:host\{[^}]*container-type:inline-size/);
+    const m = css.match(/@container \(max-width:\s*600px\)\{(.*?)\n\s*\}/s);
+    expect(m).not.toBeNull();
+    expect(m![1]).toMatch(/\.orbrow\{[^}]*display:grid[^}]*repeat\(3/);
+    expect(m![1]).toMatch(/\.orbitem svg\.orb\{[^}]*width:56px[^}]*height:56px/);
+    const el = await mount(TAG, { variant: 'wide', orbs: [{ preset: 'online' }, { preset: 'lights' }, { preset: 'health' }] }, fakeHass({ states: lights(1) }));
+    expect(root(el).querySelector('.orbrow .orbitem svg.orb')).not.toBeNull();
+  });
+
   it('flickers lit windows but honours reduced motion', () => {
     const css = CuestArcaneHeader.styles.map((s) => (s as { cssText: string }).cssText).join('\n');
     expect(css).toMatch(/\.win\.lit\{[^}]*animation:flicker 4s/);

@@ -381,18 +381,35 @@ export interface RoomRow {
 
 type RoomConfig = string | { area: string; name?: string; temperature?: string };
 
+/**
+ * Case-insensitive, umlaut-safe keys: `Büro`, `buero` and `BURO` match each other. Two folds are tried, ä→ae
+ * (what people type) and plain diacritic stripping (what Home Assistant ids often look like: `kuche`).
+ */
+function foldNames(s: string): string[] {
+  const t = s.trim().toLowerCase();
+  const strip = (x: string): string => x.normalize('NFKD').replace(/\p{M}/gu, '');
+  const german = t.replace(/ä/g, 'ae').replace(/ö/g, 'oe').replace(/ü/g, 'ue').replace(/ß/g, 'ss');
+  return [...new Set([strip(german), strip(t.replace(/ß/g, 'ss'))])];
+}
+
 function findArea(h: HomeAssistant, key: string): { area_id: string; name: string } | null {
-  const k = key.trim().toLowerCase();
+  const ks = foldNames(key);
+  const hit = (v: string): boolean => foldNames(v).some((x) => ks.includes(x));
   const areas = Object.values(h.areas ?? {});
-  return areas.find((a) => a.area_id.toLowerCase() === k) ?? areas.find((a) => a.name.toLowerCase() === k) ?? null;
+  return areas.find((a) => hit(a.area_id)) ?? areas.find((a) => hit(a.name)) ?? null;
+}
+
+/** Celsius value when a reading is physically possible (-50 to 100 °C), else null. */
+export function plausibleCelsius(v: number, unit: unknown): number | null {
+  const c = toCelsius(v, unit);
+  return c < -50 || c > 100 ? null : c;
 }
 
 function plausibleTemp(h: HomeAssistant, id: string): number | null {
   const s = h.states[id];
   const v = s ? num(s.state) : null;
   if (v === null) return null;
-  const c = toCelsius(v, attr(s, 'unit_of_measurement'));
-  return c < -50 || c > 100 ? null : c;
+  return plausibleCelsius(v, attr(s, 'unit_of_measurement'));
 }
 
 function deviceBatteryLow(h: HomeAssistant, entityId: string, threshold: number): boolean {

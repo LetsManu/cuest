@@ -15,7 +15,7 @@ function fakeHass(o: Opts = {}) {
   const callApi = vi.fn(async (_m: string, path: string) => {
     if (path === 'cuest_whoami') return { playerId: 'p1', isAdmin: false, players: [{ id: 'p1', name: 'Ada' }] };
     if (path === 'cuest/quests') return { active: [Q('q1', { status: 'active', startedAt: new Date(T0).toISOString() })], open: [Q('q2')], whenever: [], questOfDay: o.questOfDay === undefined ? 'q2' : o.questOfDay };
-    if (path.endsWith('/summary')) return { player: { id: 'p1', name: 'Ada', xp: 130, gold: 215, restTokens: o.restTokens ?? 1, boostUntil: null }, level: 4, title: 'Hearthkeeper', intoLevel: 30, toNext: 70, streak: o.streak ?? 6, bestStreak: 9, restTokens: o.restTokens ?? 1, chestKeys: o.chestKeys ?? 0 };
+    if (path.endsWith('/summary')) return { player: { id: 'p1', name: 'Ada', xp: 130, gold: 215, restTokens: o.restTokens ?? 1, boostUntil: null }, level: 4, title: 'Hearthkeeper', intoLevel: 30, toNext: 400, streak: o.streak ?? 6, bestStreak: 9, restTokens: o.restTokens ?? 1, chestKeys: o.chestKeys ?? 0 };
     if (path.endsWith('/done')) return { quest: Q('q1', { status: 'done' }), reward: { xp: 52, gold: 3, lines: [{ label: 'Quest', xp: 12, gold: 3 }, { label: 'Kept going', xp: 25, gold: 0 }, { label: 'Combo ×3', xp: 15, gold: 0 }] }, player: { xp: 300 }, streak: { streak: 6, restarted: false, usedRest: null }, loot: null, chestKey: false, ...o.done };
     if (path === 'cuest/shop/open-chest') {
       if (o.chestError) throw o.chestError;
@@ -138,7 +138,7 @@ describe('rewards in the panel', () => {
       if (path === 'cuest/shop/open-chest') { order.push('request'); return { player: {}, result: { kind: 'chest', gold: 5 } }; }
       if (path === 'cuest_whoami') return { playerId: 'p1', isAdmin: false, players: [{ id: 'p1', name: 'Ada' }] };
       if (path === 'cuest/quests') return { active: [], open: [], whenever: [] };
-      if (path.endsWith('/summary')) return { player: { id: 'p1', name: 'Ada', xp: 1, gold: 1, restTokens: 0, boostUntil: null }, level: 1, title: 'Apprentice', intoLevel: 0, toNext: 10, chestKeys: 1 };
+      if (path.endsWith('/summary')) return { player: { id: 'p1', name: 'Ada', xp: 1, gold: 1, restTokens: 0, boostUntil: null }, level: 1, title: 'Apprentice', intoLevel: 0, toNext: 100, chestKeys: 1 };
       return {};
     });
     const el = await mount(f.hass);

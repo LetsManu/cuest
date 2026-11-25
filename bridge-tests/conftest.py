@@ -45,11 +45,11 @@ class FakeCuestClient:
 
 PLAYER_ADA = {
     "id": "p1", "name": "Ada", "haPerson": "person.ada", "level": 3,
-    "title": "Squire", "xp": 120, "gold": 15, "intoLevel": 20, "toNext": 80,
+    "title": "Squire", "xp": 120, "gold": 15, "intoLevel": 20, "toNext": 300,
 }
 PLAYER_BEN = {
     "id": "p2", "name": "Ben", "haPerson": None, "level": 1,
-    "title": "Page", "xp": 5, "gold": 0, "intoLevel": 5, "toNext": 95,
+    "title": "Page", "xp": 5, "gold": 0, "intoLevel": 5, "toNext": 100,
 }
 
 

@@ -20,7 +20,7 @@ function fakeHass(items: unknown = ITEMS) {
     if (path === 'cuest/quests') return { active: [], open: [OPEN_Q], whenever: [] };
     if (path.endsWith('/start')) return { ...OPEN_Q, status: 'active', claimedBy: 'p1', startedAt: new Date(T0).toISOString() };
     if (path.endsWith('/done')) return { quest: OPEN_Q, reward: { xp: 10, gold: 3, lines: [] }, player: { xp: 140 }, loot: null, chestKey: false };
-    if (path.endsWith('/summary')) return { player: { id: 'p1', name: 'Ada', xp: 130, gold: 10, restTokens: 0, boostUntil: null }, level: 4, title: 'Hearthkeeper', intoLevel: 30, toNext: 70 };
+    if (path.endsWith('/summary')) return { player: { id: 'p1', name: 'Ada', xp: 130, gold: 10, restTokens: 0, boostUntil: null }, level: 4, title: 'Hearthkeeper', intoLevel: 30, toNext: 400 };
     if (path.startsWith('cuest/shop?')) return { gold: 10, restTokens: 0, boostUntil: null, owned: {}, equipped: {}, catalog: [] };
     if (path.startsWith('cuest/collection?')) {
       const v = typeof items === 'function' ? (items as () => unknown)() : items;

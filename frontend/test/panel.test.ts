@@ -21,7 +21,7 @@ function fakeHass(s: Setup = {}) {
     if (f) throw f;
     if (path === 'cuest_whoami') return who;
     if (path === 'cuest/quests') return quests;
-    if (path.endsWith('/summary')) return { player: { id: 'p1', name: 'Ada', xp: 30, gold: 15, restTokens: 0, boostUntil: null }, level: 4, title: 'Hearthkeeper', intoLevel: 20, toNext: 80 };
+    if (path.endsWith('/summary')) return { player: { id: 'p1', name: 'Ada', xp: 30, gold: 15, restTokens: 0, boostUntil: null }, level: 4, title: 'Hearthkeeper', intoLevel: 20, toNext: 400 };
     if (path.endsWith('/start')) return { quest: Q('q1', { status: 'active' }) };
     if (path.endsWith('/later')) return { quest: Q('q1') };
     return {};

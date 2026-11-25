@@ -68,6 +68,39 @@ describe('trailGeometry', () => {
   });
 });
 
+describe('trailGeometry separate scales', () => {
+  // Primary band: top 65 % of the height; secondary band: the bottom 28 %. Each pads 8 % of its own band.
+  it('draws the primary in the upper band and the secondary in the lower band, each on its own range', () => {
+    const g = trailGeometry([[20, 22], [0, 1]], 326, 110, 0.08, 'separate')!;
+    expect(g.segments[0]).toEqual(['0,65.78 326,5.72']);
+    expect(g.segments[1]).toEqual(['0,107.54 326,81.66']);
+    expect(g.last).toEqual({ x: 326, y: 5.72 });
+    expect(g.area).toBe('M0,65.78 L326,5.72 L326,110 L0,110 Z');
+  });
+
+  it('keeps a flat secondary finite and centred in its band', () => {
+    const g = trailGeometry([[20, 22], [3, 3]], 326, 110, 0.08, 'separate')!;
+    expect(g.segments[1]).toEqual(['0,94.6 326,94.6']);
+  });
+
+  it('uses the whole height for a single series in either mode', () => {
+    expect(trailGeometry([[0, 10]], 326, 110, 0.08, 'separate')).toEqual(trailGeometry([[0, 10]]));
+  });
+
+  it('a series with no values does not disturb the other band', () => {
+    const g = trailGeometry([[20, 22], [null, null]], 326, 110, 0.08, 'separate')!;
+    expect(g.segments[0]).toEqual(['0,65.78 326,5.72']);
+    expect(g.segments[1]).toEqual([]);
+    const only2 = trailGeometry([[null], [0, 1]], 326, 110, 0.08, 'separate')!;
+    expect(only2.segments[1]).toEqual(['0,107.54 326,81.66']);
+  });
+
+  it('shared stays the default', () => {
+    expect(trailGeometry([[20, 22], [0, 1]], 326, 110, 0.08, 'shared')).toEqual(trailGeometry([[20, 22], [0, 1]]));
+    expect(trailGeometry([[20, 22], [0, 1]])!.segments[0]).toEqual(['0,17.2 326,8.8']);
+  });
+});
+
 describe('fetchHistory', () => {
   it('sends the exact message and converts lu seconds to ms', async () => {
     const h = fakeHass({ history: { 'sensor.a': [{ s: '21.5', lu: 1764000000.5 }, { s: 'unavailable', lu: 1764000100 }] } });

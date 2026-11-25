@@ -177,6 +177,16 @@ describe('theme', () => {
     const href = (links[0] as HTMLLinkElement).href;
     expect(href).toContain('Pixelify+Sans');
     expect(href).toContain('Inter');
+    // Inter 700 is the .num and <b> weight of the mockups; without it the browser falls back to 600.
+    expect(href).toContain('Inter:wght@400;500;600;700');
+    expect(href).toContain('Pixelify+Sans:wght@500;700');
+  });
+  it('headings are bold Pixelify like the mockup h1/h2', () => {
+    expect(css).toMatch(/(?:^|[}\s])h2\{margin:0;font-family:'Pixelify Sans'[^;]*;font-weight:700;font-size:18px;color:#F7D27A\}/);
+  });
+  it('the dusk plate paints the page colour behind bare headings, independent of the HA theme', () => {
+    expect(rule(css, 'plate')).toMatch(/background:#14172A;border-radius:var\(--arc-radius\)/);
+    expect(rule(css, 'panel')).toMatch(/background:#1D2140;border:2px solid #33395F/);
   });
 });
 

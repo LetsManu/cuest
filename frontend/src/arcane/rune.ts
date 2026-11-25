@@ -99,7 +99,9 @@ export class CuestRuneGauge extends ArcaneCard<RuneConfig> {
     ...ArcaneCard.styles,
     css`
       .rune{display:flex;align-items:center;gap:12px}
-      .rune.compact{flex-direction:column;justify-content:center;text-align:center}
+      .rune.compact{flex-direction:column;justify-content:center;text-align:center;gap:4px}
+      .panel.compact{padding:12px}
+      .compact .label{font-size:13px;font-weight:400}
       .side{flex:1;display:flex;flex-direction:column;gap:8px;min-width:0}
       .label{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
       .btns{display:flex;gap:8px}
@@ -151,7 +153,7 @@ export class CuestRuneGauge extends ArcaneCard<RuneConfig> {
   }
 
   getGridOptions() {
-    return this.config?.controls === false ? { columns: 6, rows: 3 } : { columns: 12, rows: 3 };
+    return this.config?.controls === false ? { columns: 6, rows: 'auto' as const } : { columns: 12, rows: 'auto' as const };
   }
 
   disconnectedCallback(): void {
@@ -251,7 +253,7 @@ export class CuestRuneGauge extends ArcaneCard<RuneConfig> {
     const aria = fill(view.sub ? C.runeAriaSub : C.runeAria, { Rune: pr.name, centre: view.centre, sub: view.sub });
     const dash = `${Number((CIRCUMFERENCE * view.p).toFixed(1))} ${CIRCUMFERENCE}`;
     const y = view.sub ? 58 : 66;
-    return html`<div class="panel"><div class="rune ${compact ? 'compact' : ''}">
+    return html`<div class="panel ${compact ? 'compact' : ''}"><div class="rune ${compact ? 'compact' : ''}">
       <svg width="110" height="110" viewBox="0 0 120 120" role="img" aria-label="${aria}">
         <circle class="spin" cx="60" cy="60" r="56" fill="none" stroke="${pr.ring}" stroke-width="2" stroke-dasharray="1 7"/>
         ${view.rune === 'arcane' ? svg`<polygon class="spinr" points="60,14 100,83 20,83" fill="none" stroke="${A.arcaneRing}" stroke-width="1.5"/>` : nothing}

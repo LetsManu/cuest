@@ -31,6 +31,17 @@ describe('header phone', () => {
     expect(root(el).querySelectorAll('.win').length).toBe(5);
   });
 
+  it('lights windows in the mockup order: the big house right window comes last', async () => {
+    const el = await mount(TAG, {}, fakeHass({ states: lights(3) }));
+    const lit = Array.from(root(el).querySelectorAll('rect.win.lit')).map((r) => r.getAttribute('x'));
+    expect(lit).toEqual(['42', '68', '172', '245']);
+    const dark = Array.from(root(el).querySelectorAll('rect.win:not(.lit)')).map((r) => r.getAttribute('x'));
+    expect(dark).toEqual(['94']);
+    expect(root(el).querySelectorAll('rect.halo').length).toBe(4);
+    const css = CuestArcaneHeader.styles.map((s) => (s as { cssText: string }).cssText).join('\n');
+    expect(css).toMatch(/\.halo\{[^}]*filter:blur\(4px\)/);
+  });
+
   it('keeps every window dark when nothing is on', async () => {
     const el = await mount(TAG, {}, fakeHass({ states: lights(0) }));
     expect(root(el).querySelectorAll('.win.lit').length).toBe(0);
@@ -111,6 +122,51 @@ describe('header phone', () => {
     const css = CuestArcaneHeader.styles.map((s) => (s as { cssText: string }).cssText).join('\n');
     expect(css).toMatch(/\.win\.lit\{[^}]*animation:flicker 4s/);
     expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\)\{[^}]*\.win\.lit\{animation:none\}/);
+  });
+});
+
+describe('header title and section', () => {
+  it('renders a page title with an optional link and no village, clock or timers', async () => {
+    const el = await mount(TAG, { variant: 'title', title: 'Quest board', link: { name: 'Home', path: '/system-ok/ok' } }, fakeHass({ states: lights(1) }));
+    expect(root(el).querySelector('h1')!.textContent).toBe('Quest board');
+    expect(root(el).querySelector('svg.village')).toBeNull();
+    expect(root(el).querySelector('.star')).toBeNull();
+    expect(text(el)).not.toContain('16:40');
+    expect(vi.getTimerCount()).toBe(0);
+    const spy = vi.fn();
+    window.addEventListener('location-changed', spy);
+    const link = root(el).querySelector<HTMLButtonElement>('button.link')!;
+    expect(link.textContent).toBe('Home');
+    link.click();
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(location.pathname).toBe('/system-ok/ok');
+    window.removeEventListener('location-changed', spy);
+    expectClean(el);
+  });
+
+  it('renders a section heading as h2 on its own dusk plate', async () => {
+    const el = await mount(TAG, { variant: 'section', title: 'Scenes' }, fakeHass());
+    expect(root(el).querySelector('h2')!.textContent).toBe('Scenes');
+    expect(root(el).querySelector('h1')).toBeNull();
+    expect(root(el).querySelector('.plate')).not.toBeNull();
+    expect(root(el).querySelector('button')).toBeNull();
+  });
+
+  it('paints headings independent of the Home Assistant theme', () => {
+    const css = CuestArcaneHeader.styles.map((s) => (s as { cssText: string }).cssText).join('\n');
+    expect(css).toMatch(/\.plate\{background:#14172A;border-radius:var\(--arc-radius\)\}/);
+    expect(css).toMatch(/h1\{[^}]*font-weight:700[^}]*color:#F7D27A[^}]*font-size:28px/);
+    expect(css).toMatch(/h2\{[^}]*font-family:'Pixelify Sans'[^}]*font-weight:700[^}]*font-size:18px[^}]*color:#F7D27A/);
+    expect(css).toMatch(/\.heading\.plate\{border-radius:6px\}/);
+    expect(css).toMatch(/\.heading \.link\{[^}]*min-height:44px[^}]*text-decoration:underline/);
+  });
+
+  it('checks title and link options', () => {
+    const c = document.createElement(TAG) as unknown as { setConfig(c: unknown): void };
+    expect(() => c.setConfig({ variant: 'title' })).toThrow(/"title" is required for variant: title/);
+    expect(() => c.setConfig({ variant: 'section', title: 'x', link: 'home' })).toThrow(/"link" must be an object/);
+    expect(() => c.setConfig({ variant: 'section', title: 'x', link: { name: 'Home' } })).toThrow(/"path" is required/);
+    expect(() => c.setConfig({ link: { name: 'Home', path: '/' } })).toThrow(/"link" works only with variant: title or section/);
   });
 });
 
@@ -200,10 +256,12 @@ describe('header wide', () => {
       el.setConfig(cfg);
       return el;
     };
-    expect(mk({}).getGridOptions()).toEqual({ columns: 'full', rows: 4 });
+    // Content height, so a sections view neither clips the card nor leaves a gap under it.
+    expect(mk({}).getGridOptions()).toEqual({ columns: 'full', rows: 'auto' });
     expect(mk({}).getCardSize()).toBe(4);
-    expect(mk({ variant: 'wide' }).getGridOptions()).toEqual({ columns: 'full', rows: 3 });
+    expect(mk({ variant: 'wide' }).getGridOptions()).toEqual({ columns: 'full', rows: 'auto' });
     expect(mk({ variant: 'wide' }).getCardSize()).toBe(3);
+    expect(mk({ variant: 'title', title: 'Spells' }).getCardSize()).toBe(1);
   });
 
   it('shows the warning for a required orb entity that is missing', async () => {

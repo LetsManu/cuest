@@ -49,6 +49,7 @@ export class CuestBardCard extends ArcaneCard<BardConfig> {
       .bars.small{width:44px;height:40px}
       .bars i{display:block;background:${u(A.goldText)}}
       .bars.big i{width:6px;height:100%;transform:scaleY(.3);transform-origin:bottom}
+      .bars.big i.eq{transform:none}
       .bars.small i{flex:1}
       .bars.small.idle i{opacity:.55}
       .title{flex:1;min-width:0;min-height:44px;display:flex;flex-direction:column;justify-content:center;text-align:left;background:none;border:0;padding:0;color:inherit;font:inherit;cursor:pointer}
@@ -61,7 +62,7 @@ export class CuestBardCard extends ArcaneCard<BardConfig> {
       .ctls{display:flex;align-items:center;justify-content:center;gap:16px}
       .ctl{width:48px;height:48px;min-width:48px;min-height:48px;border-radius:999px;border:2px solid ${u(A.controlBorder)};background:transparent;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;color:${u(A.text)}}
       .main{width:62px;height:62px;min-width:62px;min-height:62px;border-radius:999px;border:3px solid ${u(A.gold)};background:${u(A.goldText)};display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;flex:none}
-      .compact .main{width:48px;height:48px;min-width:48px;min-height:48px;border-width:2px}
+      .compact .main{width:48px;height:48px;min-width:48px;min-height:48px;border:0}
       button:disabled,input:disabled,button[aria-disabled="true"]{opacity:.45;cursor:default}
       label.vol{display:flex;align-items:center;gap:10px;font-size:13px}
       input[type="range"]{flex:1;min-height:44px;margin:0;accent-color:${u(A.goldText)}}
@@ -116,7 +117,7 @@ export class CuestBardCard extends ArcaneCard<BardConfig> {
   }
 
   getGridOptions() {
-    return this.config?.variant === 'compact' ? { columns: 12, rows: 2 } : { columns: 12, rows: 5 };
+    return { columns: 12, rows: 'auto' as const };
   }
 
   protected signature(h: HomeAssistant): string {

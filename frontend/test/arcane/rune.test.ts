@@ -134,7 +134,12 @@ describe('climate rune', () => {
     expect(text(el)).toContain('21.5°');
     expect(root(el).querySelectorAll('button').length).toBe(0);
     expect(root(el).querySelector('.rune.compact')).toBeTruthy();
-    expect((el as unknown as CuestRuneGauge).getGridOptions()).toEqual({ columns: 6, rows: 3 });
+    expect((el as unknown as CuestRuneGauge).getGridOptions()).toEqual({ columns: 6, rows: 'auto' });
+    // Desktop mockup: 12px panel, 13px regular label under the gauge.
+    expect(root(el).querySelector('.panel.compact')).toBeTruthy();
+    const css = CuestRuneGauge.styles.map((s) => (s as { cssText: string }).cssText).join('\n');
+    expect(css).toMatch(/\.panel\.compact\{padding:12px\}/);
+    expect(css).toMatch(/\.compact \.label\{font-size:13px;font-weight:400\}/);
   });
 
   it('warns about a missing entity', async () => {
@@ -190,7 +195,7 @@ describe('rune config and styles', () => {
   it('grid options and stub', () => {
     const el = document.createElement(TAG) as unknown as CuestRuneGauge;
     el.setConfig({ entity: 'climate.x' });
-    expect(el.getGridOptions()).toEqual({ columns: 12, rows: 3 });
+    expect(el.getGridOptions()).toEqual({ columns: 12, rows: 'auto' });
     expect(el.getCardSize()).toBe(3);
     const stub = CuestRuneGauge.getStubConfig({ states: { 'sensor.a': st('1'), 'climate.q': st('heat') } } as never);
     expect(stub).toEqual({ entity: 'climate.q' });

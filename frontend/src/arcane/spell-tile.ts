@@ -59,8 +59,8 @@ export class CuestSpellTile extends ArcaneCard<TileConfig> {
     css`
       .tile{width:100%;box-sizing:border-box;min-height:56px;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 10px;border:2px solid ${u(A.panelBorder)};background:${u(A.panel)};color:${u(A.text)};border-radius:14px;font:600 12px ${u(FONT_BODY)};cursor:pointer;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation}
       .tile.icon{min-height:80px;flex-direction:column;text-align:center}
-      .tile.wide{min-height:64px;flex-direction:row;justify-content:flex-start;gap:12px;padding:8px 14px;text-align:left}
-      .tile.scene{min-height:56px;flex-direction:row;gap:8px;padding:0 14px;border-radius:999px}
+      .tile.wide{min-height:80px;flex-direction:row;justify-content:flex-start;gap:12px;padding:12px;text-align:left;font-weight:400}
+      .tile.scene{min-height:56px;flex-direction:row;gap:8px;padding:0 8px;border-radius:12px;font-size:13px}
       .tile[aria-disabled="true"]{opacity:.6;cursor:default}
       .tile.lit{border-color:${u(A.gold)};color:${u(A.litText)}}
       .tile.lit.icon,.tile.lit.scene{background:${u(A.litIconBg)}}
@@ -69,9 +69,11 @@ export class CuestSpellTile extends ArcaneCard<TileConfig> {
       .tile.green.lit{animation:none;box-shadow:0 0 14px rgba(127,209,126,.4)}
       .text{display:flex;flex-direction:column;min-width:0;gap:2px}
       .name{display:block;font-size:12px;overflow-wrap:anywhere}
-      .wide .name{font-size:14px}
-      .state{display:block;font-size:12px;font-weight:500;color:${u(A.soft)}}
-      .lit .state{color:${u(A.litText)}}
+      .wide .name{font-size:15px;font-weight:700;color:${u(A.text)}}
+      .scene .name{font-size:13px}
+      .state{display:block;font-size:13px;font-weight:400;color:${u(A.muted)}}
+      .lit .name,.lit .state{color:${u(A.litText)}}
+      .green .name,.green .state{color:${u(A.wellDoneText)}}
       .glyph{flex:none;display:flex;align-items:center;justify-content:center}
       ha-icon.glyph{--mdc-icon-size:24px;width:24px;height:24px}
       .note{margin:6px 0 0;font-size:12px;color:${u(A.soft)}}
@@ -139,8 +141,8 @@ export class CuestSpellTile extends ArcaneCard<TileConfig> {
   }
 
   getGridOptions() {
-    const g = { icon: { columns: 3, rows: 2 }, wide: { columns: 6, rows: 2 }, scene: { columns: 4, rows: 1 } };
-    return g[this.config?.variant ?? 'icon'];
+    const columns = { icon: 3, wide: 6, scene: 4 }[this.config?.variant ?? 'icon'];
+    return { columns, rows: 'auto' as const };
   }
 
   protected signature(h: HomeAssistant): string {
@@ -298,7 +300,7 @@ export class CuestSpellTile extends ArcaneCard<TileConfig> {
     const cls = ['tile', cfg.variant, lit ? 'lit' : '', cfg.tone === 'green' ? 'green' : ''].filter(Boolean).join(' ');
     return html`<button type="button" class="${cls}" aria-label="${aria}" aria-pressed="${pressed ?? nothing}" aria-disabled="${this._busy ? 'true' : nothing}"
         @click=${() => this.tap()} @pointerdown=${() => this.down()} @pointerup=${() => this.up()} @keydown=${() => (this._held = false)} @pointerleave=${() => this.cancel()} @pointercancel=${() => this.cancel()} @contextmenu=${(e: Event) => e.preventDefault()}>
-        ${this.glyph(size)}
+        ${cfg.variant === 'icon' || cfg.icon ? this.glyph(size) : nothing}
         <span class="text"><span class="name">${label}</span>${parts ? html`<span class="state">${parts.pre}${parts.n === undefined ? nothing : html`<span class="num">${parts.n}</span>`}${parts.post}</span>` : nothing}</span>
       </button>${this._note ? html`<p class="note" role="status">${C.spellFailed}</p>` : nothing}`;
   }

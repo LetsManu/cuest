@@ -251,6 +251,88 @@ describe('collectFaults', () => {
   });
 });
 
+describe('collectFaults short forms for the compact teaser', () => {
+  const opts = { batteryThreshold: 20, exclude: [] as string[] };
+  const bat = (v: string) => st(v, { device_class: 'battery', unit_of_measurement: '%' });
+
+  it('battery: "{device} at {n} %" from the device model, without the impossible-reading hint', () => {
+    const h = fakeHass({
+      states: {
+        'sensor.buro_battery': bat('0'),
+        'sensor.buro_temperature': st('-327.7', { device_class: 'temperature', unit_of_measurement: '°C' }),
+        'sensor.mac_battery': bat('14'),
+        'binary_sensor.door_battery': st('on', { device_class: 'battery' }),
+      },
+      entities: { 'sensor.buro_battery': { device_id: 'd1' }, 'sensor.buro_temperature': { device_id: 'd1' }, 'sensor.mac_battery': { device_id: 'd2' }, 'binary_sensor.door_battery': { device_id: 'd3' } },
+      devices: { d1: { id: 'd1', name: 'Büro', model: 'Thermostat' }, d2: { id: 'd2', name: 'MacBook' }, d3: { id: 'd3', name: 'Door', model: 'Contact' } },
+    });
+    const byId = Object.fromEntries(collectFaults(h, opts).faults.map((f) => [f.id, f]));
+    expect(byId['battery:sensor.buro_battery']).toMatchObject({
+      title: 'Change the Büro battery',
+      detail: 'Battery 0 % · it reads -327.7 °C until then',
+      short: { title: 'Change the Büro battery', detail: 'Thermostat at 0 %' },
+    });
+    expect(byId['battery:sensor.mac_battery'].short).toEqual({ title: 'Charge or change the MacBook battery', detail: 'Battery at 14 %' });
+    expect(byId['battery:binary_sensor.door_battery'].short).toEqual({ title: 'Charge or change the Door battery', detail: 'Battery is low' });
+  });
+
+  it('grouped problems: "Check {n} {models}" with the places only', () => {
+    const mk = (model: string, areas: (string | undefined)[]) => {
+      const states: Record<string, ReturnType<typeof st>> = {};
+      const entities: Record<string, { device_id: string }> = {};
+      const devices: Record<string, { id: string; model: string; area_id?: string }> = {};
+      areas.forEach((a, i) => {
+        states[`binary_sensor.p${i}`] = st('on', { device_class: 'problem' });
+        entities[`binary_sensor.p${i}`] = { device_id: `d${i}` };
+        devices[`d${i}`] = { id: `d${i}`, model, ...(a ? { area_id: a } : {}) };
+      });
+      return collectFaults(fakeHass({ states, entities, devices, areas: AREAS }), opts).faults[0];
+    };
+    const valves = mk('Thermostat valve', ['wohnzimmer', 'wohnzimmer', 'kuche']);
+    expect(valves.title).toBe('Check 3 Thermostat valve devices');
+    expect(valves.detail).toBe('Wohnzimmer ×2 · Küche report a small problem');
+    expect(valves.short).toEqual({ title: 'Check 3 thermostat valves', detail: 'Wohnzimmer ×2 · Küche' });
+    expect(mk('Switch', ['kuche', 'kuche']).short.title).toBe('Check 2 switches');
+    expect(mk('Relay', ['kuche', 'kuche']).short.title).toBe('Check 2 relays');
+    expect(mk('Battery', ['kuche', 'kuche']).short.title).toBe('Check 2 batteries');
+    expect(mk('TRVZB', ['kuche', 'kuche']).short.title).toBe('Check 2 TRVZBs');
+    expect(mk('Valve', [undefined, undefined]).short).toEqual({ title: 'Check 2 valves', detail: 'Reports a small problem' });
+  });
+
+  it('product-code models fall back to plain words', () => {
+    const one = (model: string) => {
+      const h = fakeHass({
+        states: {
+          'sensor.x_battery': bat('3'),
+          'binary_sensor.p1': st('on', { device_class: 'problem' }),
+          'binary_sensor.p2': st('on', { device_class: 'problem' }),
+        },
+        entities: { 'sensor.x_battery': { device_id: 'b' }, 'binary_sensor.p1': { device_id: 'p1' }, 'binary_sensor.p2': { device_id: 'p2' } },
+        devices: { b: { id: 'b', name: 'Hall', model }, p1: { id: 'p1', model, area_id: 'kuche' }, p2: { id: 'p2', model, area_id: 'kuche' } },
+        areas: AREAS,
+      });
+      const f = collectFaults(h, opts).faults;
+      return [f.find((x) => x.kind === 'battery_critical')!.short.detail, f.find((x) => x.kind === 'problem')!.short.title];
+    };
+    for (const code of ['TS0601', 'lumi.sensor_ht', 'SNZB-02D', 'Thermostat radiator valve X', 'TRV_2']) {
+      expect(one(code), code).toEqual(['Battery at 3 %', 'Check 2 devices']);
+    }
+    expect(one('Smoke-detector')).toEqual(['Smoke-detector at 3 %', 'Check 2 smoke-detectors']);
+    expect(one('Heizkörperthermostat')).toEqual(['Heizkörperthermostat at 3 %', 'Check 2 heizkörperthermostats']);
+  });
+
+  it('other quests keep their full wording', () => {
+    const h = fakeHass({
+      states: {
+        'binary_sensor.pump_problem': st('on', { device_class: 'problem', friendly_name: 'Pump' }),
+        'update.core': st('on', { friendly_name: 'Home Assistant update' }),
+        'sensor.t': st('-400', { device_class: 'temperature', unit_of_measurement: '°C', friendly_name: 'Probe' }),
+      },
+    });
+    for (const f of collectFaults(h, opts).faults) expect(f.short).toEqual({ title: f.title, detail: f.detail });
+  });
+});
+
 describe('restingAllies', () => {
   const states: Record<string, ReturnType<typeof st>> = {};
   const entities: Record<string, { platform: string }> = {};

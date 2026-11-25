@@ -70,21 +70,48 @@ export interface TrailGeometry {
 
 const r2 = (n: number): number => Math.round(n * 100) / 100;
 
-export function trailGeometry(series: (number | null)[][], w = 326, h = 110, pad = 0.08): TrailGeometry | null {
-  const all = series.flat().filter((x): x is number => x !== null && Number.isFinite(x));
-  if (all.length === 0) return null;
-  const min = Math.min(...all);
-  const max = Math.max(...all);
+export type TrailScale = 'shared' | 'separate';
+
+/** Bands for `separate`, as fractions of the height: the primary on top, the secondary underneath (as in the mockup). */
+export const TRAIL_BANDS: readonly [number, number][] = [
+  [0, 0.65],
+  [0.72, 1],
+];
+
+const finite = (s: (number | null)[]): number[] => s.filter((x): x is number => x !== null && Number.isFinite(x));
+
+/** Maps values onto [y0, y1] (top, bottom) by their own range, padded by `pad` of the band; flat data gets ±0.5. */
+function scaler(values: number[], y0: number, y1: number, pad: number): (v: number) => number {
+  const min = Math.min(...values);
+  const max = Math.max(...values);
   const lo = min === max ? min - 0.5 : min;
   const hi = min === max ? max + 0.5 : max;
-  const top = pad * h;
-  const span = h - 2 * top;
-  const y = (v: number): number => r2(h - top - ((v - lo) / (hi - lo)) * span);
+  const top = pad * (y1 - y0);
+  const span = y1 - y0 - 2 * top;
+  return (v) => r2(y1 - top - ((v - lo) / (hi - lo)) * span);
+}
+
+/**
+ * `shared`: every series on one range over the full height. `separate` (two or more series): series 0 in the upper
+ * band and series 1 in the lower band, each on its own range.
+ */
+export function trailGeometry(series: (number | null)[][], w = 326, h = 110, pad = 0.08, scale: TrailScale = 'shared'): TrailGeometry | null {
+  const all = series.flat().filter((x): x is number => x !== null && Number.isFinite(x));
+  if (all.length === 0) return null;
+  const split = scale === 'separate' && series.length > 1;
+  const shared = scaler(all, 0, h, pad);
+  const ys = series.map((s, si) => {
+    if (!split) return shared;
+    const vals = finite(s);
+    const [b0, b1] = TRAIL_BANDS[Math.min(si, TRAIL_BANDS.length - 1)];
+    return vals.length ? scaler(vals, b0 * h, b1 * h, pad) : shared;
+  });
 
   const segments: string[][] = [];
   const runs: { x: number; y: number }[][][] = [];
   let last: { x: number; y: number } | null = null;
   series.forEach((s, si) => {
+    const y = ys[si];
     const x = (i: number): number => r2(s.length < 2 ? w : (i * w) / (s.length - 1));
     const sRuns: { x: number; y: number }[][] = [];
     let cur: { x: number; y: number }[] = [];

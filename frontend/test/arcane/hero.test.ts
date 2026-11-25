@@ -74,7 +74,7 @@ describe('hero card', () => {
 
   it('grid, size, stub and styles', () => {
     const el = document.createElement(TAG) as unknown as CuestHeroCard;
-    expect(el.getGridOptions()).toEqual({ columns: 12, rows: 2 });
+    expect(el.getGridOptions()).toEqual({ columns: 12, rows: 'auto' });
     expect(el.getCardSize()).toBe(2);
     expect(CuestHeroCard.getStubConfig()).toEqual({});
     const css = CuestHeroCard.styles.map((s) => (s as { cssText: string }).cssText).join('\n');

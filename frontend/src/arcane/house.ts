@@ -129,14 +129,34 @@ export interface Fault {
   xp: number;
   minutes: number;
   entityIds: string[];
+  /** Shorter wording for the compact teaser rows (the mockup's "Thermostat at 0 %"); the full board uses title/detail. */
+  short: { title: string; detail: string };
 }
 
 const KIND_ORDER: FaultKind[] = ['battery_critical', 'problem', 'temperature', 'battery_low', 'update'];
 const XP: Record<FaultKind, number> = { battery_critical: 30, problem: 20, temperature: 10, battery_low: 5, update: 10 };
 const MINUTES: Record<FaultKind, number> = { battery_critical: 5, problem: 10, temperature: 5, battery_low: 5, update: 5 };
 
-function fault(kind: FaultKind, f: Omit<Fault, 'kind' | 'xp' | 'minutes'>): Fault {
-  return { ...f, kind, xp: XP[kind], minutes: MINUTES[kind] };
+function fault(kind: FaultKind, f: Omit<Fault, 'kind' | 'xp' | 'minutes' | 'short'> & { short?: Partial<Fault['short']> }): Fault {
+  const { short, ...rest } = f;
+  return { ...rest, kind, xp: XP[kind], minutes: MINUTES[kind], short: { title: short?.title ?? f.title, detail: short?.detail ?? f.detail } };
+}
+
+/** A model that reads like a word ("Thermostat", "Smoke-detector"), not a product code like TS0601 or lumi.sensor_ht. */
+export function wordyModel(model: string | null | undefined): string | null {
+  const m = (model ?? '').trim();
+  return m.length > 0 && m.length <= 20 && /^\p{L}[\p{L} -]*$/u.test(m) ? m : null;
+}
+
+/** "Thermostat valve" -> "thermostat valves", "Switch" -> "switches", "Battery" -> "batteries"; codes like "TRVZB" keep their case. */
+export function pluralModel(model: string): string {
+  const words = model
+    .trim()
+    .split(/\s+/)
+    .map((w) => (/^\p{Lu}[\p{Ll}-]+$/u.test(w) ? w.toLowerCase() : w));
+  const last = words[words.length - 1] ?? '';
+  words[words.length - 1] = /[^aeiou]y$/i.test(last) ? `${last.slice(0, -1)}ies` : /(s|x|z|ch|sh)$/i.test(last) ? `${last}es` : `${last}s`;
+  return words.join(' ');
 }
 
 function isBatteryPct(s: HassState | undefined, id: string): boolean {
@@ -177,6 +197,7 @@ function findFaults(h: HomeAssistant, opts: { batteryThreshold: number; exclude:
         title: fill(kind === 'battery_critical' ? C.batteryCritical : C.batteryLow, { name: displayName(h, id) }),
         detail: fill(C.batteryDetail, { n: fmtNumber(v, l, 0) }),
         entityIds: [id],
+        short: { detail: fill(C.batteryShort, { device: wordyModel(deviceOf(h, id)?.model) ?? C.batteryShortDevice, n: fmtNumber(v, l, 0) }) },
       });
       faults.push(f);
       const did = h.entities?.[id]?.device_id;
@@ -261,7 +282,18 @@ function findFaults(h: HomeAssistant, opts: { batteryThreshold: number; exclude:
       continue;
     }
     const p = places(ids);
-    faults.push(fault('problem', { id: `problem:model:${model}`, title: fill(C.problemGroup, { n: ids.length, model }), detail: problemDetail(p, false), entityIds: ids }));
+    faults.push(
+      fault('problem', {
+        id: `problem:model:${model}`,
+        title: fill(C.problemGroup, { n: ids.length, model }),
+        detail: problemDetail(p, false),
+        entityIds: ids,
+        short: {
+          title: wordyModel(model) ? fill(C.problemGroupShort, { n: ids.length, models: pluralModel(model) }) : fill(C.problemGroupShortDevices, { n: ids.length }),
+          detail: p || C.problemDetailNoArea,
+        },
+      }),
+    );
   }
   for (const id of loose) {
     const p = places([id]);

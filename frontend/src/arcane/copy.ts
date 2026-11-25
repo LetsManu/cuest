@@ -26,11 +26,17 @@ export const ARCANE_COPY = {
   batteryLow: 'Charge or change the {name} battery',
   batteryDetail: 'Battery {n} %',
   batteryLowBinary: 'Battery is low',
+  /** Compact teaser rows: "{device}" is the device model, else batteryShortDevice. */
+  batteryShort: '{device} at {n} %',
+  batteryShortDevice: 'Battery',
   tempMerged: " · it reads {v} °C until then",
   tempOwn: 'Check the {name} sensor',
   tempOwnDetail: "It reads {v} °C, which can't be right",
   problemOne: 'Check {name}',
   problemGroup: 'Check {n} {model} devices',
+  /** Compact teaser rows: "{models}" is the plural model name ("thermostat valves"). */
+  problemGroupShort: 'Check {n} {models}',
+  problemGroupShortDevices: 'Check {n} devices',
   problemDetail: '{places} report a small problem',
   problemDetailOne: '{places} reports a small problem',
   problemDetailNoArea: 'Reports a small problem',

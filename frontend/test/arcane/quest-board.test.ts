@@ -295,6 +295,21 @@ describe('quest board compact', () => {
     window.removeEventListener('location-changed', seen);
   });
 
+  it('compact rows use the short mockup wording; the full board keeps the long one', async () => {
+    const h = house();
+    h.devices!.d1 = { id: 'd1', name: 'Büro', model: 'Thermostat' };
+    const compact = await mount(TAG, { variant: 'compact', limit: 2 }, h);
+    const rows = Array.from(root(compact).querySelectorAll('.row')).map((r) => [r.querySelector('.title')!.textContent, r.querySelector('.detail')!.textContent]);
+    expect(rows).toEqual([
+      ['Change the Büro battery', 'Thermostat at 0 %'],
+      ['Check 2 valves', 'Wohnzimmer ×2'],
+    ]);
+    const full = await mount(TAG, { variant: 'full' }, h);
+    expect(text(full)).toContain('Battery 0 % · it reads -327.7 °C until then');
+    expect(text(full)).toContain('Check 2 Valve devices');
+    expect(text(full)).toContain('Wohnzimmer ×2 report a small problem');
+  });
+
   it('has no link and no more line without more_path or remaining faults', async () => {
     const el = await mount(TAG, { variant: 'compact', limit: 5 }, five());
     expect(root(el).querySelectorAll('.row')).toHaveLength(5);
@@ -313,6 +328,37 @@ describe('quest board compact', () => {
     const css = (customElements.get(TAG) as unknown as { elementStyles: { cssText: string }[] }).elementStyles.map((s) => s.cssText).join('\n');
     const rule = /(?:^|[}\s,])\.row\s*\{[^}]*min-height:\s*(\d+)px/.exec(css);
     expect(Number(rule![1])).toBeGreaterThanOrEqual(44);
+  });
+});
+
+describe('quest board mockup parity', () => {
+  const css = () => (customElements.get(TAG) as unknown as { elementStyles: { cssText: string }[] }).elementStyles.map((s) => s.cssText).join('\n');
+
+  it('puts an admin Install in the top row of the update scroll instead of the XP', async () => {
+    const el = await mount(TAG, { variant: 'full' }, house({ admin: true }));
+    const upd = Array.from(root(el).querySelectorAll('.scroll')).find((s) => s.textContent!.includes('Core Update'))!;
+    const top = upd.querySelector('.top')!;
+    expect(top.classList.contains('inline')).toBe(true);
+    expect(top.querySelector('button.btn')!.textContent).toBe('Install');
+    expect(top.querySelector('.xp')).toBeNull();
+    const other = Array.from(root(el).querySelectorAll('.scroll')).find((s) => !s.textContent!.includes('Core Update'))!;
+    expect(other.querySelector('.top button')).toBeNull();
+    expect(other.querySelector('.top .xp')).not.toBeNull();
+  });
+
+  it('paints its own dusk plate so headings stay readable on any theme', async () => {
+    const full = await mount(TAG, { variant: 'full' }, house({ admin: true }));
+    const compact = await mount(TAG, { variant: 'compact', more_path: '/x' }, house({ admin: true }));
+    expect(root(full).querySelector('.board')!.classList.contains('plate')).toBe(true);
+    expect(root(compact).querySelector('.board')!.classList.contains('plate')).toBe(true);
+    expect(css()).toMatch(/\.plate\{background:#14172A;border-radius:var\(--arc-radius\)\}/);
+  });
+
+  it('styles compact rows and links like the mockup', () => {
+    expect(css()).toMatch(/\.row \.title\{font-size:14px\}/);
+    expect(css()).toMatch(/\.row \.detail\{[^}]*white-space:nowrap[^}]*text-overflow:ellipsis/);
+    expect(css()).toMatch(/\.link\{[^}]*min-height:44px[^}]*text-align:left;text-decoration:underline/);
+    expect(css()).toMatch(/\.board\.compact\{gap:8px\}/);
   });
 });
 

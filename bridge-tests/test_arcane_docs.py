@@ -185,3 +185,14 @@ def test_binary_battery_sensors_are_low_batteries():
     rows = dict(re.findall(r"^\| (Critical battery|Low battery) \| ([^|]*) \|", text, re.M))
     assert "binary_sensor" not in rows["Critical battery"]
     assert "binary_sensor" in rows["Low battery"]
+
+
+def test_trail_scale_option_is_documented():
+    assert _enum("cuest-trail-card", "scale") == {"separate", "shared"}
+    text = DOC.read_text(encoding="utf-8")
+    section = text.split("### cuest-trail-card")[1].split("\n### ")[0]
+    row = re.search(r"^\| `scale` \| ([^|]*) \| ([^|]*) \|", section, re.M)
+    assert row, "scale row missing"
+    assert row.group(1).strip() == "`separate`"
+    assert "shared" in row.group(2)
+    assert "Both lines share one scale" not in section

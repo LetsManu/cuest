@@ -32,7 +32,7 @@ export class CuestAlliesCard extends ArcaneCard<AlliesConfig> {
       .track{flex:1;height:10px;background:${u(A.track)};border-radius:3px}
       .fill{display:block;height:100%;border-radius:3px}
       .count{width:74px;flex:none;text-align:right;color:${u(A.muted)}}
-      .more{align-self:flex-start;min-height:44px;background:none;border:0;padding:0 2px;color:${u(A.goldText)};font:600 14px ${u(FONT_BODY)};cursor:pointer}
+      .more{align-self:flex-start;min-height:44px;background:none;border:0;padding:0 2px;color:${u(A.goldText)};font:600 14px ${u(FONT_BODY)};text-decoration:underline;cursor:pointer}
       .more:hover{color:${u(A.lantern)}}
     `,
   ];
@@ -84,7 +84,7 @@ export class CuestAlliesCard extends ArcaneCard<AlliesConfig> {
     const all = this.allies(h);
     const shown = this.expanded ? all : all.slice(0, this.config.limit);
     const hidden = all.length - shown.length;
-    return html`<div class="allies">
+    return html`<div class="plate allies">
       <h2>${this.config.title ?? C.alliesTitle}</h2>
       ${all.length === 0
         ? html`<div class="done">${C.alliesNone}</div>`

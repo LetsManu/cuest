@@ -63,7 +63,7 @@ export const FONT_BODY = "Inter, system-ui, sans-serif";
 
 const FONTS_ID = 'cuest-arcane-fonts';
 const FONTS_HREF =
-  'https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=Inter:wght@400;500;600&display=swap';
+  'https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=Inter:wght@400;500;600;700&display=swap';
 
 /** Adds the Google Fonts link once per document. */
 export function ensureFonts(doc: Document = document): void {
@@ -90,7 +90,8 @@ export const arcaneBase = css`
   .warn{background:${u(A.panel)};border:2px solid ${u(A.scrollBang)};border-radius:var(--arc-radius);padding:14px 16px;color:${u(A.soft)};font-size:13px}
   .num{font-family:${u(FONT_BODY)};font-weight:700;font-variant-numeric:tabular-nums}
   .done{background:${u(A.wellDoneBg)};border:2px solid ${u(A.wellDoneBorder)};border-radius:14px;padding:12px;font-size:13px;color:${u(A.wellDoneText)}}
-  h2{margin:0;font-family:${u(FONT_PIXEL)};font-weight:500;font-size:18px;color:${u(A.goldText)}}
+  h2{margin:0;font-family:${u(FONT_PIXEL)};font-weight:700;font-size:18px;color:${u(A.goldText)}}
+  .plate{background:${u(A.bg)};border-radius:var(--arc-radius)}
   @keyframes wave{from{transform:translateX(0)}to{transform:translateX(-60px)}}
   @keyframes spin{to{transform:rotate(360deg)}}
   @keyframes spinr{to{transform:rotate(-360deg)}}

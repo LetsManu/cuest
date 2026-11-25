@@ -67,7 +67,7 @@ export class CuestStaminaCard extends ArcaneCard<StaminaConfig> {
     const h = this._hass;
     if (!h || !this.config) return nothing;
     const list = this.model(h);
-    return html`<div class="stamina">
+    return html`<div class="plate stamina">
       <h2>${this.config.title}</h2>
       ${list.length === 0
         ? html`<div class="done">${C.staminaNone}</div>`

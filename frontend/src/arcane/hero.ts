@@ -49,7 +49,7 @@ export class CuestHeroCard extends ArcaneCard<HeroConfig> {
   }
 
   getGridOptions() {
-    return { columns: 12, rows: 2 };
+    return { columns: 12, rows: 'auto' as const };
   }
 
   protected render(): TemplateResult | typeof nothing {

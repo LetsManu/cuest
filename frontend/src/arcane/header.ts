@@ -1,6 +1,6 @@
 import { css, html, nothing, svg, unsafeCSS, type TemplateResult } from 'lit';
 import type { HomeAssistant } from '../hass-types';
-import { ArcaneCard, ConfigError, registerCard, v } from './base';
+import { ArcaneCard, ConfigError, isObject, navigate, registerCard, v } from './base';
 import { ARCANE_COPY, fill } from './copy';
 import { clockLine, clockZone, fmtTemp, num } from './format';
 import { lightStats } from './house';
@@ -17,9 +17,15 @@ interface HeaderConfig {
   mood: string;
   outside?: string;
   inside?: string;
-  variant: 'phone' | 'wide';
+  variant: Variant;
   orbs: OrbItem[];
+  link?: { name: string; path: string };
 }
+
+type Variant = 'phone' | 'wide' | 'title' | 'section';
+const VARIANTS: readonly Variant[] = ['phone', 'wide', 'title', 'section'];
+/** Page titles and section headings: no village, no clock, no entities. */
+const isHeading = (v: Variant): boolean => v === 'title' || v === 'section';
 
 /** Lit windows out of 5: none when no light is on, otherwise at least one. */
 export const litWindows = (on: number, total: number): number => (on === 0 || total === 0 ? 0 : Math.max(1, Math.min(5, Math.round((5 * on) / total))));
@@ -39,13 +45,14 @@ const STARS_WIDE = [
   { left: '88%', top: '22px', delay: 2.2 },
 ];
 
-// Window order W1..W5; lit ones fill from the first. y = 210 - bottom - height.
+// Lit ones fill from the first: the big house's left windows, the small house, the lamp post, then the big house's
+// right window, so four lit match the mockup (its right window stays dark). y = 210 - bottom - height.
 const WINDOWS = [
   { x: 42, y: 128, w: 16, h: 16, delay: 0 },
   { x: 68, y: 128, w: 16, h: 16, delay: 1 },
-  { x: 94, y: 128, w: 16, h: 16, delay: 0 },
   { x: 172, y: 148, w: 12, h: 12, delay: 2 },
   { x: 245, y: 124, w: 16, h: 12, delay: 0 },
+  { x: 94, y: 128, w: 16, h: 16, delay: 0 },
 ];
 
 export class CuestArcaneHeader extends ArcaneCard<HeaderConfig> {
@@ -60,7 +67,7 @@ export class CuestArcaneHeader extends ArcaneCard<HeaderConfig> {
       .sky.phone{height:210px}
       .titles{display:flex;flex-direction:column;gap:4px}
       .phone .titles{position:absolute;left:16px;top:18px}
-      h1{margin:0;font-family:${u(FONT_PIXEL)};font-weight:500;color:${u(A.goldText)};font-size:28px}
+      h1{margin:0;font-family:${u(FONT_PIXEL)};font-weight:700;color:${u(A.goldText)};font-size:28px}
       .wide h1{font-size:34px}
       .status{font-size:13px;color:${u(A.soft)}}
       .wide .status{font-size:14px;margin-top:4px}
@@ -68,6 +75,13 @@ export class CuestArcaneHeader extends ArcaneCard<HeaderConfig> {
       .moon-cut{position:absolute;right:30px;top:26px;width:30px;height:30px;border-radius:99px;background:#1A1F3E}
       .village{position:absolute;left:0;bottom:0;width:100%;height:210px}
       .win.lit{animation:flicker 4s ease-in-out infinite}
+      .halo{filter:blur(4px);opacity:.85}
+      .heading.plate{border-radius:6px}
+      .heading{display:flex;justify-content:space-between;align-items:center;gap:12px;min-height:44px}
+      .heading.title{padding-top:12px}
+      .heading.section{padding-top:4px;min-height:0}
+      .heading .link{flex:none;min-height:44px;background:none;border:0;padding:0 2px;color:${u(A.goldText)};font:600 14px ${u(FONT_BODY)};text-decoration:underline;cursor:pointer}
+      .heading .link:hover{color:${u(A.lantern)}}
       .temps{position:absolute;right:16px;bottom:44px;font-size:12px;color:${u(A.soft)};text-align:right}
       .inner{max-width:1280px;margin:0 auto;padding:22px 24px;display:flex;flex-wrap:wrap;align-items:center;gap:24px;position:relative}
       .inner .titles{flex:1 1 260px}
@@ -84,11 +98,21 @@ export class CuestArcaneHeader extends ArcaneCard<HeaderConfig> {
   }
 
   protected validate(raw: Record<string, unknown>): HeaderConfig {
-    const variant = v.oneOf(raw, 'variant', TAG, ['phone', 'wide'] as const, 'phone');
+    const variant = v.oneOf(raw, 'variant', TAG, VARIANTS, 'phone');
     if (raw.orbs !== undefined && raw.orbs !== null && variant !== 'wide') {
       throw new ConfigError(`${TAG}: "orbs" works only with variant: wide`);
     }
+    let link: HeaderConfig['link'];
+    if (raw.link !== undefined && raw.link !== null) {
+      if (!isHeading(variant)) throw new ConfigError(`${TAG}: "link" works only with variant: title or section`);
+      if (!isObject(raw.link)) throw new ConfigError(`${TAG}: "link" must be an object with name and path`);
+      link = { name: v.str(raw.link, 'name', `${TAG}: "link"`, true) as string, path: v.str(raw.link, 'path', `${TAG}: "link"`, true) as string };
+    }
+    if (isHeading(variant) && (raw.title === undefined || raw.title === null || raw.title === '')) {
+      throw new ConfigError(`${TAG}: "title" is required for variant: ${variant}`);
+    }
     return {
+      ...(link ? { link } : {}),
       title: v.str(raw, 'title', TAG) ?? C.header.title,
       mood: v.str(raw, 'mood', TAG) ?? C.header.mood,
       outside: v.entity(raw, 'outside', TAG),
@@ -107,6 +131,7 @@ export class CuestArcaneHeader extends ArcaneCard<HeaderConfig> {
 
   protected signature(h: HomeAssistant): string {
     const c = this.config;
+    if (isHeading(c.variant)) return 'heading';
     const lights = lightStats(h);
     return JSON.stringify([
       c.orbs.map((o) => [orbValue(h, o), missingOrbEntity(h, o)]),
@@ -117,16 +142,27 @@ export class CuestArcaneHeader extends ArcaneCard<HeaderConfig> {
   }
 
   getCardSize(): number {
-    return this.config?.variant === 'wide' ? 3 : 4;
+    const variant = this.config?.variant;
+    return variant === 'wide' ? 3 : variant && isHeading(variant) ? 1 : 4;
   }
 
   getGridOptions() {
-    return { columns: 'full' as const, rows: this.config?.variant === 'wide' ? 3 : 4 };
+    return { columns: 'full' as const, rows: 'auto' as const };
+  }
+
+  setConfig(raw: unknown): void {
+    super.setConfig(raw);
+    if (this.isConnected) this.startClock();
   }
 
   connectedCallback(): void {
     super.connectedCallback();
+    this.startClock();
+  }
+
+  private startClock(): void {
     this.stopClock();
+    if (!this.config || isHeading(this.config.variant)) return;
     this._first = setTimeout(() => {
       this._first = undefined;
       this.requestUpdate();
@@ -148,7 +184,18 @@ export class CuestArcaneHeader extends ArcaneCard<HeaderConfig> {
   protected render(): TemplateResult | typeof nothing {
     const h = this._hass;
     if (!h || !this.config) return nothing;
-    return this.config.variant === 'wide' ? this.wide(h) : this.phone(h);
+    const variant = this.config.variant;
+    if (isHeading(variant)) return this.heading(variant);
+    return variant === 'wide' ? this.wide(h) : this.phone(h);
+  }
+
+  private heading(variant: Variant): TemplateResult {
+    const c = this.config;
+    const link = c.link;
+    return html`<div class="plate heading ${variant}">
+      ${variant === 'title' ? html`<h1>${c.title}</h1>` : html`<h2>${c.title}</h2>`}
+      ${link ? html`<button type="button" class="link" @click=${() => navigate(link.path)}>${link.name}</button>` : nothing}
+    </div>`;
   }
 
   private clock(h: HomeAssistant): string {
@@ -174,6 +221,7 @@ export class CuestArcaneHeader extends ArcaneCard<HeaderConfig> {
         <g class="house"><rect x="28" y="114" width="96" height="62" fill="#3B3226"/><polygon points="20,114 132,114 76,78" fill="#6B3A2E"/><rect x="64" y="150" width="18" height="26" fill="#2A2018"/></g>
         <g class="house"><rect x="150" y="132" width="64" height="44" fill="#34302A"/><polygon points="144,132 220,132 182,106" fill="#5A3328"/></g>
         <rect x="250" y="136" width="6" height="40" fill="#3B3226"/>
+        ${WINDOWS.slice(0, lit).map((w) => svg`<rect class="halo" x="${w.x - 3}" y="${w.y - 3}" width="${w.w + 6}" height="${w.h + 6}" fill="${A.goldText}"/>`)}
         ${WINDOWS.map((w, i) =>
           i < lit
             ? svg`<rect class="win lit" x="${w.x}" y="${w.y}" width="${w.w}" height="${w.h}" fill="${A.goldText}" style="animation-delay:${w.delay}s"/>`

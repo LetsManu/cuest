@@ -109,5 +109,9 @@ describe('allies card', () => {
     const rule = /(?:^|[}\s,])\.more\s*\{[^}]*min-height:\s*(\d+)px/.exec(css);
     expect(Number(rule![1])).toBeGreaterThanOrEqual(44);
     expect(root(el).querySelector('button')!.classList.contains('more')).toBe(true);
+    // Mockup parity: an underlined link, and a dusk plate behind the heading on any theme.
+    expect(css).toMatch(/\.more\{[^}]*text-decoration:underline/);
+    expect(css).toMatch(/\.plate\{background:#14172A;border-radius:var\(--arc-radius\)\}/);
+    expect(root(el).firstElementChild!.classList.contains('plate')).toBe(true);
   });
 });
